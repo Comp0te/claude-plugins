@@ -1,0 +1,9 @@
+{
+  "site": "your-org.atlassian.net",
+  "project": "PROJ",
+  "component": "Component Name",
+  "issueType": "Bug",
+  "summaryPrefix": "PROJ | ",
+  "labels": [],
+  "dedupeJql": "project = PROJ AND component = \"Component Name\" AND statusCategory != Done"
+}

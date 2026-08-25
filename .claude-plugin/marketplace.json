@@ -1,0 +1,34 @@
+{
+  "name": "compote",
+  "owner": {
+    "name": "Dmytro Vynnyk",
+    "email": "simbiatoff@gmail.com"
+  },
+  "metadata": {
+    "version": "0.1.0",
+    "description": "Personal Claude Code plugins: a pull-request and branch review flow, and a spec-driven development toolkit."
+  },
+  "plugins": [
+    {
+      "name": "review-flow",
+      "version": "0.1.0",
+      "description": "Read-only review of a GitHub pull request or the current branch: dispatches focused reviewer agents matched to the diff, verifies every finding against the source before it is reported, and publishes an approved subset as inline PR comments.",
+      "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+      "source": "./plugins/review-flow"
+    },
+    {
+      "name": "pr-tickets",
+      "version": "0.1.0",
+      "description": "Triage the findings a review deliberately left unposted — pre-existing problems and deferred work — and turn the ones worth tracking into Jira issues, after verifying each against the base branch.",
+      "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+      "source": "./plugins/pr-tickets"
+    },
+    {
+      "name": "rn-performance-reviewer",
+      "version": "0.1.0",
+      "description": "A React Native performance reviewer for the review flow: reports statically-provable defects in lists, effects and subscriptions, animations, Skia usage, memoization, bundle size and image rendering — and never speculative optimization advice. Install it in React Native repositories only.",
+      "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+      "source": "./plugins/rn-performance-reviewer"
+    }
+  ]
+}

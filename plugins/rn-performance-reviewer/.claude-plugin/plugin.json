@@ -1,0 +1,8 @@
+{
+  "name": "rn-performance-reviewer",
+  "version": "0.1.0",
+  "description": "A React Native performance reviewer for the review flow: reports statically-provable defects in lists, effects and subscriptions, animations, Skia usage, memoization, bundle size and image rendering — and never speculative optimization advice. Install it in React Native repositories only.",
+  "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+  "license": "MIT",
+  "keywords": ["react-native", "performance", "code-review", "flatlist", "reanimated", "skia"]
+}
