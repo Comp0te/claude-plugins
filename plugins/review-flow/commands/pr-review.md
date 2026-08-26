@@ -486,8 +486,35 @@ Sections in this order, each piece of information appearing **exactly once**:
 5. **Cleared** — what was checked and found clean (notably security and dependency changes), so a reader knows the coverage. One paragraph, not a list of every probe.
 6. **Out of scope** — everything marked `scope: pre-existing`, continuing the same numbering so these can be referenced too. Keep their severity and their detail, but hold them apart from the ranked findings: this PR did not cause them, they are not merge gates, and on someone else's pull request they are candidates for a ticket rather than review comments. Omit the section when empty rather than writing "none".
 7. **Rule candidates** — bug classes worth encoding as a static-analysis rule. See below; omit the section when there are none.
-8. **Suggested merge gates** — which findings block, by number. Do not restate them.
-9. **Footer** — give the paths of both step 6 files (the handoff file, and the deferred-work log when this review appended to it), then the **Next** block of copy-pasteable invocations defined below. If no requirement resolved in step 1, say so here in one line: the reviewers checked internal consistency only, which is not a verdict on whether the PR did the right thing.
+8. **Footer** — give the paths of both step 6 files (the handoff file, and the deferred-work log when this review appended to it), then the **Next** block of copy-pasteable invocations defined below. If no requirement resolved in step 1, say so here in one line: the reviewers checked internal consistency only, which is not a verdict on whether the PR did the right thing.
+9. **Verdict** — blockers named one by one, then the approval call. The last thing in the report, on every run, no exceptions. See below.
+
+### Verdict
+
+**The report ends here, every time.** Two parts in this order, neither ever skipped. A report that trails off after the findings hands the reader the one judgment it was in the best position to make and asks them to re-derive it — from the summary, with less than you had in front of you.
+
+**Blockers — named individually.** Per blocker: its number, `file:line`, and the consequence in a clause. Never `see the Critical section above`: a pointer is not a list, and the reader is deciding what to send another engineer. Do not re-argue the finding, it is written out in full a few paragraphs up. If the set would run past about six rows, give the count and list the Critical and High ones.
+
+A finding blocks when it is this PR's own defect, it is still live, and shipping it is a real cost:
+
+- any Critical or High marked `scope: introduced`;
+- any Medium whose `consequence:` names a user-visible, security or safety-net effect — a Medium marked `internal` never blocks;
+- anything the security pass confirmed against secrets, authentication, or an external boundary, at any tier;
+- anything contradicting the requirement resolved in step 1 — a broken **Always**, an **Ask First** nobody asked — even at a modest severity.
+
+**What does not block**, however loud it looked in the findings: everything `scope: pre-existing`, since this PR did not cause it; Mediums marked `internal`; and anything still carrying `⚠ ungrounded` — say it needs confirming rather than gating a colleague's pull request on something nothing verified.
+
+**When nothing blocks, write `No blockers.` on its own line.** Silence says something different, and what it says to a reader is that the section was forgotten.
+
+**Approval call — one line, one of exactly three:**
+
+- **Approve** — nothing blocks. Where non-blocking findings are worth mentioning, name them as the author's discretion in the same sentence.
+- **Approve once the blockers are addressed** — the blockers are real but each is a patch, not a decision.
+- **Do not approve yet** — at least one blocker needs a rewrite or a call the author has to make.
+
+**Say it even when it is uncomfortable.** "Do not approve yet" on a pull request someone is waiting to merge is the whole reason this section exists, and a section that always reads the same carries no information. Do not soften a live High into "worth a look", and do not withhold an **Approve** because the review turned up a long tail of `internal` Mediums.
+
+**A recommendation, never an action.** Do not run `gh pr review --approve`, `--request-changes`, or any other state-changing call. This command posts nothing at all, and approving someone else's pull request is not the exception.
 
 ### Next-step invocations
 
@@ -522,5 +549,5 @@ Do not write the rule here, and never propose it to the PR author: this command 
 
 - **No summary table on top of the detailed findings.** Pick one: either a table (when findings are one-liners) or prose sections — never both for the same items.
 - Merge everything several checks reported about one location/issue into a **single** entry. Do not give each check its own section.
-- Later sections reference findings by number instead of repeating their content. Merge gates name numbers; they do not re-describe the bug.
-- Supporting detail belongs to the finding it supports, stated once — not repeated in Verification, in the finding, and again in the gates.
+- Later sections reference findings by number instead of repeating their content. The Verdict's blocker rows carry a number, a `file:line` and a consequence clause; they do not re-describe the bug.
+- Supporting detail belongs to the finding it supports, stated once — not repeated in Verification, in the finding, and again in the Verdict.

@@ -426,7 +426,7 @@ Add one line to the report naming what did not reach the pull request and is not
 
 ## 8. Close with the approval call
 
-The report ends with a short **Approval** section stating whether this pull request can be approved as it stands, and — when it cannot — exactly which findings are in the way.
+**The report ends here, every time.** A short **Approval** section: which findings block, named one by one, then whether this pull request can be approved as it stands. Neither half is ever skipped — the run just sent comments to another engineer, and the verdict is what tells the user whether that was the end of it.
 
 Three verdicts, and nothing between them:
 
@@ -443,7 +443,9 @@ Three verdicts, and nothing between them:
 
 **What does not block**, however loud it looked in the review: `hold` findings scoped `pre-existing` (they are not this PR's regression — they are step 7's business), anything `dropped`, Mediums scoped `internal`, and missing-test findings unless the untested path is itself one of the blockers above.
 
-**Format.** One line for the verdict, then — only when blocking — one row per blocker: id, `file:line`, the consequence in a clause, and its current state (`posted`, `not-fixed`, `partial`, `contested`). No re-argument of the finding; it is already on the PR in full. If the blocker list would run past about six rows, say the count and list the Critical and High ones only.
+**Format.** Blockers first, then the verdict line. **One row per blocker, named individually** — id, `file:line`, the consequence in a clause, and its current state (`posted`, `not-fixed`, `partial`, `contested`). Never `see the Critical findings above`: a pointer is not a list, and the user is deciding whether to merge. No re-argument of the finding; it is already on the PR in full. If the blocker list would run past about six rows, say the count and list the Critical and High ones only.
+
+**When nothing blocks, write `No blockers.` on its own line** before the verdict. An approval whose blocker list is simply absent is indistinguishable from one where the section was forgotten, and this command is the last step that looks at the whole set.
 
 **This is a recommendation to the reader, not an action.** Never run `gh pr review --approve`, `--request-changes`, or any other state-changing call on the pull request. The approval gate in step 4 covered posting comments; approving a colleague's PR is a different irreversible act and was never in it. Say the verdict and stop.
 

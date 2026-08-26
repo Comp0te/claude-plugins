@@ -339,5 +339,37 @@ One report, in chat. Nothing goes to GitHub.
    ```
 
    `/review-flow:pr-publish <N>` only if there is something to send; `/pr-tickets:jira <N>` only if this round appended to the deferred-work log. Omit the block entirely when neither applies rather than offering a command with nothing to do. A footer naming `/pr-publish`, or carrying a literal `<N>`, is a line the user has to repair before it runs — commands resolve under their plugin's marketplace name, and the bare form is not what anyone types.
+8. **Verdict** — what the push cleared, what still blocks, and the approval call. The last thing in the report, on every run. See below.
+
+### Verdict
+
+**The report ends here, every time.** Three parts, in this order, and none is ever skipped. This is the section the user came back for: they are re-running the review because somebody pushed, and the only question that matters is whether the push was enough.
+
+**Cleared — what the new commits closed.** One line per previously-blocking finding the push resolved: its id, `fixed`, and the commit or `file:line` that did it. This is the part the scoreboard buries — the scoreboard is ordered worst-first and a reader stops before reaching it. When the push cleared nothing that was blocking, write `Cleared nothing that was blocking.` and say what it did instead.
+
+**Blockers — named one by one, still live at the new head.** Per blocker: its id, `file:line`, the consequence in a clause, and its current state (`not-fixed`, `partial`, `contested-by-author`, `posted`, `new this round`). Never `see the scoreboard above`. Do not re-argue a finding already on the pull request; it is there in full.
+
+What blocks, whether it survived from an earlier round or arrived in this one:
+
+- any Critical or High marked `scope: introduced` and not `fixed` — `partial` and `not-fixed` both count, and so does `contested-by-author` until the user accepts the author's argument;
+- any Medium whose `consequence:` names a user-visible, security or safety-net effect — `internal` never blocks;
+- anything the security pass confirmed at the new head, at any tier;
+- a fix that introduced a new defect: the finding it closed is `fixed`, and the defect is a new blocker in its own right. Both lines appear; one does not cancel the other.
+
+**What does not block**: `scope: pre-existing` findings, anything `dropped`, Mediums marked `internal`, and anything carrying `⚠ ungrounded` — an incremental review is the worst place to gate on something nothing verified, because the reader will assume the previous round checked it.
+
+**`inconclusive` is not a pass.** A finding the fix-verifier could not settle stays out of **Cleared** and is listed with the blockers, marked as needing the user's decision. Treating an unsettled verdict as closed is how a live Critical leaves a re-check unnoticed.
+
+**When nothing blocks, write `No blockers.` on its own line.** After a round that fixed everything this is the whole point of running the command; silence in its place reads as an oversight.
+
+**Approval call — one line, one of exactly three:**
+
+- **Approve** — nothing blocks at the new head. Say explicitly that the previous blockers are cleared, since that is the claim being made.
+- **Approve once the blockers are addressed** — what remains is a patch each, not a decision.
+- **Do not approve yet** — at least one blocker needs a rewrite or a call the author has to make.
+
+**Say it even when the author has pushed three times.** Rounds of effort are not evidence that the defect is gone, and a verdict that softens with each round is a verdict nobody can use. Equally, do not withhold an **Approve** because a long tail of `internal` Mediums arrived with the fix.
+
+**A recommendation, never an action.** Do not run `gh pr review --approve`, `--request-changes`, or any other state-changing call, and post nothing. This command is read-only, and that includes the pull request's review state.
 
 Do not post this, or anything derived from it, anywhere.

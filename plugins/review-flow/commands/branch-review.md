@@ -355,17 +355,40 @@ Rules for the report:
 - Mark with `⚠ invisible-to-gates` any finding whose defect no check in the repository would catch — it type-checks, lints, and passes the suite, and the gate would go green shipping it. Say in one clause *why* nothing catches it (the value is substituted at build time and never exists under the test runner; the file is not loaded by the type-checker; nothing reaches the branch in any test). This is not a severity bump and never becomes one: severity stays the consequence of leaving the finding in, and this marker is about **detectability** — an ordinary Medium announces itself when someone trips over it, one carrying this marker does not. On a pre-PR gate it also answers a question the user is about to ask: whether merging and relying on CI would have caught this. It would not.
 - Mark any finding carrying `contested` with `⚠ contested`, at every severity, and say in one clause what the clearing check actually answered. A finding two checks disagree about is the one a reader is most likely to assume was settled — the marker exists to stop that assumption, and it is independent of the evidence level, which is why a `verified` finding can carry it too.
 - **Above ~15 findings: keep full detail for Critical and High, and compress Medium to one line each** (`file:line` — issue — `evidence:`). There is no Low tier to compress — it was dropped at classification. The step 5 handoff file holds full detail for all of them **except `consequence: internal`, which is short there too** — for every other class nothing is lost by compressing here, but for that one this line is the whole record, so it must name the mechanism rather than gesture at it. An unbounded chat report is read less carefully than a short one, and the Criticals are what get skimmed.
-- **Blocking findings** — a short section after the ranked findings, naming by number which findings should be fixed before this branch becomes a pull request, and which can follow. Do not restate them; the numbers are the deliverable.
-  This command is a *gate*, and a ranked list is not a gate: severity says how bad a thing is, not whether it stops the branch. You are the only party in the flow holding both the diff and the project's context, so this call is yours to make and cheap to make here — and it stays a **recommendation**, never an instruction to edit. Whoever acts on it decides, and the handoff contract still forbids changing code for a finding they could not confirm.
-  Anchor it to the requirement from step 1 where one resolved: a finding contradicting the frozen Intent, breaking a stated **Always**, or tripping an **Ask First** that was never asked belongs in the blocking set even at a modest severity. `scope: pre-existing` findings never block — the branch did not cause them. A finding still carrying `⚠ ungrounded` should not block on its own either: say it needs confirming first, rather than gating a branch on something nothing verified.
-  **Most branches have an empty blocking set.** Say so in one line rather than promoting the worst finding to fill the section.
 - If any agent or skill failed, add a note ("<name> failed: <reason>") — never block the report on one failed check.
 - If no requirement resolved in step 1, say so here in one line — the reviewers checked internal consistency only, and a reader should not mistake that for a verdict on whether the branch did the right thing.
 - Footer: give the paths of both step 5 files — the handoff file, and the deferred-work log when this review appended to it.
+- **Verdict**: the last thing in the report, on every run. See below.
+
+### Verdict
+
+**The report ends here, every time** — after the footer, after the rule candidates, after everything. Two parts, in this order, and neither is ever skipped.
+
+**Blockers — named one by one.** Per blocker: its number, `file:line`, and the consequence in a clause. Never `see the Critical section above`; a pointer is not a list. Do not restate the finding beyond that clause — it is written out in full a few paragraphs up, and the point of the section is the set, not the argument.
+
+This command is a *gate*, and a ranked list is not a gate: severity says how bad a thing is, not whether it stops the branch. You are the only party in the flow holding both the diff and the project's context, so the call is yours and it is cheap to make here. What blocks:
+
+- any Critical or High marked `scope: introduced`;
+- any Medium whose `consequence:` names a user-visible or security effect — a Medium marked `internal` never blocks;
+- anything contradicting the requirement from step 1 where one resolved: a finding against the frozen Intent, a stated **Always** broken, an **Ask First** nobody asked — even at a modest severity.
+
+**What does not block**: `scope: pre-existing` findings, since the branch did not cause them; Mediums marked `internal`; and anything still carrying `⚠ ungrounded` — say it needs confirming first rather than gating a branch on something nothing verified.
+
+**When nothing blocks, write `No blockers.` on its own line.** Most branches land here; say it in one line rather than promoting the worst finding to fill the section. What is *not* acceptable is leaving the section out, which reads as an oversight rather than an all-clear.
+
+**Ready-to-open call — one line, one of exactly three.** The branch has no pull request yet, so the question this answers is the pre-PR form of "can it be approved as it stands":
+
+- **Ready to open as a pull request** — nothing blocks. Name any non-blocking findings as cleanup worth doing while the file is open.
+- **Ready once the blockers are addressed** — each blocker is a patch, not a decision.
+- **Not ready yet** — at least one blocker needs a rewrite or a design call.
+
+**Say it even when it is unwelcome**, and say it plainly: a section that always reads the same carries no information. Do not soften a live High into "worth a look", and do not withhold a **Ready** because the review turned up a long tail of `internal` Mediums.
+
+**A recommendation, never an instruction to edit.** Whoever acts on it decides, and the handoff contract still forbids changing code for a finding they could not confirm. This command modifies nothing.
 
 ### Rule candidates
 
-Last section of the report, after the ranked findings and before the footer.
+Second-to-last section of the report: after the ranked findings, after the footer paths, and before the Verdict.
 
 Once the findings are ranked, scan them for **bug classes** worth encoding as a static-analysis rule instead of re-reviewing forever. Ask it here, while the context of the bug is still loaded — not a week later. A finding qualifies only if all three hold:
 
