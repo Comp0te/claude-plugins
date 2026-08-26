@@ -28,7 +28,7 @@ other one, and the flow looks identical either way.
 ## 1. Load and check freshness
 
 - `$ARGUMENTS` empty: ask for a PR number and stop.
-- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/pr-review <N>` first. Never reconstruct findings here — this command publishes, it does not review.
+- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/review-flow:pr-review <N>` first — the plugin-qualified form, with the number substituted, so it can be pasted as-is. Never reconstruct findings here — this command publishes, it does not review.
 - Compare the file's recorded head SHA against `gh pr view <N> --json headRefOid -q .headRefOid`. **If they differ, stop — unless the `rounds:` block records a completed re-check at exactly the current head.** The PR has new commits: line numbers have shifted, findings may already be fixed, and inline comments would land on the wrong code.
 
   The exception is deliberately narrow. The last line of `rounds:` must carry **both** a re-check marker — `rechecked` or the hyphenated `re-checked`, and nothing looser — **and** a SHA equal to the PR's current head. Not "the file mentions a round 2", not "a re-check happened at some point": anything beyond those two spellings lets a stale entry lift the gate, and the comments then land on lines that no longer exist.
@@ -36,7 +36,7 @@ other one, and the flow looks identical either way.
   **Both spellings are accepted on read; only `rechecked` is written.** The schema below is what `/pr-recheck` is told to emit, and files written before that instruction existed carry the hyphen. Matching on the token alone would be too loose in the other direction — a header sentence describing the re-check policy would satisfy it — so match a `rounds:` list line, and require the SHA on that same line.
 
   - **Condition holds** → continue. A re-check has already moved the findings onto this head; anchors are recomputed below regardless.
-  - **Condition fails** → stop, report both SHAs, and offer `/pr-recheck <N>`.
+  - **Condition fails** → stop, report both SHAs, and offer `/review-flow:pr-recheck <N>`, plugin-qualified and with the number substituted.
   - **No `rounds:` block at all** (a file written before the format existed) → treat it as "round 1, never re-checked" and stop, as before.
 
   **When the exception applies, the operative head is the PR's current head — not the header's `head SHA` field.** That field still records the round the file was first written for, and the re-check deliberately leaves it alone so the file's history stays readable. Everywhere below that says "the head SHA" means the current one. The header's `where the PR's code can be read` field is stale for the same reason: re-resolve it below rather than trusting it.
@@ -420,7 +420,7 @@ Re-running this command must never repost anything already marked `posted` — t
 
 ## 7. Point at what is left
 
-Add one line to the report naming what did not reach the pull request and is not meant to: the count of findings still carrying `hold` with `scope: pre-existing`, the path of `.claude/reviews/pr-<N>-deferred.md` if it exists, and `/pr-tickets <N>` as the step that triages them into Jira.
+Add one line to the report naming what did not reach the pull request and is not meant to: the count of findings still carrying `hold` with `scope: pre-existing`, the path of `.claude/reviews/pr-<N>-deferred.md` if it exists, and `/pr-tickets:jira <N>` — plugin-qualified, with the number substituted — as the step that triages them into Jira. `/pr-tickets` is the plugin, not the command; a user who types it gets nothing.
 
 **A pointer, not the work.** Do not triage them here, do not recommend which deserve a ticket, and above all do not create one: this command's approval gate covers comments on a pull request and nothing else, and a second external system reached under it is a second irreversible action the user approved once, for something else. Say the count and the command, and stop.
 

@@ -28,7 +28,7 @@ other one, and the flow looks identical either way.
 ## 1. Load, and classify the push
 
 - `$ARGUMENTS` empty: ask for a PR number and stop.
-- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/pr-review <N>` first. **Never reconstruct findings here** — this command re-checks, it does not review.
+- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/review-flow:pr-review <N>` first — the plugin-qualified form, with the number substituted, so it can be pasted as-is. **Never reconstruct findings here** — this command re-checks, it does not review.
 - `old_head` — the last head SHA in the `rounds:` block. If there is no `rounds:` block, use the header's `head SHA` and treat the file as "round 1, never re-checked".
 - `new_head` — `gh pr view <N> --json headRefOid -q .headRefOid`.
 - `base` — `gh pr view <N> --json baseRefName -q .baseRefName`, used as `origin/<baseRefName>` below. The PR's base branch is not always the repository default, and taking the wrong one turns the merge-base comparison into noise.
@@ -331,6 +331,13 @@ One report, in chat. Nothing goes to GitHub.
    Close the group with two short lists, or an explicit "none" for each: the Mediums carrying `consequence: internal`, which are suggested `hold`; and the **frozen** set from section 5 — one line each naming the finding whose fix produced it. Both are disclosures, not findings sections: they exist so the user can see what the round cost and overrule either default while looking at it.
 5. **Coverage** — the blind-spot line from section 4, verbatim.
 6. **Out of scope** — `pre-existing` findings from the incremental review, held apart from the ranked ones. Omit the section when empty.
-7. **Footer** — the handoff path; which findings need the user's decision (`contested-by-author`, `inconclusive`); what to run next, and `/pr-publish <N>` only if there is something to send.
+7. **Footer** — the handoff path; which findings need the user's decision (`contested-by-author`, `inconclusive`); then a **Next** block of the commands to run, **plugin-qualified with this PR's number already substituted**, one per line inside a fence so a line can be copied straight into a fresh session:
+
+   ```
+   /review-flow:pr-publish 1431
+   /pr-tickets:jira 1431
+   ```
+
+   `/review-flow:pr-publish <N>` only if there is something to send; `/pr-tickets:jira <N>` only if this round appended to the deferred-work log. Omit the block entirely when neither applies rather than offering a command with nothing to do. A footer naming `/pr-publish`, or carrying a literal `<N>`, is a line the user has to repair before it runs — commands resolve under their plugin's marketplace name, and the bare form is not what anyone types.
 
 Do not post this, or anything derived from it, anywhere.

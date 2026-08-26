@@ -487,7 +487,20 @@ Sections in this order, each piece of information appearing **exactly once**:
 6. **Out of scope** — everything marked `scope: pre-existing`, continuing the same numbering so these can be referenced too. Keep their severity and their detail, but hold them apart from the ranked findings: this PR did not cause them, they are not merge gates, and on someone else's pull request they are candidates for a ticket rather than review comments. Omit the section when empty rather than writing "none".
 7. **Rule candidates** — bug classes worth encoding as a static-analysis rule. See below; omit the section when there are none.
 8. **Suggested merge gates** — which findings block, by number. Do not restate them.
-9. **Footer** — give the paths of both step 6 files (the handoff file, and the deferred-work log when this review appended to it). If no requirement resolved in step 1, say so here in one line: the reviewers checked internal consistency only, which is not a verdict on whether the PR did the right thing.
+9. **Footer** — give the paths of both step 6 files (the handoff file, and the deferred-work log when this review appended to it), then the **Next** block of copy-pasteable invocations defined below. If no requirement resolved in step 1, say so here in one line: the reviewers checked internal consistency only, which is not a verdict on whether the PR did the right thing.
+
+### Next-step invocations
+
+The footer closes with a **Next** block: every command it offers written **plugin-qualified, with this PR's number already substituted**, one per line inside a fence, so a line can be copied straight into a fresh session.
+
+```
+/review-flow:pr-publish 1431
+/pr-tickets:jira 1431
+```
+
+`/review-flow:pr-publish <N>` always appears — it is the only route from the handoff file to the pull request — unless the head has already moved past the SHA this review read, in which case offer `/review-flow:pr-recheck <N>` in its place. `/pr-tickets:jira <N>` appears only when step 6 wrote or appended to the deferred-work log.
+
+**The prefix is not decoration, and neither is the number.** Prose in this document names the step as `/pr-publish` because it is discussing a step; a footer line is something the user types, and commands resolve under their plugin's marketplace name — the bare form works only where nothing else claims it, which is not a property of the user's install this document knows. A footer carrying a literal `<N>` has the same defect from the other end: it is a line that has to be edited before it runs, which is exactly the friction the block exists to remove.
 
 ### Rule candidates
 

@@ -30,7 +30,7 @@ This command writes to **Jira** and to nothing else external. You MUST NOT post 
 ## 1. Collect the three inputs
 
 - `$ARGUMENTS` empty: ask for a PR number and stop.
-- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/pr-review <N>` first. **Never reconstruct findings here** — this command triages, it does not review. A row invented in this step becomes a ticket nobody verified.
+- Read `.claude/reviews/pr-<N>-findings.md` from the repository root. Missing: stop and tell the user to run `/review-flow:pr-review <N>` first — the plugin-qualified form, with the number substituted, so it can be pasted as-is. **Never reconstruct findings here** — this command triages, it does not review. A row invented in this step becomes a ticket nobody verified.
 
 Rows come from three places. Collect all three before recommending anything: the sets overlap, and a row seen from two directions carries more than either alone.
 
