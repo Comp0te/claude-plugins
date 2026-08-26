@@ -5,20 +5,20 @@
     "email": "simbiatoff@gmail.com"
   },
   "metadata": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Personal Claude Code plugins: a pull-request and branch review flow, and a spec-driven development toolkit."
   },
   "plugins": [
     {
       "name": "review-flow",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Read-only review of a GitHub pull request or the current branch: dispatches focused reviewer agents matched to the diff, verifies every finding against the source before it is reported, and publishes an approved subset as inline PR comments.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/review-flow"
     },
     {
       "name": "pr-tickets",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Triage the findings a review deliberately left unposted — pre-existing problems and deferred work — and turn the ones worth tracking into Jira issues, after verifying each against the base branch.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/pr-tickets"

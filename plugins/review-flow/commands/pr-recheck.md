@@ -1,5 +1,5 @@
 ---
-description: Read-only re-check of a GitHub PR after its author pushed commits in response to published review comments. Judges which findings the new code closed, reviews the incremental diff, updates the handoff. Never posts anything.
+description: Read-only re-check of a GitHub PR after its author pushed commits in response to published review comments. Judges which findings the new code closed, reviews the incremental diff, updates the handoff. Separates the author's work from a base branch that moved underneath a stacked PR. Never posts anything.
 argument-hint: <pr-number>
 ---
 
@@ -37,19 +37,57 @@ other one, and the flow looks identical either way.
 **Make sure both commits are actually present**, with `git cat-file -e <sha>^{commit}`:
 
 - `new_head` missing → `git fetch origin pull/<N>/head`.
-- `old_head` missing → `git fetch origin <old_head>` and expect it to fail sometimes. This is the case the rest of this section depends on and the one most likely to be unavailable: after a force-push the old head is reachable from no ref, and the remote may have already collected it. Without it there is no `--is-ancestor` test, no incremental diff, and no old tree for the verifier. **Then stop**, say the previous round's head is gone, write `published-log` as in the moved-base case below, and offer a full `/pr-review`. Do not silently degrade to a one-tree run: every verdict about a *difference* would become unfounded, and nothing downstream could see that it had.
+- `old_head` missing → `git fetch origin <old_head>` and expect it to fail sometimes. This is the case the rest of this section depends on and the one most likely to be unavailable: after a force-push the old head is reachable from no ref, and the remote may have already collected it. Without it there is no `--is-ancestor` test, no incremental diff, and no old tree for the verifier. **Then stop**, say the previous round's head is gone, write `published-log` as in *A base that moved* below, and offer a full `/review-flow:pr-review <N>`. Do not silently degrade to a one-tree run: every verdict about a *difference* would become unfounded, and nothing downstream could see that it had.
 
-Then classify:
+**Establish both merge bases before classifying.** A changed head SHA is not evidence that the author wrote anything: on a stacked pull request the branch is rebased whenever its parent moves, and only the merge bases show it.
+
+- `old_mb` — the `mb <sha>` closing the previous round's `rounds:` line. **Absent** (a file written before that field existed): reconstruct it as `git merge-base <old_head> origin/<base>` and carry it marked **reconstructed** — that is the true old merge base while the base advanced by fast-forward, and falls further back when the base was rewritten. Say which of the two you have, in the report and in every dispatch, because everything below is exact with the recorded value and approximate with the reconstructed one.
+- `new_mb` — `git merge-base <new_head> origin/<base>`.
+
+Then classify, on two independent axes — *did the base move* and *did the author change anything* — never on one:
 
 ```bash
 git merge-base --is-ancestor <old_head> <new_head>
 ```
 
-- **Exit 0** — clean push. Incremental diff: `git diff <old_head>..<new_head>`.
-- **Non-zero**, and `git merge-base <old_head> origin/<base>` equals `git merge-base <new_head> origin/<base>` — force-push onto the same base. `git diff <old_head> <new_head>` is honest; say in the report that history was rewritten and that GitHub may have marked some published threads outdated.
-- **Non-zero**, and the merge base **moved** — the author rebased onto a base that has advanced. A two-dot diff here is mixed with someone else's changes to the base, and "what the author did" cannot be recovered from it. Then: make sure the `published-log` block exists in the header, writing it from the findings' `verdict: posted` fields and comment URLs if it is absent; **stop**; and offer a full `/pr-review`. Do not issue a single verdict against that diff.
+- **Exit 0**, and `old_mb` equals `new_mb` — clean push. Incremental diff: `git diff <old_head>..<new_head>`.
+- **Non-zero**, and `old_mb` equals `new_mb` — force-push onto the same base. `git diff <old_head> <new_head>` is honest; say in the report that history was rewritten and that GitHub may have marked some published threads outdated.
+- **`old_mb` differs from `new_mb`, at either exit status** — the base moved under the pull request. `<old_head>..<new_head>` is now a mixture of the author's work and someone else's, with no seam in it, and **must not be used for the incremental diff, the verifier, the anchors, or a single verdict.** This is not a stop condition: see *A base that moved* below, which recovers the seam instead of discarding the round.
 
-The `published-log` write is the whole point of stopping here rather than just refusing. A fresh review rebuilds the finding set from scratch, and the new set arrives entirely `pending` — without that block, nothing downstream knows half of it is already on the pull request.
+### A base that moved
+
+The head moved, but `old_mb` and `new_mb` differ, so some of what changed is not this author's. Separate the two before anything else runs.
+
+**The base's own advance is exactly `git diff <old_mb>..<new_mb>`.** Everything in it belongs to whoever wrote the base. It is never this PR's work, never `scope: introduced`, and never a fix the author made. Compute it once and keep it: it is the control against which every question below is answered.
+
+**What the author did is `git range-diff <old_mb>..<old_head> <new_mb>..<new_head>`.** This is what the range-diff command exists for — it pairs the two rounds' commits by content, so a commit that was only replayed onto a new base comes back `=` and one the author actually edited comes back with its interdiff. Read its markers:
+
+- every pair `=`, nothing added or dropped → **restack only**. The author pushed nothing. There is no incremental diff and no new work to review; skip the incremental review in section 4 entirely and say so. What still runs is the fix verification, because the base's advance may have closed findings on its own.
+- any pair with an interdiff, or any `>` commit → **restack plus new work**. The incremental diff is the union of those interdiffs and the full patches of the `>` commits — not `<old_head>..<new_head>`, and not `<new_mb>..<new_head>`, which is the whole pull request rather than this round's increment.
+- a `<` commit with no partner — the author dropped work, or the reconstructed `old_mb` reached back past the old base and pulled in commits that were never theirs. Say which, by checking whether the commit is reachable from `new_mb`; a commit the new base already contains was the base's, not the author's.
+
+**Name the parent.** A moved base almost always means a stacked chain, and the user is owed the specific reason rather than "the base advanced":
+
+```bash
+gh pr list --state open --head <base> --json number,title,headRefOid
+```
+
+A hit means the base branch is itself an open pull request's head — this PR is stacked on it. Report the parent's number and title alongside the classification: *"base `<base>` advanced `<old_mb>`..`<new_mb>`; it is the head of #<parent>, which moved."* That sentence is what tells the user to look at the parent instead of asking the author here what they changed.
+
+**A finding can be closed by the base rather than by the author.** When the `fix-verifier` returns `fixed`, check whether the closing change is in the base's advance — `git diff <old_mb>..<new_mb> -- <path>` — and if it is, record `fixed-upstream` instead. It closes the finding exactly as `fixed` does, and it takes the same verdict mapping (`resolve` when published, `dropped` when never published), but it is not the author's work: never write it into the report's **Cleared** section as something the push did, and say which pull request closed it. Crediting the author for a fix the parent PR made is how a review loses the reader's trust in every other verdict on the page.
+
+**A finding can also arrive from the base.** A new finding whose cited lines fall inside `<old_mb>..<new_mb>` and outside the author's own interdiffs is `scope: pre-existing`, whatever the reviewer marked it — this PR did not cause it, it belongs on the parent, and it goes to the deferred log with the parent's number in its `evidence`. Reporting inherited churn as this PR's work is the exact failure this whole section exists to prevent, and it is invisible to anyone reading only the report.
+
+**Anchors survive it; recompute them anyway.** Section 3's resolver reads `gh pr diff <N>`, which GitHub computes against the *current* base, so the anchor map re-bases itself for free — which is the reason that input is pinned there and a locally-built `<old_head>..<new_head>` diff must never be substituted for it. Published threads are a different matter: a restack routinely makes GitHub mark them outdated. The comment URLs still resolve and `published-log` stays valid, so say in the report that threads were marked outdated by the rebase, and do not read *outdated* as *resolved*.
+
+**Two stops remain, and they are narrow.** Both write the `published-log` block first, as described below.
+
+- `old_head` is unreachable — there is no left-hand side for the range-diff, so nothing here applies.
+- `old_mb` is reconstructed **and** the range-diff pairs nothing: every commit comes back as `<` or `>`. The author's work cannot be told from the base's, which is the one case that genuinely needs a fresh review.
+
+In both, offer a full `/review-flow:pr-review <N>` — plugin-qualified, number substituted.
+
+**Writing `published-log` is the whole point of stopping this way rather than just refusing.** A fresh review rebuilds the finding set from scratch, and the new set arrives entirely `pending` — without that block, nothing downstream knows half of it is already on the pull request. Make sure it exists in the header, writing it from the findings' `verdict: posted` fields and comment URLs if it is absent.
 
 ## 2. Two trees, the gate, and the author's replies
 
@@ -117,6 +155,8 @@ This is yours because of how the resolver is bounded above: its `DISAGREES WITH 
 
 **The verdicts** come from a single `fix-verifier` over the whole set at once. Give it: both tree paths with their commits, the incremental diff, the full finding records, and the author's replies. One dispatch rather than one per finding — chains between findings are only visible when the set is seen together, and restating the whole set in one pass collapses the weak ones cheaply.
 
+**When the base moved, hand it the base's advance too, and say what it is for.** The verifier compares two head trees and holds no `Bash`, so it cannot tell a file the author rewrote from one the base rewrote underneath them — and under a restack a great many files differ for the second reason. Give it `git diff <old_mb>..<new_mb>` alongside the increment, with this instruction verbatim: *changes appearing only in the base-advance diff were not made by this pull request's author; a finding closed by one of them is still closed — say so and say that the base did it, rather than attributing it to the push.* The final `fixed` / `fixed-upstream` call is yours in section 5, from the same diff; what this buys is a verifier that stops reasoning from a premise it cannot check.
+
 Reconcile its header counts against its own per-finding bodies before applying anything. The bodies are authoritative; the header is arithmetic that may have been written from memory. Where they differ, take the bodies and say so in the report.
 
 **Re-run the probes.** A finding carrying `evidence: verified: <probe>` with a reproducible description is re-checked by execution at the new head: one at a time, serially, confirming `git status --porcelain` matches the pre-run snapshot after each. Only then is `fixed` backed by execution.
@@ -129,7 +169,7 @@ Reconcile its header counts against its own per-finding bodies before applying a
 2. Otherwise `git worktree add <scratch>/pr-<N>-probe <new_head>`, and give it dependencies without reinstalling them: `ln -s <repo>/node_modules <scratch>/pr-<N>-probe/node_modules`. Remove the worktree at the end of the flow, even if a probe failed. This mutates `.git`, which is why it ranks below option 1 and why the extracted trees remain the default for everything that only reads.
 3. Neither is available → the probe is not re-run.
 
-The symlink is sound only while the two commits agree on `package-lock.json`. Check it — `git diff --name-only <old_head> <new_head> -- package-lock.json package.json`. If neither moved, symlink and say nothing.
+The symlink is sound only while the two commits agree on `package-lock.json`. Check it — `git diff --name-only <old_head> <new_head> -- package-lock.json package.json`. If neither moved, symlink and say nothing. Keep the two-dot form here even when the base moved: this check is about which dependency tree the probe would run against, so a lockfile the *base* bumped disqualifies the symlink exactly as the author's own bump would.
 
 If either moved, the symlink is permitted only when you can name the delta and show it cannot reach anything you are about to run. Both tests, not one:
 
@@ -145,6 +185,8 @@ Where a probe cannot be run — the description is too thin, no environment coul
 Verify the tree survived: snapshot `git status --porcelain` before dispatching and again once everything has reported. If they differ, name the paths and say that the verdicts were read from a tree somebody mutated mid-run.
 
 ## 4. Incremental review
+
+**Skip this whole section when section 1 classified the push as *restack only*.** There is no increment: every commit came back `=` from the range-diff, so nothing was written for a reviewer to read, and the base's advance is someone else's diff on someone else's pull request. Dispatch nobody — not the security reviewer, not the deletion check — and say in the report that the incremental review was skipped because the author pushed no changes. Section 3's verdicts still ran, and they are the whole answer this round has.
 
 From the agent types available in this session, select every reviewer-style agent whose described trigger matches the files or content of the **incremental** diff. No hardcoded roster.
 
@@ -215,7 +257,7 @@ Assign severity to new findings (Critical / High / Medium / Low) by the conseque
 
 This is the loop that does not converge. Round 1 raises a Medium, the author fixes it, and the fix is new code — so round 2 reads it fresh and raises a Medium about *that*, which is fixed in round 3, and so on. Measured on PR #1430: of the eight findings first raised at round 2, three cited code that existed only because round 1's fixes had written it — a new classifier, and the absence of a dispatch an earlier fix had deleted. Each was true. Together they are a review that bills the author for having taken the review's own advice.
 
-The test is mechanical, and you already have what it needs: the incremental diff `<old_head>..<new_head>` and the list of findings the author was addressing with this push. A new finding qualifies for the freeze when **every** cited line of it is inside that diff **and** inside a hunk the author wrote to close a previously-published finding. A finding citing code the push touched for its own reasons — an unrelated refactor riding along, the `keep-alive` widening in the measured case — is not frozen; neither is one whose citations reach outside the increment.
+The test is mechanical, and you already have what it needs: the incremental diff — `<old_head>..<new_head>`, or the range-diff-derived increment when the base moved — and the list of findings the author was addressing with this push. A new finding qualifies for the freeze when **every** cited line of it is inside that diff **and** inside a hunk the author wrote to close a previously-published finding. A finding citing code the push touched for its own reasons — an unrelated refactor riding along, the `keep-alive` widening in the measured case — is not frozen; neither is one whose citations reach outside the increment.
 
 Three exemptions, and they are the whole safety valve:
 
@@ -232,9 +274,12 @@ Verdicts for the re-checked findings. **The mapping depends on whether the findi
 | status | published in an earlier round | never published |
 | --- | --- | --- |
 | `fixed` | `verdict: resolve` | `verdict: dropped — closed at <sha> before it was ever sent` |
+| `fixed-upstream` | `verdict: resolve`, the reply naming the pull request that closed it | `verdict: dropped — closed by the base's advance at <sha>, before it was ever sent` |
 | `partial`, `not-fixed` | `verdict: reply` | `verdict: pending` — it is an ordinary unpublished finding again, and whether it is worth the author's time is the publishing step's decision, not this one's. **Except a finding that was sitting at `hold` and did not get worse: it stays `hold`** — see below |
 | `contested-by-author` | `verdict: pending`, raised as a question in the report | cannot occur — there is no thread for the author to have answered in |
 | `inconclusive: *` | `verdict: pending`, saying which kind | `verdict: pending`, same |
+
+`fixed-upstream` takes the same row as `fixed` because the code question is identically answered — the defect is gone. What it must never take is the *credit*: keep the distinction in `status@r<k>`, in the scoreboard and in the Verdict's **Cleared** list, so a later round can still tell which pull request closed it.
 
 Assigning `reply` or `resolve` to a never-published finding is not a harmless mislabel: publication will find no comment URL for it, downgrade it to `hold`, and the finding disappears without anyone deciding that it should. `inconclusive: reasoning` is a fact about the finding; `inconclusive: unreadable` is a fact about this run and a re-run candidate.
 
@@ -273,15 +318,19 @@ Same class as `published-log`, and treated the same way: both are provenance of 
 
 ```
 rounds:
-  - round 1 @ <head-sha> — reviewed YYYY-MM-DD — dispatch→agents <N>m, agents→anchors <N>m, anchors→report <N>m — low-dropped <N>
+  - round 1 @ <head-sha> — reviewed YYYY-MM-DD — dispatch→agents <N>m, agents→anchors <N>m, anchors→report <N>m — low-dropped <N> — mb <merge-base-sha>
 published-log: (none)
 ```
 
 `rounds:` — one line per round, ascending. A review round writes `reviewed <date>`; publication appends `, published <date>` to its own line; a re-check appends a new line, `- round <k> @ <sha> — rechecked YYYY-MM-DD`.
 
+**`mb <merge-base-sha>` closes the round line, and every round writes its own.** The commit the head was compared against for that round — `git merge-base <head-sha> origin/<base>` at the time. It goes last, past everything `/pr-publish` matches on, so it is inert to that command's freshness test.
+
+It exists for one case, and nothing else in the file can answer it: **the base branch moves between rounds.** That happens whenever this pull request sits in a stacked chain — the parent PR lands a commit, or is restacked, and this branch is rebased onto the new base. The head SHA then changes without the author having written anything, and a two-dot diff `<old-head>..<new-head>` is a mixture of their work and the base's advance with no seam in it. With both rounds' merge bases recorded, the seam is exact: `<old-mb>..<new-mb>` is the base's advance and belongs to whoever wrote it, and a `git range-diff <old-mb>..<old-head> <new-mb>..<new-head>` is what the author actually did. Without the field the earlier merge base has to be reconstructed, which only works while the base advanced by fast-forward — the one condition a restack breaks.
+
 **Every round line carries its own three timings, and the round that produced them writes them.** Wall clock in whole minutes, measured from that round's own start: `dispatch→agents` is the first agent dispatched to the last one reported, `agents→anchors` is that moment to anchors resolved, `anchors→report` is anchors to the report footer printed. Write `—` for a stage this round did not run. Keep them on the round's own line and after the date: `/pr-publish` locates a re-check by matching the marker and the SHA on one `rounds:` line, so anything appended past them is inert to it. Without these the pipeline has no duration data at all — every claim it has made about its own cost was derived from the order of its stages rather than measured, and nothing distinguishes a change that helped from one that did not.
 
-**`low-dropped <N>` closes the round line, and the round that dropped them writes it.** The count of findings this round rated Low and discarded at classification — `low-dropped 0` when there were none, never omitted. It goes here because the Low drop is the one irreversible decision in the flow: a Low is not authored, not anchored, not written to this file and not written to the deferred log, so unless the number is recorded at the moment it is taken, nothing downstream can ever recover it. The disclosure the report already makes is not enough — the report is not archived, so the count survives only in a chat transcript nobody re-reads. The question it exists to answer is whether the bar is discarding real work: across the reviews measured so far Low fell from half the corpus to none of it while the mass moved *into* Medium rather than out of the review, and that migration is invisible without this field.
+**`low-dropped <N>` is the last field before `mb`, and the round that dropped them writes it.** The count of findings this round rated Low and discarded at classification — `low-dropped 0` when there were none, never omitted. It goes here because the Low drop is the one irreversible decision in the flow: a Low is not authored, not anchored, not written to this file and not written to the deferred log, so unless the number is recorded at the moment it is taken, nothing downstream can ever recover it. The disclosure the report already makes is not enough — the report is not archived, so the count survives only in a chat transcript nobody re-reads. The question it exists to answer is whether the bar is discarding real work: across the reviews measured so far Low fell from half the corpus to none of it while the mass moved *into* Medium rather than out of the review, and that migration is invisible without this field.
 
 **A publication also records what the gate cost, appended to its own round line as `gate <N>m over <K> findings, <C> rationale-wrong`.** Wall clock in whole minutes from the gate's dispatch to its verdicts returned; `<K>` is how many findings entered it; `<C>` is how many came back `CONFIRMED, RATIONALE WRONG`. Write `gate 0m over 0 findings` when nothing needed gating, and `— gate skipped: <why>` when the gate could not run at all. The gate is the most expensive single block in the pipeline and the only one still costed from two figures somebody typed in by hand — the round timings measure everything up to the report and stop just short of it. `<C>` is there so the obvious question becomes answerable: whether a wrong rationale costs more agent time to settle than a sound one, which decides whether the gate can ever be made cheaper rather than merely shorter.
 
@@ -320,8 +369,8 @@ Append every `scope: pre-existing` finding from the incremental review to `.clau
 
 One report, in chat. Nothing goes to GitHub.
 
-1. **Header** — PR, `<old_head>` → `<new_head>`, commit count, push type (clean / force-push / force-push onto a moved base).
-2. **Fix scoreboard** — a table by id: severity, verdict, one line of reasoning. Order: `not-fixed`, `partial`, `contested-by-author`, `inconclusive`, `fixed`. What is closed goes last — the reader is here for what is not.
+1. **Header** — PR, `<old_head>` → `<new_head>`, commit count, and push type, from the two axes in section 1: **clean** / **force-push, same base** / **restack only — the author pushed nothing** / **restack plus new work**. When the base moved, the header also carries the base's advance `<old_mb>`..`<new_mb>`, the parent pull request that moved if section 1 found one, its size in files, and one line saying that none of it is attributed to this PR. Say when `old_mb` was **reconstructed** rather than read from the round line — every separation below is approximate in that case, and a reader cannot tell from the output itself.
+2. **Fix scoreboard** — a table by id: severity, verdict, one line of reasoning. Order: `not-fixed`, `partial`, `contested-by-author`, `inconclusive`, `fixed-upstream`, `fixed`. What is closed goes last — the reader is here for what is not. `fixed-upstream` sits just above `fixed` and names the pull request that closed it: it is closed, but not by this author, and the two must not merge into one row.
 3. **Verification** — the gate's actual result at the new head. Which probes were re-run and what they showed. Which could not be run, and why.
 4. **New findings** — from the incremental review, grouped Critical / High / Medium (Low was dropped at classification; close the section with the count), numbering continuing the existing sequence. Per finding: `file:line`, the issue, why it matters, suggested fix, `evidence`, which checks found it. Three markers, the same three the initial review uses:
    - `⚠ ungrounded` on any Critical, High **or Medium** carrying `diff-only`, `unstated`, or a still-unrun `proposed-probe`. Medium is included for the same reason it is there: with Low dropped at classification, a Medium-dominated set is what an increment produces, and an unmarked Medium resting on a hunk read in isolation is exactly the one a reader assumes somebody checked.
@@ -346,6 +395,8 @@ One report, in chat. Nothing goes to GitHub.
 **The report ends here, every time.** Three parts, in this order, and none is ever skipped. This is the section the user came back for: they are re-running the review because somebody pushed, and the only question that matters is whether the push was enough.
 
 **Cleared — what the new commits closed.** One line per previously-blocking finding the push resolved: its id, `fixed`, and the commit or `file:line` that did it. This is the part the scoreboard buries — the scoreboard is ordered worst-first and a reader stops before reaching it. When the push cleared nothing that was blocking, write `Cleared nothing that was blocking.` and say what it did instead.
+
+**A `fixed-upstream` finding is listed separately, under `Closed by the base`**, naming the pull request that closed it. It is genuinely no longer a blocker, so it leaves the blocker list — but it is not what the author did, and a verdict that reads as though it were is a verdict that credits the wrong person and misleads the next round.
 
 **Blockers — named one by one, still live at the new head.** Per blocker: its id, `file:line`, the consequence in a clause, and its current state (`not-fixed`, `partial`, `contested-by-author`, `posted`, `new this round`). Never `see the scoreboard above`. Do not re-argue a finding already on the pull request; it is there in full.
 
