@@ -1,4 +1,4 @@
-# spec-driven-dev
+# plan-flow
 
 Write implementation plans with an immutable intent, a tested edge-case matrix and an
 annotated code map, then execute them task by task against that frozen contract, in a context
@@ -19,7 +19,7 @@ scoped to one task at a time.
 | --- | --- | --- | --- |
 | `writing-implementation-plans` skill | `skills/writing-implementation-plans/SKILL.md` | Turns a spec, a ticket, or an agreed approach into a written implementation plan with a frozen intent, tiered constraints, an annotated code map, and a tested edge-case matrix. | Description match — loads when the conversation is turning multi-step work into a plan before code is touched. |
 | `plan-executor` agent | `agents/plan-executor.md` | Implements one scoped task (or step) of an already-approved plan: reads that task's frozen contract, writes the code, runs the project's checks, and reports back a diff summary. | Dispatch — given the plan path, a task's line range, and which steps are in scope. |
-| `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/spec-driven-dev:execute-plan <path-to-plan.md>`. |
+| `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/plan-flow:execute-plan <path-to-plan.md>`. |
 | Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import described below is missing or stale. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
 
 ## Where plans live
@@ -44,7 +44,7 @@ has to be added by hand, once per machine. Add it to `~/.claude/CLAUDE.md`:
   the working copy directly:
 
   ```
-  @~/Projects/claude-plugins/plugins/spec-driven-dev/references/working-agreements.md
+  @~/Projects/claude-plugins/plugins/plan-flow/references/working-agreements.md
   ```
 
 - If you installed this plugin from the **remote marketplace**, import the marketplace's own
@@ -52,7 +52,7 @@ has to be added by hand, once per machine. Add it to `~/.claude/CLAUDE.md`:
   (`compote`), not this plugin's name, and carries no version in the path:
 
   ```
-  @~/.claude/plugins/marketplaces/compote/plugins/spec-driven-dev/references/working-agreements.md
+  @~/.claude/plugins/marketplaces/compote/plugins/plan-flow/references/working-agreements.md
   ```
 
 The session hook checks for this import and says so if it is missing, because a `SessionStart`
@@ -83,5 +83,5 @@ It can report one of three problems:
 
 ```bash
 claude plugin marketplace add ~/Projects/claude-plugins
-claude plugin install spec-driven-dev
+claude plugin install plan-flow
 ```

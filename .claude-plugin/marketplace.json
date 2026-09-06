@@ -31,11 +31,11 @@
       "source": "./plugins/rn-performance-reviewer"
     },
     {
-      "name": "spec-driven-dev",
+      "name": "plan-flow",
       "version": "0.1.0",
       "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
-      "source": "./plugins/spec-driven-dev"
+      "source": "./plugins/plan-flow"
     }
   ]
 }
