@@ -38,6 +38,13 @@
       "source": "./plugins/figma-extractor"
     },
     {
+      "name": "ui-verifier-mobile",
+      "version": "0.1.0",
+      "description": "Verifies UI changes in a running mobile app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
+      "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+      "source": "./plugins/ui-verifier-mobile"
+    },
+    {
       "name": "plan-flow",
       "version": "0.1.0",
       "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
