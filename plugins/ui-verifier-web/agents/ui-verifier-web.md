@@ -123,6 +123,8 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 
 **Never invent an explanation for a state you did not produce.** When you arrive at a screen already in some state — a toggle set, a list empty, a banner showing — you did not see what put it there. Report the state, say you did not produce it, and stop there. A plausible cause offered for a state you never caused reads as a finding and gets acted on as one.
 
+**A fix verified on one case is not verified.** If a change affects how content is laid out, exercise it with both a short and a long instance — a fix that holds only for the content that happened to be in front of you is the common shape of a regression that ships. And when the change is to a shared component, the checklist's one screen is a sample, not the scope: verify the other call sites it touches too, or name the ones you could not reach and why.
+
 ## Measuring layout
 
 This applies to every verification, whether or not the caller named a design reference.
@@ -140,6 +142,7 @@ A layout defect repeats across every instance of the component, so it is the hig
 
 - Accessibility rects from a snapshot are already in **logical points** — use them directly for anything that has a ref. Reading a single element's attributes is much cheaper than a full snapshot when you only need one rect.
 - **Check for a ref before falling back to pixel work.** Some bare images do expose a rect; some do not. When one is absent, pixel-scan the screenshot instead: find the colour transition at the element's edge.
+- **A region of flat colour has no edge to find in a screenshot** — an overlay, a backdrop, a solid-filled card. Take its geometry from the element's own rect; pixel-scanning for a transition that isn't there produces a confident wrong number.
 - **Check the screenshot's scale once, then trust it for the rest of the run.** A screenshot captured at logical resolution needs no conversion; one captured at device-native resolution needs dividing by the device's pixel ratio before the numbers mean anything. Compare the file's pixel width against the device's logical width to tell which you have.
 - To prove an image renders its full source rather than a crop, crop the element out of the screenshot, scale it to the asset's dimensions, and compare it side by side against the source file. A zoomed or offset crop means the image is overflowing its frame and being clipped, not filling it.
 
