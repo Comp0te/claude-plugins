@@ -29,6 +29,13 @@
       "description": "A React Native performance reviewer for the review flow: reports statically-provable defects in lists, effects and subscriptions, animations, Skia usage, memoization, bundle size and image rendering — and never speculative optimization advice. Install it in React Native repositories only.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/rn-performance-reviewer"
+    },
+    {
+      "name": "spec-driven-dev",
+      "version": "0.1.0",
+      "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
+      "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
+      "source": "./plugins/spec-driven-dev"
     }
   ]
 }
