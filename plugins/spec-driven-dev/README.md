@@ -13,8 +13,14 @@ scoped to one task at a time.
 - A `SessionStart` hook that injects a short operating-rules block into every session started
   inside a git repository.
 
-Later tasks in this plugin's own implementation plan fill in the rest of this README, section
-by section, as each piece lands.
+## Components
+
+| Component | Path | What it does | Fires on |
+| --- | --- | --- | --- |
+| `writing-implementation-plans` skill | `skills/writing-implementation-plans/SKILL.md` | Turns a spec, a ticket, or an agreed approach into a written implementation plan with a frozen intent, tiered constraints, an annotated code map, and a tested edge-case matrix. | Description match — loads when the conversation is turning multi-step work into a plan before code is touched. |
+| `plan-executor` agent | `agents/plan-executor.md` | Implements one scoped task (or step) of an already-approved plan: reads that task's frozen contract, writes the code, runs the project's checks, and reports back a diff summary. | Dispatch — given the plan path, a task's line range, and which steps are in scope. |
+| `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit `/execute-plan <path-to-plan.md>` invocation. |
+| Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import described below is missing or stale. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
 
 ## Where plans live
 
