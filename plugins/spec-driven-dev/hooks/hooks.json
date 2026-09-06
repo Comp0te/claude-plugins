@@ -1,0 +1,17 @@
+{
+  "description": "Injects the main-conversation operating rules at the start of any session opened inside a git repository, and warns when the memory-file import that delivers the rest is missing or stale. It emits context only; it never returns a permission decision.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
