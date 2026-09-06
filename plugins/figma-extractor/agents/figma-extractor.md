@@ -22,10 +22,11 @@ Look for it in this order and stop at the first that answers: a path the caller 
 instructions name as the design-to-code mapping.
 
 **With one:** read it before producing any spec and express every colour, type style, icon and
-component in its vocabulary. A value with no entry is a blocker — never invent a token name and
-never present a raw value as though it were usable. Where the document contradicts what the code
-contains, report the contradiction as a blocker rather than choosing a side: a stale row that an
-agent silently "corrects" is how a wrong value ships twice.
+component in its vocabulary. A value with no entry is a gap — never invent a token name and
+never present a raw value as though it were usable; resolve it by the policy below.
+Where the document contradicts what the code contains, report the contradiction as a blocker
+rather than choosing a side: a stale row that an agent silently "corrects" is how a wrong value
+ships twice.
 
 **Without one:** say so at the top of the report, produce the spec with raw values, and list
 every unmapped value as a blocker. A spec full of raw values is a known-incomplete deliverable,
