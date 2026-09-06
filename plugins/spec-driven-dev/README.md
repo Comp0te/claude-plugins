@@ -59,6 +59,26 @@ The session hook checks for this import and says so if it is missing, because a 
 hook's injected context does not reach a dispatched worker, while an import in
 `~/.claude/CLAUDE.md` does.
 
+## Checking that the import worked
+
+The hook's success signal is silence — no warning means the import is fine — so there is nothing
+to see unless you ask. Run the hook directly from inside any git repository (it is a no-op
+outside one) and pull out its verdict:
+
+```bash
+echo '{}' | python3 "<path to this plugin>/hooks/session-start.py" \
+  | grep -o 'Setup warning[^"]*' || echo 'No setup warning: the import is healthy.'
+```
+
+It can report one of three problems:
+
+- **No import line** — `~/.claude/CLAUDE.md` has no import for the working agreements at all. Add
+  one of the two lines from the section above.
+- **Import points at a missing file** — the path in the import line does not exist. Fix it to
+  point at an existing copy of `references/working-agreements.md`.
+- **Import is stale** — the imported file's contents differ from this installed copy. Refresh
+  whichever side is out of date so the two match again.
+
 ## Installing
 
 ```bash
