@@ -264,8 +264,11 @@ for one **before** you start navigating.
 - **If none exists, record one while you navigate** — you are walking the route anyway, so the
   recording is nearly free. `agent-device help scripting` owns the command shapes; the rules that
   keep a recorded script from replaying green while mis-tapping are in this plugin's
-  `reference/route-scripts.md` (Glob: `**/ui-verifier-mobile/reference/route-scripts.md`). **Read
-  it before you arm a recording** — one route shape must not be recorded at all, and a credential
+  `reference/route-scripts.md`. It ships with the plugin, not with the project you are driving, so
+  locate it by path rather than by Glob over the working directory:
+  `find ~/.claude/plugins/cache -path '*ui-verifier-mobile*/reference/route-scripts.md' | head -1`
+  (falling back to a Glob only when you are working inside the plugin repository itself).
+  **Read it before you arm a recording** — one route shape must not be recorded at all, and a credential
   in the route needs `--record-as` or its literal text lands in the file.
 - **A replay failure is not a checklist failure.** It means the route drifted. Repair or re-record
   per the reference, then verify — never report a route drift as an app defect.
