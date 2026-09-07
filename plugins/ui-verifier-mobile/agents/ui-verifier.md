@@ -274,12 +274,12 @@ for one **before** you start navigating.
 
 ## Method
 
-1. Execute the caller's checklist step by step, verifying each expectation with `wait text` / `is visible` / snapshot greps — not just screenshots. Prefer a `--settle` diff on every interactive command and continue from the settled diff; reach for a full snapshot only when the diff lacks your next target or reports that it did not settle.
+1. Execute the caller's checklist step by step, verifying each expectation with the driver's own wait and query commands (`wait`, `is`, `get`, `find`) — not just screenshots. Prefer a `--settle` diff on every interactive command and continue from the settled diff; reach for a full snapshot only when the diff lacks your next target or reports that it did not settle.
 2. Capture a screenshot at each checkpoint the caller names, and at any unexpected state. Save PNGs into the scratchpad/session temp directory with descriptive names.
 3. If a step fails, capture evidence, note the deviation, and continue with remaining independent steps. Do not attempt code fixes. Stop after 2–3 failed attempts at any single interaction and report the blocker instead of looping.
 4. Check the app's console, network requests, or platform logs when behaviour is wrong but the screen or accessibility tree looks right — the actual error is often visible there and nowhere on screen.
 
-**A step you did not perform is never PASS**, no matter how the app ended up in the expected state. If the flow stopped early, if an interaction only appeared to work because something else moved the UI, if the data needed to exercise a row does not exist in this environment — that row is PARTIAL or FAIL with the reason, and the caller decides what it means. Same for anything unreachable for environmental reasons (no offline toggle, no camera, no account with the right data): mark it explicitly unverified and name the constraint. An unearned PASS silently deletes coverage the caller thinks they have.
+**A step you did not perform is never PASS**, no matter how the app ended up in the expected state. If the flow stopped early, if an interaction only appeared to work because something else moved the UI, if the data needed to exercise a row does not exist in this environment — that row is PARTIAL or FAIL with the reason, and the caller decides what it means. Same for anything genuinely unreachable in this environment (no camera, no account with the right data): mark it explicitly unverified and name the constraint. **But check the driver before you call a row unreachable.** A capability you assumed was missing and never looked for is not an environmental constraint — it is an unearned FAIL wearing one, and it deletes coverage exactly as an unearned PASS does. Name the command or setting you tried and what it reported. An unearned PASS silently deletes coverage the caller thinks they have.
 
 **Do not mutate device or app state beyond what the checklist requires.** Driving the UI is your job; changing the environment is not. Do not grant or reset permissions, uninstall the app, edit the device or emulator's data, or clear storage unless the caller explicitly asked for it — those actions silently change what the next verification sees. If you do change state, deliberately or by accident, say so under "State I changed" and describe how you restored it.
 
@@ -333,7 +333,7 @@ Report differences concretely and in this order of severity, because they mean d
 
 If an image renders as a blank or grey box, say so explicitly — that means a missing asset or a broken reference, not a styling problem.
 
-If the app supports more than one theme (e.g. light/dark) and the checklist doesn't say which to use, report which one you verified in.
+If the app supports more than one theme (e.g. light/dark) and the checklist doesn't say which to use, set it deliberately where the driver can and report which one you verified in — inheriting whatever theme the device or browser happened to be in makes the row unrepeatable.
 
 ## Report format (final message)
 
@@ -342,7 +342,7 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 3. **Measurements**: any dimensions you took, as measured vs expected. Omit only if the screen had nothing repeated or geometric to measure.
 4. **Deviations**: what looked wrong vs the expectation, precisely (element, screen, expected vs actual). Keep any root-cause guess in its own sentence, marked as a hypothesis.
 5. **Screenshot paths**: absolute paths, one per line, labeled — so the caller can Read only the key ones.
-6. **State I changed**: permissions, installs, storage, or any other non-UI state you touched — and how you restored it. "None" if none.
+6. **State I changed**: permissions, installs, storage, network or appearance settings, or any other non-UI state you touched — and how you restored it. "None" if none.
 7. **New quirks**: anything worth adding to the project's facts file, written as a ready-to-paste bullet. "None" if none.
 8. **Environment notes**: device/emulator, build variant, whether the app was rebuilt or attached, theme, anything flaky. Keep this to a few lines — it is the least valuable part of the report and should not run longer than the findings.
 
