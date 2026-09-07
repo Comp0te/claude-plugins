@@ -208,6 +208,12 @@ learn under "New quirks" in your report.
   diagnostic commands between the trigger and the capture — the delay can eat the window
   entirely; a screen recording with frame extraction is more reliable than guessing a screenshot
   delay for anything suspected to be short-lived.
+- **`agent-device` 0.20.8 has no built-in frame-diff or frame-extraction command** — pull frames
+  from a `record start <path>.mp4` capture with a small external script (e.g. a Swift
+  `AVAssetImageGenerator` snippet) instead of expecting the CLI to do it. Running that script can
+  itself need an unsandboxed call: some toolchains write their module cache to a scratch path
+  (e.g. `/var/folders`) that a sandboxed shell denies, even though the script only reads and
+  writes scratch files otherwise. Re-test this gap if the CLI version has moved past 0.20.8.
 
 ## Reusable route scripts
 
@@ -292,6 +298,8 @@ A layout defect repeats across every instance of the component, so it is the hig
 ## Comparing against a design reference
 
 When the caller names a reference image (a design export, a previous screenshot), `Read` BOTH that file and your own capture and compare them directly — a checklist item like "matches the design" is not satisfied by reading the accessibility tree alone. Design frames are usually exported at 1x, so their pixels are points and you can measure them the same way.
+
+**If the caller points at a design-tool URL or node instead of an exported file, check this session's actual tool list for a working integration before assuming one is wired up.** A system prompt describing an available design-tool MCP server is not proof the tool is present in your own tool list — confirm it, don't infer it, before spending a turn on it. Without one, ask the caller for an exported image instead of trying to fetch the design tool's site directly.
 
 Report differences concretely and in this order of severity, because they mean different things:
 

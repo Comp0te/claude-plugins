@@ -1,7 +1,8 @@
 # compote
 
-Personal Claude Code plugins: a pull-request and branch review flow, and a spec-driven
-development toolkit.
+Personal Claude Code plugins: a pull-request and branch review flow, a spec-driven development
+toolkit, and the agents that close its two open ends — reading a design into a spec, and
+verifying a change in the running application.
 
 ## Plugins
 
@@ -18,6 +19,24 @@ development toolkit.
   Reports statically-provable defects in lists, effects and subscriptions, animations, Skia
   usage, memoization, bundle size and image rendering, and never speculative optimization
   advice. Install it only in React Native repositories.
+- **figma-extractor** — reads a Figma node for implementation and returns a compact spec in the
+  project's own code vocabulary — tokens, components and icons drawn from the project's
+  design-mapping document — instead of dumping raw design-tool output into the caller's context.
+  Also downloads and verifies image and vector assets. Needs a Figma integration installed
+  separately, and a `.claude/docs/figma-mapping.md` in the consuming repository; without the
+  mapping document it produces raw values and reports every one of them as a blocker.
+- **ui-verifier-mobile** — verifies UI changes in a running mobile app against a caller-supplied
+  checklist: drives the simulator or emulator with `agent-device`, measures what it sees,
+  captures screenshots, and returns a pass/fail report with evidence. Reports findings only and
+  never modifies code.
+- **ui-verifier-web** — the same for a web app or browser extension, driving the browser with
+  `agent-browser`. Deliberately independent of `ui-verifier-mobile`: the two share no dependency,
+  and the verification discipline they both carry is generated into each from
+  `shared/verification-discipline.md` rather than extracted into a third plugin.
+
+Both verifiers read a `.claude/docs/ui-verification.md` in the consuming repository for that
+project's own facts — bundle ids, build and launch commands, auth routes, app traps — and say so
+at the top of the report when it is absent.
 
 ## Installing
 
@@ -34,6 +53,18 @@ joins the reviewer roster of every project, including the ones its triggers can 
 ```bash
 cd <a React Native repository>
 claude plugin install rn-performance-reviewer@compote --scope project
+```
+
+Install the verifiers and the extractor per repository too, and only the verifier that matches
+the platform — at user scope both verifiers would load in every project:
+
+```bash
+cd <a mobile repository>
+claude plugin install ui-verifier-mobile@compote --scope project
+claude plugin install figma-extractor@compote --scope project
+
+cd <a web repository>
+claude plugin install ui-verifier-web@compote --scope project
 ```
 
 ## Command names
@@ -69,6 +100,57 @@ To pick up a same-version edit during development, force it — there is no othe
 claude plugin uninstall <name>
 claude plugin install <name>@compote --scope user
 ```
+
+## Migrating a project off its local verifier or extractor agent
+
+Seven projects hold a local `ui-verifier` agent and four hold a local `figma-extractor` — copies
+that predate this marketplace. A local agent shadows the shipped one of the same kind entirely,
+so installing the plugin next to it changes nothing until the local copy is gone. The recipe,
+run once per project:
+
+1. **Install** the plugin the project needs, at **project** scope, from inside that repository —
+   `ui-verifier-mobile` or `ui-verifier-web` (never both, and never at user scope: they would
+   then load in every repository and the agent would have to guess which world it's in), plus
+   `figma-extractor` where the project reads Figma designs.
+2. **Rename the agent's memory store to match the shipped agent's name** — a store is addressed
+   by `<agent name>`, so `agent-memory-local/ui-verifier/` becomes `agent-memory-local/ui-verifier-mobile/`
+   (or `-web/`) before the agent ever runs under its new name. Left alone, the old directory
+   keeps every accumulated note but the renamed agent can no longer see it — no error, just an
+   agent that has silently forgotten everything it learned. `figma-extractor` keeps its name, so
+   its store is never renamed.
+3. **Drain the memory store's promotion queue before deleting anything.** Read every file
+   against the shipped agent and resolve it as **promoted** (a driver or discipline fact now in
+   the shipped agent, with its CLI version stamp — delete the note), **kept** (a genuine project
+   fact — stays, under the renamed store), **corrected** (the memory measured something the
+   agent only hypothesized — the agent changes, then the note is redundant and goes), or
+   **retired** (a fixed bug — delete, or move to a tracker, never migrate). An open bug living
+   only in memory is reported to whoever tracks issues, not deleted and not folded into a facts
+   file, since a defect isn't a fact about how to verify. A file with no verdict means the
+   migration didn't read it.
+4. **Write the project's facts file** (`.claude/docs/ui-verification.md`, or
+   `figma-mapping.md` for the extractor) from what the local copy and its memory uniquely knew:
+   bundle ids or extension ids, build and launch commands, sandbox exclusions, the authentication
+   route, and anything that has previously caused a wrong verdict. A fact left only in a file
+   about to be deleted is lost.
+5. **Prove the shipped agent works** with one real verification run (and, for the extractor, one
+   real extraction) before deleting anything. If the run surfaces something the local copy knew
+   and the shipped agent doesn't, add it to the shipped agent and re-run the sync and checker
+   scripts first.
+6. **Delete the local copy** — `git rm .claude/agents/<name>.md` in the consuming repository.
+
+**Known defect in step 6:** `.claude/` is git-excluded in several of these repositories (checked
+via `.git/info/exclude`). `git rm` fails there with nothing staged for the project's author to
+commit, since the file was never tracked. Deleting the local copy in that case is a plain `rm`,
+and there is no diff to review or commit — say so explicitly rather than reporting a commit that
+doesn't exist. Until the local copy is removed, the project holds both it and the shipped agent
+at once, and **the local one wins**; that overlap is only safe as a temporary state between step
+5 and step 6, never as an end state.
+
+**Two pilots have run steps 1–4 of this recipe** (a mobile project for `ui-verifier-mobile` and
+`figma-extractor`, a web project for `ui-verifier-web`); steps 5 and 6 are deferred to a session
+with a booted simulator/emulator and a reachable Figma node, so both pilots currently hold a
+local copy and the shipped plugin at once. **Remaining projects, not started:** five hold a local
+verifier, and three of those also hold a local extractor.
 
 ## Repository-local reviewers
 

@@ -101,6 +101,7 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 - **`eval --stdin` payloads share one JS global scope across a session** — a bare top-level declaration in one call collides with the same name in a later call. Wrap every payload in an IIFE.
 - **The first `fill` or `click` by selector immediately after `open` can fail with "Element not found" even though the target eventually renders** — first paint hasn't happened yet. Take a snapshot before the first interaction rather than chaining a fill or click blind.
 - **A `display: none` element's `aria-label` can still concatenate into a parent element's accessible name in the snapshot**, even though nothing about it is visible. Judge whether visible content is duplicated by the rendered text (`innerText`) rather than by the snapshot's synthetic accessible name.
+- **Opening a `figma.com` design URL with `agent-browser` (0.33.0) fails with a CloudFront "request could not be satisfied" / HTTP 403** — this sandboxed browser context has no authenticated Figma session, and a direct `open`/`read` against the design tool's own site cannot substitute for a working design-tool integration. Confirm this once and stop trying it; ask the caller for an exported PNG instead. Re-test if the CLI version has moved past 0.33.0.
 
 <!-- discipline:begin — generated from shared/verification-discipline.md. Do not edit here: edit the source and run scripts/sync-discipline.py -->
 
@@ -149,6 +150,8 @@ A layout defect repeats across every instance of the component, so it is the hig
 ## Comparing against a design reference
 
 When the caller names a reference image (a design export, a previous screenshot), `Read` BOTH that file and your own capture and compare them directly — a checklist item like "matches the design" is not satisfied by reading the accessibility tree alone. Design frames are usually exported at 1x, so their pixels are points and you can measure them the same way.
+
+**If the caller points at a design-tool URL or node instead of an exported file, check this session's actual tool list for a working integration before assuming one is wired up.** A system prompt describing an available design-tool MCP server is not proof the tool is present in your own tool list — confirm it, don't infer it, before spending a turn on it. Without one, ask the caller for an exported image instead of trying to fetch the design tool's site directly.
 
 Report differences concretely and in this order of severity, because they mean different things:
 
