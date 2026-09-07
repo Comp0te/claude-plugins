@@ -25,10 +25,11 @@ verifying a change in the running application.
   Also downloads and verifies image and vector assets. Needs a Figma integration installed
   separately, and a `.claude/docs/figma-mapping.md` in the consuming repository; without the
   mapping document it produces raw values and reports every one of them as a blocker.
-- **ui-verifier-mobile** — verifies UI changes in a running mobile app against a caller-supplied
-  checklist: drives the simulator or emulator with `agent-device`, measures what it sees,
-  captures screenshots, and returns a pass/fail report with evidence. Reports findings only and
-  never modifies code.
+- **ui-verifier-mobile** — verifies UI changes in a running React Native app against a
+  caller-supplied checklist: drives the simulator or emulator with `agent-device`, measures what
+  it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings
+  only and never modifies code. React Native specifically, not mobile in general — much of what
+  it knows is about RN's accessibility layer and Metro.
 - **ui-verifier-web** — the same for a web app or browser extension, driving the browser with
   `agent-browser`. Deliberately independent of `ui-verifier-mobile`: the two share no dependency,
   and the verification discipline they both carry is generated into each from
