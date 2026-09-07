@@ -19,7 +19,7 @@ verifying a change in the running application.
   Reports statically-provable defects in lists, effects and subscriptions, animations, Skia
   usage, memoization, bundle size and image rendering, and never speculative optimization
   advice. Install it only in React Native repositories.
-- **figma-extractor** — reads a Figma node for implementation and returns a compact spec in the
+- **figma-flow** — reads a Figma node for implementation and returns a compact spec in the
   project's own code vocabulary — tokens, components and icons drawn from the project's
   design-mapping document — instead of dumping raw design-tool output into the caller's context.
   Also downloads and verifies image and vector assets. Needs a Figma integration installed
@@ -61,7 +61,7 @@ the platform — at user scope both verifiers would load in every project:
 ```bash
 cd <a mobile repository>
 claude plugin install ui-verifier-mobile@compote --scope project
-claude plugin install figma-extractor@compote --scope project
+claude plugin install figma-flow@compote --scope project
 
 cd <a web repository>
 claude plugin install ui-verifier-web@compote --scope project
@@ -103,27 +103,29 @@ claude plugin install <name>@compote --scope user
 
 ## Migrating a project off its local verifier or extractor agent
 
-Seven projects hold a local `ui-verifier` agent and four hold a local `figma-extractor` — copies
-that predate this marketplace. A local agent shadows the shipped one of the same kind entirely,
-so installing the plugin next to it changes nothing until the local copy is gone. The recipe,
+Seven projects held a project-local `ui-verifier` agent and four a local `figma-extractor` —
+copies that predate this marketplace. A local agent under `.claude/agents/` shadows a shipped one
+of the same `name:`, so installing the plugin next to it changes nothing until the local copy is
+gone. Note the shipped verifier agent is now also called `ui-verifier`, so that collision is exact
+and silent. The recipe,
 run once per project:
 
 1. **Install** the plugin the project needs, at **project** scope, from inside that repository —
    `ui-verifier-mobile` or `ui-verifier-web` (never both, and never at user scope: they would
    then load in every repository and the agent would have to guess which world it's in), plus
-   `figma-extractor` where the project reads Figma designs.
+   `figma-flow` where the project reads Figma designs.
 2. **Move the agent's memory store to the address the *plugin* agent reads.** A project-local
    agent is addressed by `<agent name>`, but an agent that arrives from a plugin is addressed by
    `<plugin name>-<agent name>` — so `agent-memory-local/ui-verifier/` becomes
-   `agent-memory-local/ui-verifier-mobile-ui-verifier-mobile/`, and `figma-extractor` moves too
-   even though it keeps its name: `agent-memory/figma-extractor/` becomes
-   `agent-memory/figma-extractor-figma-extractor/`. Do this before the agent ever runs, and if it
-   has already run, merge rather than overwrite — it will have created the correct directory empty
-   and written into it. Left alone, the old directory keeps every accumulated note and the shipped
+   `agent-memory-local/ui-verifier-mobile-ui-verifier/` (or `-web-`), and the extractor's store
+   becomes `agent-memory/figma-flow-extractor/`. Do this before the agent ever runs, and if it has
+   already run, merge rather than overwrite — it will have created the correct directory empty and
+   written into it. Left alone, the old directory keeps every accumulated note and the shipped
    agent cannot see any of it: no error, no empty file, just an agent that has silently forgotten
-   everything it learned. **This is measured, not assumed** — the first pilot run wrote to
-   `ui-verifier-mobile-ui-verifier-mobile/` while its migrated store sat one directory over, and
-   the same doubled address appeared independently for the extractor.
+   everything it learned. **This is measured, not assumed** — a pilot run wrote to the
+   plugin-prefixed address while its migrated store sat one directory over, and the same happened
+   independently for the extractor. It also means **a rename moves the address**: renaming either
+   the plugin or the agent orphans the store unless it is moved in the same change.
 3. **Drain the memory store's promotion queue before deleting anything.** Read every file
    against the shipped agent and resolve it as **promoted** (a driver or discipline fact now in
    the shipped agent, with its CLI version stamp — delete the note), **kept** (a genuine project
@@ -153,7 +155,7 @@ at once, and **the local one wins**; that overlap is only safe as a temporary st
 5 and step 6, never as an end state.
 
 **Two pilots have run steps 1–4 of this recipe** (a mobile project for `ui-verifier-mobile` and
-`figma-extractor`, a web project for `ui-verifier-web`); steps 5 and 6 are deferred to a session
+`figma-flow`, a web project for `ui-verifier-web`); steps 5 and 6 are deferred to a session
 with a booted simulator/emulator and a reachable Figma node, so both pilots currently hold a
 local copy and the shipped plugin at once. **Remaining projects, not started:** five hold a local
 verifier, and three of those also hold a local extractor.

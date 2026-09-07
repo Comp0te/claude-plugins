@@ -6,8 +6,8 @@ BEGIN = "<!-- discipline:begin"
 END = "<!-- discipline:end -->"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TARGETS = [
-    ROOT / "plugins/ui-verifier-mobile/agents/ui-verifier-mobile.md",
-    ROOT / "plugins/ui-verifier-web/agents/ui-verifier-web.md",
+    ROOT / "plugins/ui-verifier-mobile/agents/ui-verifier.md",
+    ROOT / "plugins/ui-verifier-web/agents/ui-verifier.md",
 ]
 
 def main():

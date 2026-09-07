@@ -1,4 +1,4 @@
-# figma-extractor
+# figma-flow
 
 Reads a Figma node for implementation and returns a compact, implementation-ready spec in the
 *project's own code vocabulary* — tokens, components and icons taken from the project's design-
@@ -11,7 +11,7 @@ It never modifies code. Spec mode is read-only; asset mode writes only image fil
 
 ```bash
 claude plugin marketplace add ~/Projects/claude-plugins
-claude plugin install figma-extractor
+claude plugin install figma-flow
 ```
 
 This agent depends on a separate Figma MCP plugin (`figma@claude-plugins-official`), declared as

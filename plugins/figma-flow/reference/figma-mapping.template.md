@@ -1,6 +1,6 @@
 # Figma → code mapping
 
-A human maintains this file; `figma-extractor` reads it but never edits it. When the agent's
+A human maintains this file; the `extractor` agent reads it but never edits it. When the agent's
 memory surfaces a mapping that has proved itself, promote it here yourself.
 
 Delete every instruction line in *italics* once the section is filled in — they exist to say

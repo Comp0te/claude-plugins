@@ -35,5 +35,5 @@ in this plugin is a starting skeleton for authoring one from scratch.
 
 ## No configuration needed
 
-Dispatch this agent by name (`ui-verifier-web`) with a checklist. There is nothing else to
+Dispatch this agent by name (`ui-verifier`) with a checklist. There is nothing else to
 wire up.

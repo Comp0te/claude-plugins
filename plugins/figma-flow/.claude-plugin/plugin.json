@@ -1,5 +1,5 @@
 {
-  "name": "figma-extractor",
+  "name": "figma-flow",
   "version": "0.1.0",
   "description": "Reads a Figma node for implementation and returns a compact spec expressed in the project's own code vocabulary — tokens, components and icons from the project's design-mapping document — instead of dumping raw design-tool output into the caller's context. Also downloads and verifies image and vector assets.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
