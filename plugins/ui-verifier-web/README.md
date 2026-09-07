@@ -35,5 +35,6 @@ in this plugin is a starting skeleton for authoring one from scratch.
 
 ## No configuration needed
 
-Dispatch this agent by name (`ui-verifier`) with a checklist. There is nothing else to
-wire up.
+Dispatch this agent as `ui-verifier-web:ui-verifier` with a checklist. The plugin name is
+part of the address — `ui-verifier-mobile` ships an agent with the same bare name, so use the
+qualified form whenever both are installed. There is nothing else to wire up.

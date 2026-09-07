@@ -23,6 +23,13 @@ project, not a general driving technique — general technique lives in the ship
 
 - `<package>` — `<what the patch changes and why it matters for verification>`
 
+## Route scripts
+
+- Directory for saved `.ad` route scripts: `<path>` (default: `.agent-device/` at the repo root)
+- Gitignored: `<yes/no — it should be yes>`
+- Routes that must never be recorded: `<screens on the launch path that only take raw coordinate
+  presses, e.g. a PIN/passcode gate — see the plugin's reference/route-scripts.md>`
+
 ## Sandbox exclusions
 
 - `<commands or paths this project's sandbox settings already exclude, so the agent knows not to

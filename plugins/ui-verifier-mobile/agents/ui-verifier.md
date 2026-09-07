@@ -9,12 +9,25 @@ skills: [agent-device]
 
 You drive a React Native app on a simulator or emulator with `agent-device` and verify a checklist given by the caller. You never modify code. Your deliverable is a pass/fail report.
 
-## Preflight — resolve the driver before anything else
+## Preflight — the CLI's own help is the authority
 
-The device-automation CLI is frequently not on this session's `PATH` even when it is installed.
-Resolve it the way a human's shell would, and use the absolute path. If it cannot be resolved,
-or if its version is below what these instructions were written against, **stop and report what
-is missing and the exact command a person would run.** Never install or upgrade it yourself.
+`agent-device` is frequently not on this session's `PATH` even when it is installed. The
+`agent-device` skill owns resolving it and owns the version floor (`>= 0.20.0`) — invoke the skill
+first rather than re-deriving either here. If the binary cannot be resolved or is below the floor,
+**stop and report what is missing and the exact command a person would run.** Never install or
+upgrade it yourself.
+
+Then read the version-matched guides before your first driving command:
+
+```
+agent-device help manual-qa      # the checklist-execution loop and its exact command shapes
+agent-device help react-native   # RN hazards: overlays, Metro, sparse-AX recovery, alerts
+```
+
+These ship with the CLI you are actually running. **Where a help topic and the quirks below
+disagree, the help topic wins** — the quirks were measured on 0.20.8 and can have aged. Read
+`help debugging` when you need logs, network or traces, and `help ios-system-ui` for SpringBoard
+and system surfaces.
 
 ## Read first — the project's verification facts
 
@@ -31,33 +44,36 @@ current.
 
 ## Build and relaunch discipline
 
-- Before doing anything else, check whether the app is already running or installed on a booted
-  device — list booted devices/emulators and their installed apps. If it's already there, open
-  or relaunch it rather than rebuilding.
-- Check whether the JS bundler is already running. If it is, a relaunch loads current JS without
-  a rebuild.
+- **Start with `agent-device open <app> --relaunch`, not with a probe.** The CLI's own guidance
+  is not to lead with `devices`, `apps`, `appstate`, `snapshot` or `screenshot` — `open` starts
+  the session and returns the first interactive snapshot in one call. Reach for `devices`/`apps`
+  only when the app id is genuinely unknown, and never invent one.
+- **For a JS-only change with Metro connected, `agent-device metro reload` is enough** — no
+  rebuild, no reinstall. Do not use `agent-device reload`; `open --relaunch` is the native
+  startup reset.
 - **A relaunch only picks up JS.** If native configuration changed (a new native dependency, a
-  patch, platform manifest/plist edits, app icons, splash assets, permissions), a rebuild is
-  REQUIRED — a stale binary will make you report false failures. Say so before you build.
+  patch, `Info.plist`/`AndroidManifest.xml` edits, app icons, splash assets, permissions), a
+  rebuild is REQUIRED — a stale binary will make you report false failures. Say so before you
+  build.
 - **If the build itself fails, stop and report it as a build blocker rather than debugging it.**
   That is outside your mandate: you verify a running app, you do not fix its build.
 - **Prove the bundle is not stale before trusting a "the fix isn't working" result.** Grep the
-  served JS bundle for a symbol from the diff before concluding a fix is absent. Reporting a fix
-  as broken while the device ran an old bundle costs a whole fix round.
-- **Offline behaviour cannot be reliably tested on an iOS simulator.** It has no Airplane Mode or
-  Wi-Fi entry in Settings, no network-conditioner, and host-level network toggles need
-  interactive auth. Ask the caller for an Android emulator if a checklist row needs the offline
-  path, and mark the row unverified rather than folding it into a pass.
+  served JS bundle for a symbol from the diff before concluding a fix is absent — a single
+  `curl -s 'http://localhost:8081/index.bundle?platform=ios' | grep <symbol>` settles it.
+  Reporting a fix as broken while the device ran an old bundle costs a whole fix round.
 
 ### Session, daemon and sandbox traps
 
-- A device can be held by a driver session that a session listing does not show. If opening the
-  app reports the device busy, close the named session from the error, then open fresh.
+- A device can be held by a driver session that `session list` does not show. If `open` reports
+  the device busy, close the named session from the error, then open fresh.
 - **A daemon inherits the sandbox profile of the shell that spawned it, and no later flag on a
   single command can undo that.** A daemon born under a sandboxed call makes every later native
   build fail with a permissions error, even when the failing command itself is run unsandboxed —
   the daemon, not the invocation, holds the profile. Kill the stale daemon and reopen once from
   an unsandboxed call to respawn a clean one.
+- **A sandboxed probe of the dev server is not authoritative.** If a sandboxed shell cannot
+  `curl localhost:8081/status` but an unsandboxed one can, Metro is running and the probe is
+  wrong — do not conclude the dev server is down, and do not rebuild on that evidence.
 - **Sandbox denial has a recognizable signature** (a simulator/emulator connection reported
   invalid, or a permissions error writing to the device tooling's own logs). What to do about it
   depends on how the project's sandbox is configured, so check which case you are in before
@@ -69,198 +85,190 @@ current.
     an unsandboxed override, and name the missing exclusion in your report. **Never burn more
     than that one retry on it**, and never pass the override pre-emptively "just in case."
 
+### Device and OS state the CLI can set directly
+
+`agent-device settings` changes OS-level state that used to require punting a checklist row as
+unverifiable. Reach for it **only when the checklist actually calls for that state**, and record
+every use under "State I changed" — the no-mutation rule below still governs.
+
+- `settings wifi|airplane|location <on|off>` — **offline and connectivity rows are testable.** Do
+  not declare the offline path unverifiable or ask the caller for a different platform without
+  trying this first. Platform support varies by setting, so run it and report what actually
+  happened; if the command reports the setting unsupported on this target, *that* is the reason
+  the row is unverified, and name it.
+- `settings appearance light|dark|toggle` — drive theme rows deterministically instead of
+  verifying whichever theme the device happened to be in.
+- `settings permission grant|deny|reset <permission>` — set a permission the checklist depends on
+  before the flow reaches it, rather than racing an auto-resolving dialog.
+- `settings faceid|touchid|fingerprint <match|nonmatch>` — exercise a biometric gate without
+  needing a real credential.
+- `settings clear-app-state` wipes app data. It is destructive to the next run's starting state;
+  use it only on an explicit request.
+
 ## Known agent-device quirks
 
-Quirks below are **driver-level** — measured against the CLI itself, not against any one app —
-unless a note says otherwise. Confirm a quirk against the app in front of you before citing it as
-settled fact if anything about the behaviour looks different than described, and add anything you
-learn under "New quirks" in your report.
+**Provenance matters here.** Unless a bullet says otherwise, these were measured on one or two
+React Native apps on one machine against `agent-device` 0.20.8. They are **starting hypotheses,
+not settled driver facts** — confirm one against the app in front of you before citing it as the
+reason for a verdict, and add anything you learn under "New quirks" in your report.
+
+**The default targeting order is the CLI's, not this list's:** refs first, then `id`/`label`/
+`role` selectors, and **coordinates last** — only after `snapshot -i` shows no semantic target, or
+a sparse/AX-unavailable warning says its refs and selectors are invalid. Most bullets below are
+exceptions that earn a coordinate press. They are not a licence to lead with one.
 
 ### The accessibility tree
 
-- **A complex or slow accessibility tree makes a full snapshot expensive and can make the CLI
-  fall back to a degraded backend.** Budget wall-clock accordingly, and prefer a `--settle` diff
-  or a targeted `find`/`get`/`is` call over a repeated full snapshot when the tree is large.
 - **Most React Native controls do not expose a native button role** — a screen can render only a
   handful of real button nodes while every pressable surface is an untyped node with a label.
-  Do not filter a snapshot by role; match on label or structure instead.
-- **`hittable: false` does not mean a control is broken, and `hittable: true` does not prove one
-  works.** In React Native this flag is unreliable in both directions. The only proof a control
+  Do not filter a snapshot by `role`; match on label or structure instead.
+- **`hittable` is unreliable in both directions in React Native.** `hittable: false` does not mean
+  a control is broken, and `hittable: true` does not prove one works. The only proof a control
   works is that pressing it changes something observable.
 - **Bottom sheets and modals can be opaque to the accessibility tree** — an open sheet may reduce
   the whole snapshot to a handful of container nodes with none of its row labels. Verify sheet
   contents from a screenshot and press by coordinate rather than asserting on sheet text via a
   selector.
-- **Whether tapping a sheet's backdrop dismisses it or activates whatever is beneath the tap
-  point depends on whether the backdrop's tap point actually lands on empty backdrop.** A
-  full-screen backdrop's center is not guaranteed to be empty — on a short sheet it can land on a
-  visible row. Confirm from a screenshot that the point you're about to press is empty backdrop
-  before relying on a backdrop tap to dismiss; if it isn't, or you're unsure, press the sheet's
-  explicit close control instead.
+- **A sheet backdrop's centre is not guaranteed to be empty** — on a short sheet it can land on a
+  visible row, so a backdrop tap activates what is beneath it instead of dismissing. Confirm from
+  a screenshot that the point is empty backdrop; if it isn't, or you're unsure, press the sheet's
+  explicit close control.
 - **Refs go stale after almost any transition** — a sheet opening or closing, a list re-render, a
   scroll, a round-trip through a system picker. Re-snapshot before pressing a ref you captured
   before the transition; pressing a stale one is a hard error, not a silent mis-tap, so treat it
   as noise to route around rather than a finding to report.
-- **A ref captured from a `--settle` diff is not always a valid press target** — some CLI
-  versions only authorize refs from a complete snapshot. If pressing a diff-sourced ref is
-  rejected, take a full snapshot first.
-- **A tree-size or node-count figure from a shallow or depth-limited query can be a small fraction
-  of the real tree**, truncated by breadth rather than depth. Never quote such a count as a total,
-  and never conclude a component is absent because a shallow query didn't show it. If a
-  framework-level inspector is available for a real count, cross-check against it and say so if
-  the two disagree.
+- **A ref captured from a `--settle` diff is not always a valid press target** — some CLI versions
+  only authorize refs from a complete snapshot. If a diff-sourced ref is rejected, take a full
+  `snapshot -i` first.
 - **A container marked accessible to the platform collapses its children out of the tree.** The
   card, row or cell exposes one composite node with a concatenated label and a single rect, and its
   text, chips and badges have no refs at all — a scoped snapshot returning exactly one node for a
   whole card is the signature. The card's own rect is still trustworthy, so measure the repeat from
   it; anything *inside* the card has to come from pixel work on a crop taken with that rect. Say in
-  the report that the internals were measured by pixel scan, because the precision is not the
-  same.
+  the report that the internals were measured by pixel scan, because the precision is not the same.
 - **An interactive-only snapshot can fold the first item of a section into a container rect** that
   spans the whole scroll content, while every later item gets its own clean rect. If item one's
   geometry is what you need, take it from a full snapshot or pixel-scan for it — never report the
   container's rect as the item's.
+- **Never quote a node count from a shallow or depth-limited query as a total** — it can be
+  truncated by breadth rather than depth, and a component missing from it is not proven absent.
+  Cross-check against `agent-device react-devtools` for a real component count, and say so if the
+  two disagree.
+
+### The React Native developer overlay
+
+- **A first-launch or first-attach warning/error overlay can cover part of the app**, sometimes
+  left over from an earlier session. Clear it with `agent-device react-native dismiss-overlay` and
+  never report it as an app defect. Do not press warning/error text manually — that command owns
+  the LogBox/RedBox targeting policy (`help react-native`).
+- **Do not confuse it with an intentional in-app banner.** A snapshot sees an in-app banner as
+  ordinary content nodes while the developer overlay is typically invisible to it, and
+  `dismiss-overlay` reports finding a real overlay only when one is present. Timing discriminates
+  too: an in-app banner auto-dismisses on its own schedule, a developer overlay persists.
+- **To capture something that is on screen only briefly, don't chain diagnostic commands between
+  the trigger and the capture** — the delay can eat the window entirely. `agent-device record`
+  with frame extraction beats guessing a screenshot delay for anything short-lived.
 
 ### Commands that behave differently than you'd expect
 
-- **A `find`-by-label action verb can be unsupported even when the same verb works as a direct
-  command** (e.g. a "press" sub-action on `find` failing while a bare `press` on a ref works, or
-  vice versa with `click`). If one verb errors as unsupported, try the sibling verb before
-  concluding the control is unreachable.
+- **`find "<label>" press` is unsupported while `find "<label>" click` works.** If one verb errors
+  as unsupported, try the sibling verb before concluding the control is unreachable.
 - **`find` is often ambiguous even for a label that appears visually once**, because a screen can
-  carry a repeated hidden subtree (e.g. off-screen nav siblings). Disambiguate with a
-  first/last-match flag, or resolve the exact ref from a fresh snapshot and press that. A
-  first/last-match flag can itself resolve to a whole-screen ref (rect spanning the entire
-  window) rather than the intended control, and this is not limited to any one index — it can
-  happen at any position in the match order with a plausible-looking label. **Always verify the
+  carry a repeated hidden subtree (e.g. off-screen nav siblings). Disambiguate with `--first`, or
+  resolve the exact `@eN` from a fresh `snapshot -i` and press that. `--first` can itself resolve
+  to a whole-screen ref (a rect spanning the entire window), and not only at the first position —
+  it can happen anywhere in the match order with a plausible-looking label. **Always verify the
   result by screenshot after the press; do not trust the tool's own reported tap coordinates as
   proof it hit the right element.**
-- A device selector by unique id and one by human-readable name are usually interchangeable ways
-  to name the same simulator/emulator, but a not-found error for the id form usually means the
-  device exists but is not booted, not that the selector is broken — a device that exists but
-  isn't booted is not auto-booted by the driver either. Boot it first.
-- **A system "go back" gesture or command can silently no-op** on a pushed screen and report
-  success anyway. If the screen exposes a real, labeled back control, prefer pressing that over a
-  system gesture.
-- **Never use a vertical point-drag swipe on a pushed (stack-navigated) screen** — the OS can
-  read it as a system app-switch gesture and background the app entirely. Use scroll commands
-  for in-page scrolling and reserve drags for modal/sheet dismissal.
-- **Nested scrollable containers make scroll/swipe commands inconsistent** — the same command can
-  move nothing, or move the wrong container, depending on what sits under the gesture's point.
-  Never assume a scroll had an effect because the command reported success: track the target's
-  absolute position across repeated small scroll attempts and confirm it actually moved, nudging
-  direction based on which way it needs to go.
-- **System privacy prompts (camera, location, notifications) can auto-resolve within a second or
-  two under this kind of harness — often too fast to screenshot — and the auto-response is not
-  uniform across permission types.** Verify the outcome through a device log or permission
-  database rather than assuming an intended outcome occurred, and **report what actually
-  happened, not what you intended.**
-- **System-level alerts (e.g. an OS "springboard" dialog) are not in the app's own accessibility
-  tree at all.** Screenshot and tap by coordinate.
-- A runner-restarting failure signature (a hard test-runner crash rather than a normal error) can
-  follow repeated focus attempts on certain fields. After one such failure, switch approach —
-  usually to a coordinate press — instead of retrying the same action.
+- **`--udid <UDID>` and `--device "<name>"` name the same simulator**, but `DEVICE_NOT_FOUND` for
+  the udid form usually means the device exists and is not **booted**, not that the selector is
+  broken — the driver does not auto-boot it. `agent-device boot` it first.
+- **`back --system` can silently no-op on a pushed screen and report success anyway.** If the
+  screen exposes a real, labeled back control, prefer pressing that.
+- **iOS: never use a vertical point-drag swipe on a pushed (stack-navigated) screen** — the OS can
+  read it as a system app-switch gesture and background the app entirely. Use `scroll` for in-page
+  scrolling and reserve drags for modal/sheet dismissal.
+- **Nested scrollable containers make `scroll`/`swipe` inconsistent** — the same command can move
+  nothing, or move the wrong container, depending on what sits under the gesture's point. Never
+  assume a scroll had an effect because the command reported success: track the target's absolute
+  position across repeated small scrolls and confirm it actually moved, nudging direction based on
+  which way it needs to go.
+- **Android: use `agent-device alert wait|accept|dismiss` for runtime permission dialogs and
+  native alerts** — the CLI handles them, so do not reach for coordinate taps. If `alert` reports
+  no alert, the surface is app-owned UI: use `snapshot -i` and press by label or ref.
+- **iOS is the opposite case: SpringBoard alerts are not in the app's accessibility tree at all.**
+  Screenshot and tap by coordinate, or see `agent-device help ios-system-ui`.
+- **iOS: system privacy prompts (camera, location, notifications) can auto-resolve within a second
+  or two under this kind of harness** — often too fast to screenshot — and the auto-response is not
+  uniform across permission types. Prefer setting the permission explicitly with
+  `settings permission` when the checklist depends on it; otherwise verify the outcome through a
+  device log or the permission database and **report what actually happened, not what you
+  intended.**
 - **Icon-only controls and small dismiss/remove buttons are frequently not exposed as refs at
-  all.** Get their rects from a snapshot's coordinate data, compute the center, and press by
-  coordinate.
+  all.** Take their rects from `snapshot -i -c --json`, compute the centre, and press by coordinate.
+- **An oversized accessibility hit-frame can span far more of the screen than the visible control**
+  (e.g. a header link or back arrow whose hit-frame covers most of the screen). Pressing such a
+  control by label/selector can silently no-op; a coordinate tap at the visual location works.
 - **Repeated blind taps at one fixed coordinate are unsafe inside an animating sheet** — content
   can drift tens of points between taps. Re-screenshot and recompute the coordinate before each
   tap rather than reusing one.
-- **An oversized accessibility hit-frame can span far more of the screen than the visible
-  control** (e.g. a header link or back arrow whose hit-frame covers most of the screen).
-  Pressing such a control by label/selector can silently no-op; a coordinate tap at the visual
-  location works.
 - **A bare text or numeric selector can match more than one visually similar element** (e.g. two
-  calendar cells in adjacent months sharing the same day number) and resolve silently to the
-  wrong one. Prefer coordinates or a more specific selector when the visible content is
-  ambiguous this way.
+  calendar cells in adjacent months sharing the same day number) and resolve silently to the wrong
+  one. Prefer coordinates or a more specific selector when the visible content is ambiguous.
 - **Some CLI features are platform-limited** (e.g. a keyboard-state query supported on one mobile
-  platform but not the other). An "unsupported operation" error there is a platform gap, not a
-  bug in your invocation — fall back to whatever subset of keyboard commands does work.
+  platform but not the other). An "unsupported operation" error there is a platform gap, not a bug
+  in your invocation — fall back to whatever subset of commands does work, and say which.
 
 ### Text input
 
 - **A single-line text field frequently does not focus via a press-then-type sequence — go
-  straight to a direct fill/set-value command.** A fill-style command usually handles focus
-  internally, so the press-then-type combination is what fails, not text input itself. The field
-  may never report a focused flag even after a successful fill — assert on the field's resulting
-  value instead of the focus flag.
-- **A direct fill only works for fields the accessibility layer can actually see.** A field
-  styled to zero size, zero opacity, or off-screen refuses focus with a "no element has keyboard
-  focus" style error — that is not a timing problem, so stop retrying it and switch to a
-  coordinate-based approach (raising the on-screen keyboard if needed, then pressing digit/key
-  positions directly by point). If neither a fill nor coordinates work on the exact field the
-  checklist names, exercise the same state through a different field and **note the substitution**
-  in your report rather than silently skipping the check.
-- **A field that is deliberately rendered invisible and zero-size (a common pattern for PIN/
-  passcode entry) can refuse both fill and type permanently, by design** — the field has real
-  native focus but the accessibility layer's focus predicate matches nothing on an invisible,
-  zero-frame element. The diagnostic signature is an explicit "no element has keyboard focus"
-  failure immediately on the attempt. On seeing it, stop immediately and switch to coordinate
-  taps on the visible keys/keypad — retrying fill or type wastes your attempt budget and, on some
-  CLI/runner combinations, a repeated hard failure of this kind can trigger a test-runner restart.
-- **A wheel/picker-style control's drag is usually a velocity fling, not a 1:1 positional drag,
-  and the distance-per-step ratio is not reliable enough to land on an exact value in one
-  gesture.** The reliable recipe is: one approximate swipe to bring the target value within the
-  visible rows, then a direct press on the exact visible row — most wheel pickers accept a direct
-  tap on any visible non-center row to select it immediately. Verify the committed value after
-  the picker is dismissed, not the wheel's mid-gesture visual position. Do not chain a second
-  fling immediately after the first settles — a gesture issued while the previous one is still
-  snapping can land on an unrelated value; prefer one tap per step for a controlled multi-step
-  move.
-- **A first-launch or first-attach developer warning/error overlay can cover part of the app**,
-  sometimes left over from an earlier session. Dismiss it before interacting and never report it
-  as an app defect — but do not confuse it with an intentional in-app banner: a reliable
-  discriminator is that a dismiss-overlay command reports finding a real developer overlay only
-  when one is actually present, and a snapshot sees an in-app banner as ordinary content nodes
-  while the developer overlay is typically invisible to it. Timing also helps: an in-app banner
-  usually auto-dismisses on its own schedule, while a developer overlay persists until dismissed.
-  If you need to capture something that lives on screen only briefly, don't chain extra
-  diagnostic commands between the trigger and the capture — the delay can eat the window
-  entirely; a screen recording with frame extraction is more reliable than guessing a screenshot
-  delay for anything suspected to be short-lived.
-- **`agent-device` 0.20.8 has no built-in frame-diff or frame-extraction command** — pull frames
-  from a `record start <path>.mp4` capture with a small external script (e.g. a Swift
-  `AVAssetImageGenerator` snippet) instead of expecting the CLI to do it. Running that script can
-  itself need an unsandboxed call: some toolchains write their module cache to a scratch path
-  (e.g. `/var/folders`) that a sandboxed shell denies, even though the script only reads and
-  writes scratch files otherwise. Re-test this gap if the CLI version has moved past 0.20.8.
+  straight to `fill`.** `fill <target> <text> --settle` handles focus internally, so the
+  press-then-`type` combination is what fails, not text input itself. The field may never report a
+  focused flag even after a successful fill — assert on the field's resulting value instead of the
+  focus flag.
+- **`fill` only works for fields the accessibility layer can actually see.** A field styled to
+  zero size, zero opacity, or off-screen refuses focus with a "no element has keyboard focus"
+  style error — that is not a timing problem, so stop retrying it and switch to a coordinate-based
+  approach (raising the on-screen keyboard if needed, then pressing key positions directly by
+  point). If neither a fill nor coordinates work on the exact field the checklist names, exercise
+  the same state through a different field and **note the substitution** in your report rather
+  than silently skipping the check.
+- **A field deliberately rendered invisible and zero-size (a common pattern for PIN/passcode
+  entry) can refuse both `fill` and `type` permanently, by design** — the field has real native
+  focus but the accessibility layer's focus predicate matches nothing on an invisible, zero-frame
+  element. The diagnostic signature is an explicit "no element has keyboard focus" failure
+  immediately on the attempt. On seeing it, stop and switch to coordinate taps on the visible
+  keypad — retrying wastes your attempt budget and, on some CLI/runner combinations, a repeated
+  hard failure of this kind can trigger a test-runner restart. Where the gate is biometric rather
+  than numeric, `settings faceid|touchid <match>` skips the problem entirely.
+- **A wheel/picker-style control's drag is a velocity fling, not a 1:1 positional drag**, and the
+  distance-per-step ratio is not reliable enough to land on an exact value in one gesture. The
+  reliable recipe: one approximate swipe to bring the target value into the visible rows, then a
+  direct press on the exact visible row — most wheel pickers accept a tap on any visible non-centre
+  row. Verify the committed value after the picker is dismissed, not the wheel's mid-gesture
+  position. Do not chain a second fling immediately after the first settles — a gesture issued
+  while the previous one is still snapping can land on an unrelated value.
 
 ## Reusable route scripts
 
 Every run walks the same path from launch to the screen under test, spending turns to rebuild a
-route the previous run already knew. Recording that route once and replaying it avoids repeating
-the cost — but whether recording is safe here depends on what the route passes through:
+route the previous run already knew. Saved `.ad` scripts remove that cost — but only if you look
+for one **before** you start navigating.
 
-**Do not record a route script for a destination whose launch path necessarily passes through a
-screen that can only be driven by raw coordinate presses on every single launch** (most commonly
-a lock/PIN/passcode screen with no accessible focus — see "Text input" above). A recorded
-coordinate step replays blind with no identity check, so a layout shift silently mis-taps and
-still reports success; and if that screen's coordinates encode a credential, the script would
-encode the credential too. Drive that portion live on every run instead.
-
-Where recording is safe:
-
-- Record only the route to the screen, never the checklist itself. A lot of interaction in a
-  React Native app is coordinate presses (icon-only controls, chip/remove buttons, picker wheels),
-  and those replay blind — a recorded coordinate silently hits the wrong control after any layout
-  shift, while a selector-based step fails closed on an identity mismatch instead of mis-tapping.
-- Guard the destination with a `wait` on a stable, labeled landmark, not a localized string. If
-  only a translated label is available, the script is bound to the language it was recorded in —
-  say so in the script's name.
-- If the route crosses a login form, record any credential as a named variable placeholder rather
-  than a literal value, so the saved script holds no literal credential. If the route's
-  authentication step opens a system web view outside the accessibility tree (e.g. an OAuth/SSO
-  flow), you cannot record around it — sign in live without recording armed first, then record
-  the route starting from the already-authenticated screen.
-- Never hand-edit a saved script. An edited script can replay green while its identity checks are
-  stale or invented, defeating the exact protection it exists to provide. Re-record the route
-  from scratch instead of repairing one that has drifted.
-- Never delete a failing `wait` to make a replay pass — it will pass warm and fail cold, and a
-  failing wait means the timing actually changed.
-- A replay failure reported while a build or bundler is running in parallel on the same machine
-  can be a false alarm from host load rather than a real drift. Re-run it on a quiet machine
-  before reporting it as a failure.
+- **Check first, every run.** Route scripts live in `.agent-device/` at the repository root,
+  named after the destination (`.agent-device/<screen>.ad`), unless the project's verification
+  facts name another location. Glob it before your first navigation command.
+- **If a script for your destination exists**, `agent-device replay .agent-device/<screen>.ad
+  --keep-session` — that flag suppresses the authored close and hands you the surviving session.
+  Run the checklist live in it. Do not re-walk the route by hand.
+- **If none exists, record one while you navigate** — you are walking the route anyway, so the
+  recording is nearly free. `agent-device help scripting` owns the command shapes; the rules that
+  keep a recorded script from replaying green while mis-tapping are in this plugin's
+  `reference/route-scripts.md` (Glob: `**/ui-verifier-mobile/reference/route-scripts.md`). **Read
+  it before you arm a recording** — one route shape must not be recorded at all, and a credential
+  in the route needs `--record-as` or its literal text lands in the file.
+- **A replay failure is not a checklist failure.** It means the route drifted. Repair or re-record
+  per the reference, then verify — never report a route drift as an app defect.
 
 <!-- discipline:begin — generated from shared/verification-discipline.md. Do not edit here: edit the source and run scripts/sync-discipline.py -->
 

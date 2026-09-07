@@ -5,9 +5,10 @@ emulator. Give it a concrete checklist of steps and expectations; it drives the 
 `agent-device`, captures screenshots, measures what it sees, and returns a pass/fail report with
 evidence. It reports findings only and never modifies code.
 
-It carries two layers of knowledge: driver facts about `agent-device` and React Native's
-accessibility quirks (measured once, expensive to relearn), and verification discipline shared
-with `ui-verifier-web` — never report an unattempted step as PASS, measure every repeated
+It carries two layers of knowledge: driver quirks about `agent-device` and React Native's
+accessibility layer (measured once, expensive to relearn — and framed as hypotheses to confirm,
+since the CLI's own version-matched `help` topics outrank them), and verification discipline
+shared with `ui-verifier-web` — never report an unattempted step as PASS, measure every repeated
 component, separate observation from hypothesis, redact secrets from reports and screenshots.
 Nothing project-specific — bundle ids, build commands, patched packages, app-specific traps — is
 in the agent itself.
@@ -19,8 +20,14 @@ claude plugin marketplace add ~/Projects/claude-plugins
 claude plugin install ui-verifier-mobile
 ```
 
-Requires `agent-device` on the machine the agent runs on. The agent resolves it itself and stops
-with an install command if it's missing — it never installs or upgrades it autonomously.
+Two things must already be on the machine the agent runs on:
+
+- **The `agent-device` CLI**, version `0.20.0` or newer. The agent resolves it itself and stops
+  with an install command if it's missing — it never installs or upgrades it autonomously.
+- **The `agent-device` skill**, which the agent declares in its frontmatter and uses to resolve
+  the binary and route into the CLI's version-matched help. This plugin does not ship it; it is a
+  separate skill (e.g. under `~/.claude/skills/agent-device`). Without it the agent still runs,
+  but it loses the version floor and the `help` routing it leans on.
 
 ## Project-specific facts
 
@@ -33,7 +40,13 @@ If the file is absent, the agent discovers what it can, says which facts it had 
 offers them back as a block ready to paste into that file. `reference/ui-verification.template.md`
 in this plugin is a starting skeleton for authoring one from scratch.
 
+The agent also checks `.agent-device/` for a saved `.ad` route script to the screen under test
+before navigating, and records one if none exists — so repeat runs replay the route instead of
+re-walking it. `reference/route-scripts.md` holds the recording, replay and divergence-repair
+rules; the agent reads it on demand rather than carrying it in its prompt.
+
 ## No configuration needed
 
-Dispatch this agent by name (`ui-verifier`) with a checklist. There is nothing else to
-wire up.
+Dispatch this agent as `ui-verifier-mobile:ui-verifier` with a checklist. The plugin name is
+part of the address — `ui-verifier-web` ships an agent with the same bare name, so use the
+qualified form whenever both are installed. There is nothing else to wire up.
