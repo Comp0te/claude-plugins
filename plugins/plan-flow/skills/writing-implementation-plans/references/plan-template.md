@@ -66,6 +66,14 @@ Read this before starting, whatever tool, model, or editor you are using.
 
 **Never:** NON_GOALS_AND_FORBIDDEN_APPROACHES
 
+## Design references
+
+<!-- Omit this whole section when the plan cites no reference images. -->
+
+| File | Screen | State | How to reach it | Source |
+| ---- | ----- | ----- | --------------- | ------ |
+| `references/NAME.png` | SCREEN_NAME | WHAT_STATE_THE_IMAGE_SHOWS | STEPS_FROM_APP_LAUNCH | ORIGIN_AND_DATE |
+
 </frozen-after-approval>
 
 ## Decision points
@@ -233,6 +241,34 @@ Close each task by listing the row→test mapping, so the gate is visible rather
 When a test disagrees with a matrix row, the row wins: fix the code, or — if the row itself
 is ambiguous — stop and ask. Editing the row to match the implementation is the exact failure
 the frozen block exists to prevent.
+
+### Design references
+
+One row per reference image, and the section is omitted entirely when there are none —
+an empty table is worse than no table.
+
+The table is frozen because an implementer under friction will otherwise reach for a
+different frame that is easier to match, and a swapped reference reports as success.
+
+Each column earns its place:
+
+- **File** — relative to the plan's folder, never absolute. An absolute path pins the
+  plan to one checkout, and this document is meant to survive being handed to someone
+  else.
+- **Screen** — what the image is of, in the app's own vocabulary.
+- **State** — what state the image captures: empty, filled, error, expanded, four items
+  rather than three. Two frames of the same screen in different states are two rows.
+- **How to reach it** — the steps that put the running app into that exact state, from
+  launch. This is the column the whole table exists for: without it a verifier has a
+  folder of images and no way to know which of them it is looking at. When a state
+  genuinely cannot be reached, say so here and say why — a recorded gap gets reported;
+  a dropped row does not.
+- **Source** — where the image came from: a design-tool node id, or a site and **the
+  date it was captured**. A live site changes, and without the date nobody can tell
+  whether the reference predates a redesign.
+
+A plan whose geometry is transcribed from a design carries the design; the numbers in
+the plan are a transcription and transcriptions carry errors.
 
 ### Contract code and reference code
 

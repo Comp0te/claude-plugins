@@ -15,7 +15,18 @@ why the plan must stand on its own.
 
 ## Where the plan lives
 
-Default to `docs/plans/YYYY-MM-DD-<feature-name>.md` inside the repository the plan is for.
+A plan that carries no reference images is a single file:
+`docs/plans/YYYY-MM-DD-<feature-name>.md` inside the repository the plan is for.
+
+A plan that cites reference images — design frames, a screenshot of a screen being
+matched — is a folder instead: `docs/plans/YYYY-MM-DD-<feature-name>/`, holding `plan.md`
+and a `references/` directory beside it.
+
+The images live in `references/`, and the plan's `Design references` table cites them by
+a path relative to its own folder. This is not tidiness: a reference parked in a session
+scratchpad is gone by the time anyone verifies against it, and a plan that cites a
+missing file reads exactly like a plan that was checked.
+
 If the plan's author states a different location, that preference overrides the default.
 
 ## The plan must stand alone
