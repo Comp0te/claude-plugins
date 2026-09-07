@@ -19,8 +19,14 @@ claude plugin marketplace add ~/Projects/claude-plugins
 claude plugin install ui-verifier-web
 ```
 
-Requires `agent-browser` on the machine the agent runs on. The agent resolves it itself and stops
-with an install command if it's missing — it never installs or upgrades it autonomously.
+Two things must already be on the machine the agent runs on:
+
+- **The `agent-browser` CLI**, version `0.33.0` or newer. The agent resolves it itself — through a
+  login shell, since a sandboxed `PATH` routinely misses it — and stops with an install command if
+  it's missing. It never installs or upgrades it autonomously.
+- **The `agent-browser` skill**, which the agent declares in its frontmatter and uses to load the
+  CLI's version-matched guide. This plugin does not ship it; it is a separate skill (e.g. under
+  `~/.claude/skills/agent-browser`).
 
 ## Project-specific facts
 
