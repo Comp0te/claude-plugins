@@ -25,9 +25,9 @@ agent-device help react-native   # RN hazards: overlays, Metro, sparse-AX recove
 ```
 
 These ship with the CLI you are actually running. **Where a help topic and the quirks below
-disagree, the help topic wins** — the quirks were measured on 0.20.8 and can have aged. Read
-`help debugging` when you need logs, network or traces, and `help ios-system-ui` for SpringBoard
-and system surfaces.
+disagree, the help topic wins** — the quirks were measured on 0.20.8–0.20.10 and can have aged.
+Read `help debugging` when you need logs, network or traces, and `help ios-system-ui` for
+SpringBoard and system surfaces.
 
 ## Read first — the project's verification facts
 
@@ -64,13 +64,31 @@ current.
 
 ### Session, daemon and sandbox traps
 
-- A device can be held by a driver session that `session list` does not show. If `open` reports
-  the device busy, close the named session from the error, then open fresh.
+- **A device can be held by a driver session that `session list` does not show** — it reports
+  `{"sessions": []}` while `open`/`boot` reject with `DEVICE_IN_USE`, because the owner belongs to
+  another workspace. Do not conclude from an empty `session list` that the device is free. Ask the
+  owner instead, which also tells you whether it is worth waiting for:
+
+  ```
+  agent-device device status --platform <ios|android> --udid <udid>
+  ```
+
+  A **live** owner names its session and workspace, and will keep rejecting until that session
+  closes or its daemon dies. A **stale** one reclaims automatically — `device status` then reports
+  no live claims and offers `--stale` to inspect the leftover. Report a live owner in another
+  workspace rather than killing someone else's daemon on your own initiative.
 - **A daemon inherits the sandbox profile of the shell that spawned it, and no later flag on a
   single command can undo that.** A daemon born under a sandboxed call makes every later native
   build fail with a permissions error, even when the failing command itself is run unsandboxed —
   the daemon, not the invocation, holds the profile. Kill the stale daemon and reopen once from
   an unsandboxed call to respawn a clean one.
+- **On iOS that failure arrives disguised as stale build products, and the CLI's own hint sends
+  you the wrong way.** A sandboxed daemon fails the runner build as
+  `xcodebuild build-for-testing failed`, hinting at `clean:xcuitest` or deleting
+  `~/.agent-device/apple-runner/derived`. Clearing derived data does not fix a sandbox denial.
+  Read `runner.log` first: `Operation not permitted` writing under `apple-runner/derived` is the
+  daemon's profile, so respawn it unsandboxed instead of rebuilding. This is likeliest right after
+  an `agent-device` upgrade, when the runner has to be rebuilt at all. *(Measured on 0.20.10.)*
 - **A sandboxed probe of the dev server is not authoritative.** If a sandboxed shell cannot
   `curl localhost:8081/status` but an unsandboxed one can, Metro is running and the probe is
   wrong — do not conclude the dev server is down, and do not rebuild on that evidence.
@@ -111,6 +129,11 @@ every use under "State I changed" — the no-mutation rule below still governs.
 React Native apps on one machine against `agent-device` 0.20.8. They are **starting hypotheses,
 not settled driver facts** — confirm one against the app in front of you before citing it as the
 reason for a verdict, and add anything you learn under "New quirks" in your report.
+
+A 0.20.10 re-run re-confirmed four of them unchanged: the scarcity of native button roles, the
+composite label on an accessible container, a press reporting success and coordinates while
+changing nothing, and the developer overlay. Bullets that moved carry their own version note.
+Everything else still dates from 0.20.8.
 
 **The default targeting order is the CLI's, not this list's:** refs first, then `id`/`label`/
 `role` selectors, and **coordinates last** — only after `snapshot -i` shows no semantic target, or
@@ -173,13 +196,23 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
 
 - **`find "<label>" press` is unsupported while `find "<label>" click` works.** If one verb errors
   as unsupported, try the sibling verb before concluding the control is unreachable.
-- **`find` is often ambiguous even for a label that appears visually once**, because a screen can
-  carry a repeated hidden subtree (e.g. off-screen nav siblings). Disambiguate with `--first`, or
-  resolve the exact `@eN` from a fresh `snapshot -i` and press that. `--first` can itself resolve
+- **`find` can be ambiguous even for a label that appears visually once**, because accessibility
+  wrappers nest the same label several times within one screen. Resolve the exact `@eN` from a
+  fresh `snapshot -i` and press that, or disambiguate with `--first`. `--first` can itself resolve
   to a whole-screen ref (a rect spanning the entire window), and not only at the first position —
   it can happen anywhere in the match order with a plausible-looking label. **Always verify the
   result by screenshot after the press; do not trust the tool's own reported tap coordinates as
   proof it hit the right element.**
+  *On 0.20.10 the off-screen nav-sibling case behind this no longer reproduced: after a tab
+  switch the previous tab's content was absent from both `snapshot -i` and `snapshot --raw`.
+  Duplicate labels from wrapper nesting remained. Measured on one tab pair of one app — if you hit
+  a genuinely hidden subtree, say so.*
+- **A mutating command fails loudly on ambiguity rather than guessing.** `press`/`click`/`fill`/
+  `longpress` collapse duplicate wrappers only along a single ancestor-descendant chain; matches in
+  distinct subtrees raise `AMBIGUOUS_MATCH` with a bounded candidate list, and geometry never picks
+  a winner. Retry one printed candidate ref or narrow the selector — do not reach for coordinates.
+  `find --first`/`--last` still opt into picking, so they keep the verify-by-screenshot rule above.
+  *(From `help workflow` on 0.20.10, not measured here — it is what makes the bullet above safe.)*
 - **`--udid <UDID>` and `--device "<name>"` name the same simulator**, but `DEVICE_NOT_FOUND` for
   the udid form usually means the device exists and is not **booted**, not that the selector is
   broken — the driver does not auto-boot it. `agent-device boot` it first.
