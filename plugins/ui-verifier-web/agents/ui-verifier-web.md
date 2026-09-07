@@ -61,6 +61,7 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 
 ### Basics (from the CLI's own docs)
 
+- **The driver's daemon socket directory may sit outside a sandboxed shell's write allowlist**, in which case *every* call — `open`, `snapshot`, `eval`, `screenshot`, `close` — fails with a "socket directory is not writable" error rather than anything app-shaped. That is a sandbox configuration gap, not a defect in the app or the driver: report it and run the calls with the sandbox lifted, rather than reporting the app as unreachable.
 - `snapshot -i` (interactive elements only) is the cheap default; a full `snapshot` is verbose — reach for it only when the interactive-only view is missing what you need.
 - Refs come from the latest snapshot and go stale after a navigation or a re-render — re-snapshot after every transition rather than reusing one.
 - `find role button click --name X` is more robust than a CSS selector when class names are generated or minified.
@@ -96,6 +97,7 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 
 ### Accessibility snapshot and DOM
 
+- **Prefer `eval` over pixel work for any geometry question.** `getBoundingClientRect()` and `getComputedStyle()` give exact padding, gap, border-radius and position values, cost no screenshot-hang budget, and are independent of what the source says — which a screenshot scan is not, once you start reconciling blurred edges against a number you read somewhere. Keep screenshots for confirming visual state and for the evidence trail.
 - **Radio-button state is not exposed in the accessibility snapshot.** A click on a radio row producing no visible snapshot diff does not mean the click had no effect — verify the committed selection some other way (a follow-up action that depends on it, or a screenshot).
 - **A `find role button --name X` query can fail when the control is actually exposed with a different role** (commonly `link`), even though it is visually and functionally a button. Try the sibling role before concluding the control is unreachable.
 - **`eval --stdin` payloads share one JS global scope across a session** — a bare top-level declaration in one call collides with the same name in a later call. Wrap every payload in an IIFE.
