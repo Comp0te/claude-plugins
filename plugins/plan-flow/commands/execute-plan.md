@@ -10,13 +10,17 @@ executor and reviewing what comes back before moving to the next.
 
 - **No argument given:** do not guess. Look for plans in the repository's plan directory
   (`docs/plans/` by default — see the plan-writing skill for how a project can override this)
-  and list what is there. Ask the user which one to run. Never pick one silently, even if only
-  one file is found.
+  and list what is there. A plan is either a `.md` file directly in that directory or a
+  subdirectory containing `plan.md` — list both forms. Ask the user which one to run. Never
+  pick one silently, even if only one is found.
 - **The given path does not exist:** report the exact path you were given and stop. Do not
   reconstruct a plan from anything said earlier in this conversation — a remembered summary is
   not the frozen document, and executing against one is how a task ends up graded against a
   contract nobody actually approved.
-- **The path exists:** continue below.
+- **The path exists:** if it is a directory, the plan is `plan.md` inside it, and the
+  `references/` folder beside it holds whatever images the plan cites. A directory with no
+  `plan.md` is the "does not exist" case above — report the exact path and stop. Otherwise
+  continue below.
 
 ## 1. Read the plan's frozen header first
 

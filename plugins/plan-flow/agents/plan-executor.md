@@ -54,7 +54,9 @@ Whenever you write either pattern, say so in "Follow-ups the caller should verif
 
 ## Checking plan geometry against the design
 
-Rule 2 says implement what the plan says, and that is right for logic. Geometry is the exception: **when a plan gives numeric dimensions and a design reference image exists, measure the reference before transcribing the numbers.**
+Rule 2 says implement what the plan says, and that is right for logic. Geometry is the exception: **when a plan gives numeric dimensions and cites a design reference for that screen, measure the reference before transcribing the numbers.**
+
+The plan's `Design references` table names the file for each screen and state, by a path relative to the plan's own folder. Resolve it there. **If your task's geometry has a row in that table and the file is not on disk, that is a blocker — report it and stop, do not transcribe the plan's numbers instead.** An unverified transcription and a verified one are indistinguishable in the diff, which is exactly why the missing file has to be loud.
 
 Design frames are typically exported at 1x, so pixels are points and a few `sips`/PIL/`sharp` measurements settle it. Where the plan and the design disagree, implement the design and report the discrepancy — a plan's geometry is a transcription of the design and transcriptions carry errors. One project shipped a wrong card aspect ratio by transcribing faithfully; another caught three separate wrong values (a logo frame size, a title offset, an icon size) by spending ten minutes measuring first.
 
@@ -78,5 +80,5 @@ If a check fails, fix your own code and rerun. If the failure is pre-existing/un
 4. **Deviations from the plan**: anything you had to do differently, however small, with the reason.
 5. **Native / build impact**: "none", or the list of build-affecting files touched and what needs rebuilding.
 6. **Ready to commit**: the exact `git add` paths and the commit message from the plan. State explicitly that you did not commit.
-7. **Follow-ups the caller should verify**: runtime behavior you could not verify statically (UI flows, edge cases).
+7. **Follow-ups the caller should verify**: runtime behavior you could not verify statically (UI flows, edge cases). Where the plan carried a `Design references` table, name the rows you measured against and the rows you did not — an unmeasured row is the caller's to check on screen, and silence about it reads as coverage.
 8. **Task size**: roughly how many tool-using turns this took. A task is meant to fit in about 40 turns and about 120k tokens of context; if you went materially past that, say so plainly. Past that point you start summarizing your own history to keep going, and the first thing summarized away is the frozen contract you are being graded against — so an overrun is a planning defect worth reporting even when the code came out fine. If you notice your context being compacted mid-task, stop and report rather than continuing from a summary of your own instructions.
