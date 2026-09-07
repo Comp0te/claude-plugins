@@ -29,6 +29,27 @@ missing file reads exactly like a plan that was checked.
 
 If the plan's author states a different location, that preference overrides the default.
 
+## Getting the references into the plan
+
+Create the plan's folder and its `references/` directory before extracting anything, so that
+there is a destination to name.
+
+**When the references come from a design tool, name `<plan folder>/references` as the
+extractor's destination.** An extractor writes where its caller tells it to and falls back to
+the session scratchpad when nobody tells it — and that fallback is the exact failure this
+folder shape exists to prevent. If frames were already extracted earlier in the session, copy
+them into `references/` rather than citing wherever they landed.
+
+The extractor reports `File`, `Screen`, `State` and `Source`, which map straight into the
+table's columns of the same name. **Prefix each path with `references/`**: the extractor's
+paths are relative to the directory it was handed, the table's are relative to the plan's
+folder, and a path that resolves nowhere stops an executor cold.
+
+Fill `How to reach it` yourself. The extractor read a design file, not a running app, so the
+route through the app is not something it can know — and a state you cannot reach says so in
+the row rather than going blank, because a recorded gap gets reported and an empty cell reads
+as an oversight.
+
 ## The plan must stand alone
 
 Every plan opens with its own self-contained "How to execute this plan" header, reproduced
