@@ -1,6 +1,6 @@
 {
   "name": "ui-verifier-web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Verifies UI changes in a running web app or browser extension against a caller-supplied checklist: drives the browser, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
   "license": "MIT",

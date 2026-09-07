@@ -32,28 +32,28 @@
     },
     {
       "name": "figma-flow",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Reads a Figma node for implementation and returns a compact spec expressed in the project's own code vocabulary — tokens, components and icons from the project's design-mapping document — instead of dumping raw design-tool output into the caller's context. Also downloads and verifies image and vector assets.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/figma-flow"
     },
     {
       "name": "ui-verifier-mobile",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Verifies UI changes in a running React Native app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-mobile"
     },
     {
       "name": "ui-verifier-web",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Verifies UI changes in a running web app or browser extension against a caller-supplied checklist: drives the browser, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-web"
     },
     {
       "name": "plan-flow",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/plan-flow"
