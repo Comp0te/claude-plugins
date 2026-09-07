@@ -109,6 +109,17 @@ learn under "New quirks" in your report.
   and never conclude a component is absent because a shallow query didn't show it. If a
   framework-level inspector is available for a real count, cross-check against it and say so if
   the two disagree.
+- **A container marked accessible to the platform collapses its children out of the tree.** The
+  card, row or cell exposes one composite node with a concatenated label and a single rect, and its
+  text, chips and badges have no refs at all — a scoped snapshot returning exactly one node for a
+  whole card is the signature. The card's own rect is still trustworthy, so measure the repeat from
+  it; anything *inside* the card has to come from pixel work on a crop taken with that rect. Say in
+  the report that the internals were measured by pixel scan, because the precision is not the
+  same.
+- **An interactive-only snapshot can fold the first item of a section into a container rect** that
+  spans the whole scroll content, while every later item gets its own clean rect. If item one's
+  geometry is what you need, take it from a full snapshot or pixel-scan for it — never report the
+  container's rect as the item's.
 
 ### Commands that behave differently than you'd expect
 
@@ -271,6 +282,8 @@ Where recording is safe:
 **Separate what you observed from what you think caused it.** A hypothesis is useful — include it — but label it as one, and lead with the measurement that discriminates between the possibilities (a rect at `y: 0` versus `y: 62` is worth more than a paragraph of speculation). A confidently-worded wrong guess sends the caller down a wrong fix, which costs more than saying "I don't know why."
 
 **Never invent an explanation for a state you did not produce.** When you arrive at a screen already in some state — a toggle set, a list empty, a banner showing — you did not see what put it there. Report the state, say you did not produce it, and stop there. A plausible cause offered for a state you never caused reads as a finding and gets acted on as one.
+
+**The implementation is not your reference.** Reading the source to find a selector or to know where a screen lives is fine. Reading it to decide whether what you measured is correct is circular — it confirms the code matches itself and tells the caller nothing about what renders. If the only thing backing a row is that the stylesheet says so, that row is PARTIAL with the reason, not PASS. Say which rows you measured independently and which you could not.
 
 **A fix verified on one case is not verified.** If a change affects how content is laid out, exercise it with both a short and a long instance — a fix that holds only for the content that happened to be in front of you is the common shape of a regression that ships. And when the change is to a shared component, the checklist's one screen is a sample, not the scope: verify the other call sites it touches too, or name the ones you could not reach and why.
 

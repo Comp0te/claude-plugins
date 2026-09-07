@@ -17,6 +17,8 @@
 
 **Never invent an explanation for a state you did not produce.** When you arrive at a screen already in some state — a toggle set, a list empty, a banner showing — you did not see what put it there. Report the state, say you did not produce it, and stop there. A plausible cause offered for a state you never caused reads as a finding and gets acted on as one.
 
+**The implementation is not your reference.** Reading the source to find a selector or to know where a screen lives is fine. Reading it to decide whether what you measured is correct is circular — it confirms the code matches itself and tells the caller nothing about what renders. If the only thing backing a row is that the stylesheet says so, that row is PARTIAL with the reason, not PASS. Say which rows you measured independently and which you could not.
+
 **A fix verified on one case is not verified.** If a change affects how content is laid out, exercise it with both a short and a long instance — a fix that holds only for the content that happened to be in front of you is the common shape of a regression that ships. And when the change is to a shared component, the checklist's one screen is a sample, not the scope: verify the other call sites it touches too, or name the ones you could not reach and why.
 
 ## Measuring layout

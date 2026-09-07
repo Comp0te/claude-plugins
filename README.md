@@ -112,16 +112,22 @@ run once per project:
    `ui-verifier-mobile` or `ui-verifier-web` (never both, and never at user scope: they would
    then load in every repository and the agent would have to guess which world it's in), plus
    `figma-extractor` where the project reads Figma designs.
-2. **Rename the agent's memory store to match the shipped agent's name** — a store is addressed
-   by `<agent name>`, so `agent-memory-local/ui-verifier/` becomes `agent-memory-local/ui-verifier-mobile/`
-   (or `-web/`) before the agent ever runs under its new name. Left alone, the old directory
-   keeps every accumulated note but the renamed agent can no longer see it — no error, just an
-   agent that has silently forgotten everything it learned. `figma-extractor` keeps its name, so
-   its store is never renamed.
+2. **Move the agent's memory store to the address the *plugin* agent reads.** A project-local
+   agent is addressed by `<agent name>`, but an agent that arrives from a plugin is addressed by
+   `<plugin name>-<agent name>` — so `agent-memory-local/ui-verifier/` becomes
+   `agent-memory-local/ui-verifier-mobile-ui-verifier-mobile/`, and `figma-extractor` moves too
+   even though it keeps its name: `agent-memory/figma-extractor/` becomes
+   `agent-memory/figma-extractor-figma-extractor/`. Do this before the agent ever runs, and if it
+   has already run, merge rather than overwrite — it will have created the correct directory empty
+   and written into it. Left alone, the old directory keeps every accumulated note and the shipped
+   agent cannot see any of it: no error, no empty file, just an agent that has silently forgotten
+   everything it learned. **This is measured, not assumed** — the first pilot run wrote to
+   `ui-verifier-mobile-ui-verifier-mobile/` while its migrated store sat one directory over, and
+   the same doubled address appeared independently for the extractor.
 3. **Drain the memory store's promotion queue before deleting anything.** Read every file
    against the shipped agent and resolve it as **promoted** (a driver or discipline fact now in
    the shipped agent, with its CLI version stamp — delete the note), **kept** (a genuine project
-   fact — stays, under the renamed store), **corrected** (the memory measured something the
+   fact — stays, under the moved store), **corrected** (the memory measured something the
    agent only hypothesized — the agent changes, then the note is redundant and goes), or
    **retired** (a fixed bug — delete, or move to a tracker, never migrate). An open bug living
    only in memory is reported to whoever tracks issues, not deleted and not folded into a facts
