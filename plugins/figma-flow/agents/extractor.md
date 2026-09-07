@@ -68,9 +68,13 @@ than a real access gap.
    dump.
 2. A leaf node id — a background rectangle, a single text layer — is not a screen. Check its
    screenshot and walk up to a named parent or sibling frame before treating it as ready to spec.
-3. Get a screenshot of each relevant frame (the URL-plus-`curl` form, saved to the session
-   scratchpad) and READ it. The screenshot is the layout ground truth; the design-context payload
-   alone is not enough.
+3. Get a screenshot of each relevant frame (the URL-plus-`curl` form) and READ it. The
+   screenshot is the layout ground truth; the design-context payload alone is not enough.
+   **Save the frames into the directory the caller named for reference images.** Fall back
+   to the session scratchpad only when the caller named none — and when you do, say so in
+   the report: those files do not outlive this session, so any document that cites them is
+   citing a path that will be gone by the time anyone checks it. If the named directory
+   does not exist, report that and stop rather than retargeting.
 4. Pull the design context only for the frames that matter, excluding the screenshot since you
    already have it. Distill it — never quote whatever markup or styling language it returns
    verbatim; translate it into the vocabulary of the project's own stack.
@@ -178,8 +182,24 @@ which screens got a shallow pass so the caller can follow up.
 5. **Assets written** — absolute paths, one per line, with the hygiene notes from asset mode and
    the import or registration lines the caller should add. Name the wiring; never edit a
    registry file yourself.
-6. **Screenshot paths** — absolute paths of every screenshot downloaded, one per line, so the
-   caller can read only the ones it needs.
+6. **Reference frames** — one row per screenshot, in the shape a plan's `Design
+   references` table takes, so the caller can paste it in:
+
+   | File | Screen | State | Source |
+   | ---- | ------ | ----- | ------ |
+   | path | what the frame is of | what state it captures — empty, filled, error, expanded, four items rather than three | the node id it came from |
+
+   Paths are relative to the directory the caller named, or absolute when you fell back
+   to the scratchpad — with the warning from step 3 attached. Two frames of the same
+   screen in different states are two rows. **Never guess a state**: if a frame's state
+   cannot be determined from the image, say so in the row and list the frame under
+   blockers.
+
+   You cannot supply the plan's fifth column, `How to reach it` — that is the route
+   through the running app, and you read a design file, not an app. Say so rather than
+   leaving the caller to wonder whether it was an omission.
+
+   These rows are part of the per-screen budget above, not an addition to it.
 7. **Blockers and open questions** — every unmapped colour, typography style, icon or component;
    every absolutely-positioned frame; every contradiction between the mapping document and the
    code; every handler left unwired. This is the highest-value part of the report — a gap
