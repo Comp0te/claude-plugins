@@ -17,8 +17,12 @@ Then load the CLI's own version-matched guide before your first driving command:
 
 ```
 agent-browser skills get core        # workflows, common patterns, troubleshooting
+agent-browser skills get dogfood     # the CLI's own exploration-and-evidence method
 agent-browser skills get core --full # full command reference, when the summary is not enough
 ```
+
+`dogfood` is the closest thing the CLI has to a QA methodology — read it for how it expects
+evidence to be gathered, then follow the report format below, which is what your caller consumes.
 
 It ships with the CLI you are actually running. **Where that guide and the quirks below disagree, the guide wins** — these notes were measured on 0.33.0 and can have aged.
 
@@ -111,7 +115,7 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 ### Session budgeting
 
 - **The `screenshot` call can hang (times out, no error) after roughly 10–25 prior commands in a session, and can occasionally wedge the whole session** so that even `get url` or `eval` stop responding. There is no in-session recovery — `close --all` and a fresh `open` is the only fix. The ceiling is inconsistent (one session ran ~25 commands with two successful screenshots), so budget for the conservative end: take your screenshot within the first few commands where the checklist allows it, and treat a hang as a signal to stop driving that session entirely rather than retrying the same call.
-- **`--session <name> connect <cdp-url>` is not a reliable way to attach a fresh session to an already-open tab as a workaround for the above** — it often spawns a new browser instead of attaching, and if it does attach, closing that named session closes the whole shared browser process, destroying the original session along with it. Eat the cost of a full `close --all` and reopen instead.
+- **Attaching a fresh session to an already-open tab is not a workaround for the above.** The documented attach flags are `--auto-connect` and `--cdp <port>`; a `--session <name> connect <cdp-url>` form — it often spawns a new browser instead of attaching, and if it does attach, closing that named session closes the whole shared browser process, destroying the original session along with it. Eat the cost of a full `close --all` and reopen instead.
 - **`--extension <dir>` does not persist across `open` calls.** Pass it on every `open`, including ones that look like plain in-session navigation — a bare `open` without it can fail to load the extension at all.
 
 ### Viewport and scroll
@@ -144,6 +148,13 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 
 ### Accessibility snapshot and DOM
 
+Several bullets here describe **the browser's accessibility layer and the app's own behaviour, not
+the driver**. A CLI upgrade will not change them, and finding one contradicted means re-checking it
+against the page in front of you — not against the CLI version. `agent-browser a11y [--selector
+<css>] [--json]` runs a real axe-core audit when you need the accessibility layer itself judged
+rather than used as a measuring tool.
+
+- **`agent-browser errors` and `agent-browser console` are the two commands for this** — check them at each checkpoint and after anything unexpected, not only when you already suspect a problem. A console error thrown on load is a finding on its own, even when the screen looks right.
 - **Prefer `eval` over pixel work for any geometry question.** `getBoundingClientRect()` and `getComputedStyle()` give exact padding, gap, border-radius and position values, cost no screenshot-hang budget, and are independent of what the source says — which a screenshot scan is not, once you start reconciling blurred edges against a number you read somewhere. Keep screenshots for confirming visual state and for the evidence trail.
 - **Radio-button state is not exposed in the accessibility snapshot.** A click on a radio row producing no visible snapshot diff does not mean the click had no effect — verify the committed selection some other way (a follow-up action that depends on it, or a screenshot).
 - **A `find role button --name X` query can fail when the control is actually exposed with a different role** (commonly `link`), even though it is visually and functionally a button. Try the sibling role before concluding the control is unreachable.
@@ -157,7 +168,7 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 ## Method
 
 1. Execute the caller's checklist step by step, verifying each expectation with the driver's own wait and query commands (`wait`, `is`, `get`, `find`) — not just screenshots. Prefer a `--settle` diff on every interactive command and continue from the settled diff; reach for a full snapshot only when the diff lacks your next target or reports that it did not settle.
-2. Capture a screenshot at each checkpoint the caller names, and at any unexpected state. Save PNGs into the scratchpad/session temp directory with descriptive names.
+2. Capture a screenshot at each checkpoint the caller names, and at any unexpected state. Save PNGs into the scratchpad/session temp directory with descriptive names. A deviation that only exists in motion — a timing bug, a state that flashes, a transition that lands wrong — is not provable by a still: record the reproduction with the driver's own recording command and cite the file. A defect visible on arrival needs only the screenshot.
 3. If a step fails, capture evidence, note the deviation, and continue with remaining independent steps. Do not attempt code fixes. Stop after 2–3 failed attempts at any single interaction and report the blocker instead of looping.
 4. Check the app's console, network requests, or platform logs when behaviour is wrong but the screen or accessibility tree looks right — the actual error is often visible there and nowhere on screen.
 
@@ -168,6 +179,8 @@ Quirks below are **driver-level** — measured against `agent-browser` 0.33.0, n
 **Drive a fresh profile or session, never the user's own.** A default browser or device profile can hold their live logged-in sessions; reaching for it to skip a login step risks acting on real accounts outside the checklist's scope. Use whatever fresh-context option the driver provides, and only touch the user's real profile if the caller explicitly asks for it.
 
 **Never put a secret — a recovery phrase, private key, passcode, OTP, token, or other account credential — into your report, a screenshot, a screenshot filename, or a recorded script.** A recorded step that supplies one uses a placeholder that resolves from the environment instead of the literal value. A saved session or auth-state file follows the same rule and belongs in the scratchpad, never in the repository, since it can hold live tokens. If a screenshot would capture a secret, note that you skipped it and say why.
+
+**Retry a deviation once before you report it, and say what the retry did.** A step that failed once and passes on repeat is not the same finding as one that fails every time, and the difference decides what the caller does next — intermittent is a finding in its own right, not a reason to drop the row or to promote it to a hard FAIL. Say which of the two you saw. Where the retry needs the app back in a prior state, say that you could not retry rather than reporting the single observation as settled.
 
 **Separate what you observed from what you think caused it.** A hypothesis is useful — include it — but label it as one, and lead with the measurement that discriminates between the possibilities (a rect at `y: 0` versus `y: 62` is worth more than a paragraph of speculation). A confidently-worded wrong guess sends the caller down a wrong fix, which costs more than saying "I don't know why."
 

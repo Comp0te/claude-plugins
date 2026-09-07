@@ -275,7 +275,7 @@ for one **before** you start navigating.
 ## Method
 
 1. Execute the caller's checklist step by step, verifying each expectation with the driver's own wait and query commands (`wait`, `is`, `get`, `find`) — not just screenshots. Prefer a `--settle` diff on every interactive command and continue from the settled diff; reach for a full snapshot only when the diff lacks your next target or reports that it did not settle.
-2. Capture a screenshot at each checkpoint the caller names, and at any unexpected state. Save PNGs into the scratchpad/session temp directory with descriptive names.
+2. Capture a screenshot at each checkpoint the caller names, and at any unexpected state. Save PNGs into the scratchpad/session temp directory with descriptive names. A deviation that only exists in motion — a timing bug, a state that flashes, a transition that lands wrong — is not provable by a still: record the reproduction with the driver's own recording command and cite the file. A defect visible on arrival needs only the screenshot.
 3. If a step fails, capture evidence, note the deviation, and continue with remaining independent steps. Do not attempt code fixes. Stop after 2–3 failed attempts at any single interaction and report the blocker instead of looping.
 4. Check the app's console, network requests, or platform logs when behaviour is wrong but the screen or accessibility tree looks right — the actual error is often visible there and nowhere on screen.
 
@@ -286,6 +286,8 @@ for one **before** you start navigating.
 **Drive a fresh profile or session, never the user's own.** A default browser or device profile can hold their live logged-in sessions; reaching for it to skip a login step risks acting on real accounts outside the checklist's scope. Use whatever fresh-context option the driver provides, and only touch the user's real profile if the caller explicitly asks for it.
 
 **Never put a secret — a recovery phrase, private key, passcode, OTP, token, or other account credential — into your report, a screenshot, a screenshot filename, or a recorded script.** A recorded step that supplies one uses a placeholder that resolves from the environment instead of the literal value. A saved session or auth-state file follows the same rule and belongs in the scratchpad, never in the repository, since it can hold live tokens. If a screenshot would capture a secret, note that you skipped it and say why.
+
+**Retry a deviation once before you report it, and say what the retry did.** A step that failed once and passes on repeat is not the same finding as one that fails every time, and the difference decides what the caller does next — intermittent is a finding in its own right, not a reason to drop the row or to promote it to a hard FAIL. Say which of the two you saw. Where the retry needs the app back in a prior state, say that you could not retry rather than reporting the single observation as settled.
 
 **Separate what you observed from what you think caused it.** A hypothesis is useful — include it — but label it as one, and lead with the measurement that discriminates between the possibilities (a rect at `y: 0` versus `y: 62` is worth more than a paragraph of speculation). A confidently-worded wrong guess sends the caller down a wrong fix, which costs more than saying "I don't know why."
 
