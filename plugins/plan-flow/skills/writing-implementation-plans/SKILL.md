@@ -13,6 +13,33 @@ Before writing, read `references/plan-template.md` in full — not skimmed, not 
 first draft. It carries the skeleton, the rules behind each section, and the reasoning for
 why the plan must stand on its own.
 
+## One plan per subsystem
+
+If the spec covers several subsystems that do not depend on each other, that is several plans,
+not one long one. Each should produce working, testable software on its own.
+
+The task-size ceiling in `references/plan-template.md` splits *within* a plan and cannot catch
+this: a thirty-task plan across four subsystems is made of correctly-sized tasks. What it costs
+is everything around them — one frozen header carrying four subsystems' constraints into every
+task's context, a review with no natural stopping point, and nothing shippable until all of it
+is done. Where the subsystems genuinely feed each other, keep one plan and say in the
+Architecture line which order they have to land in.
+
+## Decide the file structure before the tasks
+
+Before drawing task boundaries, map which files the work creates or modifies and what each one
+is responsible for. Task decomposition falls out of that map; done the other way round, the
+files end up being whatever the tasks happened to touch.
+
+Give each file one responsibility you can name in a clause, and keep files that change together
+in the same place — split by responsibility, not by technical layer. In an existing codebase
+this yields to the codebase: follow its established patterns rather than restructuring on your
+own authority, though splitting a file the plan already has to modify, and that has grown
+unwieldy, is fair to put in the plan.
+
+The Code Map records what is already there. This is the other half — what will be there when
+the plan is done — and it is the part a reader cannot recover by opening the repository.
+
 ## Where the plan lives
 
 A plan that carries no reference images is a single file:
@@ -71,6 +98,14 @@ Run a self-review pass:
 
 ## Handing it off
 
-Once the plan is written, it can be executed task by task, each in a context scoped to just
-that task, or inline in the current session. Either is fine — the plan does not depend on a
-particular tool to carry it out, and this skill does not prescribe which.
+Say where the plan was saved, then offer the author the choice rather than leaving them to go
+looking for it:
+
+- **Task by task, each in a context scoped to that task** — in this harness,
+  `/plan-flow:execute-plan <path>`, which dispatches one task at a time and reviews the
+  returned diff before the next.
+- **Inline in this session**, working down the tasks in order.
+
+Name the command in that message and never in the plan itself: the document has to stay
+executable by a harness that has never heard of it, which is what *Keep the plan portable* in
+the template is protecting.

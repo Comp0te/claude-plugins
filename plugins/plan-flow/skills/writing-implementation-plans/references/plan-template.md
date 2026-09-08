@@ -116,7 +116,7 @@ not the *how*.
 - Produces: EXACT_NAMES_AND_TYPES_LATER_TASKS_RELY_ON
 
 - [ ] **Step 1: Write the failing test**
-      ...bite-sized steps carrying real code, exactly as this template requires.
+      ...one action per step, carrying real code — see *Step size* below.
       Label every code block `contract` or `reference` — see *Contract code and
       reference code* below. An unlabelled block is read as `contract`.
 
@@ -196,6 +196,22 @@ So size a task by what executing it will cost, not by how it reads:
 - **Report the overrun.** If executing a task took materially more than the ceiling, that
   belongs in the report, so the next plan draws the boundary differently. A task that came in
   at triple the estimate is a planning defect even when the code turned out fine.
+
+### Step size
+
+A step is one action, two to five minutes of work: *write the failing test*, *run it and watch
+it fail*, *write the minimal code*, *run it and watch it pass*. Four steps, not one step called
+"implement X with tests".
+
+That grain is what makes the checkbox column worth anything. A step bundling several actions can
+only be reported done or not done, and "not done" throws away whichever parts did work — so a
+halt mid-task loses its own progress, which is exactly when the record matters most. The ~8-step
+proxy under *Task size* assumes steps at this grain: it is counting roughly two test cycles, not
+two dozen keystrokes.
+
+Do not write a commit step. Whoever supervises the run commits a task once its diff has been
+reviewed and accepted; a commit inside a task's own steps hands that judgement to the
+implementer, which is the wrong end of the run to hold it.
 
 ### Always / Ask First / Never
 
