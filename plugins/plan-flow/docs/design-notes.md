@@ -63,6 +63,8 @@ An imported file has no budget, so the sections move verbatim and the losses do 
 two sentences were rewritten, both to remove one machine's private vocabulary: a tool name in
 *Research before coding*, and four project-specific agent and directory names in *UI
 verification*.
+Byte-identity was a requirement of that migration, not a standing one: the sections have since
+been edited here, and this file is the source they are edited in.
 
 Each rule has exactly one source file. A component needing a rule points at the file that holds
 it; nothing restates another component's text.
