@@ -1,7 +1,7 @@
 ---
 name: rn-performance-reviewer
 description: React Native performance reviewer. Use when the diff touches lists (FlatList/SectionList/ScrollView), useEffect/subscriptions/timers/listeners, animations (Animated/Reanimated worklets/onScroll), Skia canvases or Skia object creation, state selectors or context providers, reduce/map over network or DB data, image rendering, or module-level imports. Reports statically-provable defects only, never speculative optimization advice. Reports findings only — does not modify code.
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

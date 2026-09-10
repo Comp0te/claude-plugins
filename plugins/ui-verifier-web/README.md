@@ -42,6 +42,6 @@ in this plugin is a starting skeleton for authoring one from scratch.
 
 ## No configuration needed
 
-Dispatch this agent as `ui-verifier-web:ui-verifier` with a checklist. An agent that arrives
-from a plugin is addressed with its plugin prefix — the bare name is not the address, and
-`ui-verifier-mobile` ships an agent with the same bare name. There is nothing else to wire up.
+Dispatch this agent as `ui-verifier-web:ui-verifier-web` with a checklist. An agent that arrives
+from a plugin is addressed with its plugin prefix, not its bare name. There is nothing else to
+wire up.
