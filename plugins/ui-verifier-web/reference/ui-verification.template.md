@@ -1,6 +1,6 @@
 # UI verification facts
 
-What the `ui-verifier` agent reads before driving this app. Keep every entry a fact about this project,
+What the `ui-verifier-web` agent reads before driving this app. Keep every entry a fact about this project,
 not a general driving technique — general technique lives in the shipped agent.
 
 ## Target
