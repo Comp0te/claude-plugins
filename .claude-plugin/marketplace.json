@@ -5,27 +5,27 @@
     "email": "simbiatoff@gmail.com"
   },
   "metadata": {
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Personal Claude Code plugins: a pull-request and branch review flow, and a spec-driven development toolkit."
   },
   "plugins": [
     {
       "name": "review-flow",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "description": "Read-only review of a GitHub pull request or the current branch: dispatches focused reviewer agents matched to the diff, verifies every finding against the source before it is reported, and publishes an approved subset as inline PR comments.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/review-flow"
     },
     {
       "name": "pr-tickets",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Triage the findings a review deliberately left unposted — pre-existing problems and deferred work — and turn the ones worth tracking into Jira issues, after verifying each against the base branch.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/pr-tickets"
     },
     {
       "name": "rn-performance-reviewer",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "A React Native performance reviewer for the review flow: reports statically-provable defects in lists, effects and subscriptions, animations, Skia usage, memoization, bundle size and image rendering — and never speculative optimization advice. Install it in React Native repositories only.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/rn-performance-reviewer"
@@ -39,21 +39,21 @@
     },
     {
       "name": "ui-verifier-mobile",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "description": "Verifies UI changes in a running React Native app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-mobile"
     },
     {
       "name": "ui-verifier-web",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "description": "Verifies UI changes in a running web app or browser extension against a caller-supplied checklist: drives the browser, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-web"
     },
     {
       "name": "plan-flow",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/plan-flow"
