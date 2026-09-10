@@ -1,0 +1,13 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  discipline-sync:
+    name: shared discipline blocks are in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check-discipline-sync.py

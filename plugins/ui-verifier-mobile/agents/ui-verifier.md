@@ -110,9 +110,9 @@ current.
 
 ### Device and OS state the CLI can set directly
 
-`agent-device settings` changes OS-level state that used to require punting a checklist row as
-unverifiable. Reach for it **only when the checklist actually calls for that state**, and record
-every use under "State I changed" — the no-mutation rule below still governs.
+`agent-device settings` changes OS-level state directly — offline, appearance, permissions and
+biometrics are all drivable. Reach for it **only when the checklist actually calls for that
+state**, and record every use under "State I changed" — the no-mutation rule below still governs.
 
 - `settings wifi|airplane|location <on|off>` — **offline and connectivity rows are testable.** Do
   not declare the offline path unverifiable or ask the caller for a different platform without
@@ -135,10 +135,8 @@ React Native apps on one machine against `agent-device` 0.20.8. They are **start
 not settled driver facts** — confirm one against the app in front of you before citing it as the
 reason for a verdict, and add anything you learn under "New quirks" in your report.
 
-A 0.20.10 re-run re-confirmed four of them unchanged: the scarcity of native button roles, the
-composite label on an accessible container, a press reporting success and coordinates while
-changing nothing, and the developer overlay. Bullets that moved carry their own version note.
-Everything else still dates from 0.20.8.
+Bullets re-measured on a later CLI version carry their own version note; the rest were measured
+on 0.20.8.
 
 **The default targeting order is the CLI's, not this list's:** refs first, then `id`/`label`/
 `role` selectors, and **coordinates last** — only after `snapshot -i` shows no semantic target, or
@@ -208,10 +206,8 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   it can happen anywhere in the match order with a plausible-looking label. **Always verify the
   result by screenshot after the press; do not trust the tool's own reported tap coordinates as
   proof it hit the right element.**
-  *On 0.20.10 the off-screen nav-sibling case behind this no longer reproduced: after a tab
-  switch the previous tab's content was absent from both `snapshot -i` and `snapshot --raw`.
-  Duplicate labels from wrapper nesting remained. Measured on one tab pair of one app — if you hit
-  a genuinely hidden subtree, say so.*
+  Duplicate labels from wrapper nesting are the usual cause. If you hit a genuinely hidden
+  subtree instead, say so.
 - **A mutating command fails loudly on ambiguity rather than guessing.** `press`/`click`/`fill`/
   `longpress` collapse duplicate wrappers only along a single ancestor-descendant chain; matches in
   distinct subtrees raise `AMBIGUOUS_MATCH` with a bounded candidate list, and geometry never picks
@@ -265,20 +261,15 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   focused flag even after a successful fill — assert on the field's resulting value instead of the
   focus flag.
 - **`fill` only works for fields the accessibility layer can actually see.** A field styled to
-  zero size, zero opacity, or off-screen refuses focus with a "no element has keyboard focus"
-  style error — that is not a timing problem, so stop retrying it and switch to a coordinate-based
-  approach (raising the on-screen keyboard if needed, then pressing key positions directly by
-  point). If neither a fill nor coordinates work on the exact field the checklist names, exercise
-  the same state through a different field and **note the substitution** in your report rather
-  than silently skipping the check.
-- **A field deliberately rendered invisible and zero-size (a common pattern for PIN/passcode
-  entry) can refuse both `fill` and `type` permanently, by design** — the field has real native
-  focus but the accessibility layer's focus predicate matches nothing on an invisible, zero-frame
-  element. The diagnostic signature is an explicit "no element has keyboard focus" failure
-  immediately on the attempt. On seeing it, stop and switch to coordinate taps on the visible
-  keypad — retrying wastes your attempt budget and, on some CLI/runner combinations, a repeated
-  hard failure of this kind can trigger a test-runner restart. Where the gate is biometric rather
-  than numeric, `settings faceid|touchid <match>` skips the problem entirely.
+  zero size, zero opacity, or off-screen fails immediately with a "no element has keyboard focus"
+  style error — that signature is not a timing problem, so stop retrying. It is often by design:
+  the common PIN/passcode pattern is a real-focus, zero-frame field whose accessibility focus
+  predicate can never match, and on some CLI/runner combinations a repeated hard failure of this
+  kind can trigger a test-runner restart. Switch to coordinate taps on the visible keypad, raising
+  the on-screen keyboard first if needed; where the gate is biometric rather than numeric,
+  `settings faceid|touchid <match>` skips the problem entirely. If neither a fill nor coordinates
+  work on the exact field the checklist names, exercise the same state through a different field
+  and **note the substitution** in your report rather than silently skipping the check.
 - **A wheel/picker-style control's drag is a velocity fling, not a 1:1 positional drag**, and the
   distance-per-step ratio is not reliable enough to land on an exact value in one gesture. The
   reliable recipe: one approximate swipe to bring the target value into the visible rows, then a

@@ -104,7 +104,7 @@ agent-browser auth login <name>
 
 A credential from an external vault goes through `auth login --credential-provider <plugin> --item <item>`. Never paste a literal secret into a command you run.
 
-**The credential rule is the same one the shared discipline states:** a credential, token or recovery phrase never appears in a report, in a screenshot filename, or in a recorded script — a recorded step that supplies one uses a placeholder that resolves from the environment. A saved session or auth-state file follows the same rule: write it to the scratchpad or session temp directory, never into the repository, since it holds live tokens.
+**Credentials follow the discipline rule below** — never in a report, a screenshot or its filename, or a recorded script; a saved session or auth-state file goes to the scratchpad, never into the repository, since it holds live tokens.
 
 Report explicitly which authentication path you used — a PASS on a public route says nothing about a private one.
 
