@@ -29,68 +29,11 @@ A static reader cannot see slowness. It can see **defects** — code that is wro
 5. **Check scope before reporting.** A defect that exists only in context lines is pre-existing and out of scope. Verify with `git log -S'<snippet>' -- <path>` when unsure. Mention it in one line as out-of-scope context; do not file it as a finding.
 6. **Report.**
 
-## Severity
-
-**Severity is computed from two properties you can observe in the code, never from how bad it feels.**
-
-- **Frequency** — how often the cost is paid.
-  - *Continuous*: per frame, per scroll event, per gesture callback, or per dispatched action.
-  - *Occasional*: per mount, per navigation, or per user interaction.
-  - *One-time*: once at startup, or paid in shipped bytes.
-- **Growth** — whether the cost is bounded.
-  - *Unbounded*: grows with data volume, session length, or number of mounts.
-  - *Bounded*: fixed by a constant regardless of data or session.
-
-|  | Unbounded | Bounded |
-|---|---|---|
-| **Continuous** | Critical | High |
-| **Occasional** | High | Medium |
-| **One-time** | Medium | Low |
-
-### Per-pattern lookup (authoritative — use this, don't re-derive)
-
-| Defect | Severity |
-|---|---|
-| Leaked subscription/listener (accumulates per mount) | High |
-| Leaked `setInterval` (accumulates *and* keeps firing) | Critical |
-| Leaked `setTimeout` / `requestAnimationFrame` (fires once) | Medium |
-| `VirtualizedList` nested in same-orientation `ScrollView` | Critical |
-| `ScrollView` + `.map()` over network/DB data | Critical |
-| `onScroll` calling `setState` per event | Critical |
-| Component defined inside another component's body | Critical |
-| `useSelector` / observable read returning a fresh reference each call | High |
-| Accumulator spread in `reduce` over network/DB data (O(n²)) | High |
-| Sync crypto / large `JSON.parse` on the JS thread | High |
-| Derivation over network/DB data in the render body | High |
-| `data={items.filter(…)}` inline on a `FlatList` | High |
-| Defeated `React.memo` (fresh literal into a memoized child) | Medium |
-| Inline Context `value={{…}}` | Medium |
-| `useEffect`/`useMemo` dep rebuilt every render | Medium |
-| `Animated.*` without `useNativeDriver` on transform/opacity | Medium |
-| Reanimated `runOnJS` per frame | High |
-| Reanimated worklet allocating on every frame | High |
-| `Skia.*` object allocated in a continuously re-rendering body | High |
-| `<Canvas>` per list row | High |
-| `getItemLayout` offset ignoring `ListHeaderComponent` | Medium |
-| Missing `keyExtractor` (index fallback) | Medium |
-| Work at module scope (network, DB, large `require`) | Medium |
-| Oversized remote image, source size proven | Medium |
-| Full-library `lodash` / newly added `moment` import | Low |
-| Barrel import pulling a whole feature graph | Low |
-
-### Rules that override the table
-
-- **Severity is never a hedge.** A finding you cannot prove is deleted, not filed as Low. If you are reaching for Low because you doubt the finding, that is the signal to drop it entirely.
-- **Never upgrade because the ticket says the screen is slow**, or because someone asked you to be thorough. The ticket is a symptom report, not evidence about this code.
-- **If two rows apply, take the higher** and name both in the finding.
-- Severity describes the defect's cost, not how hard the fix is. A one-line fix for a Critical stays Critical.
-
 ## Report format
 
-One entry per finding, ordered by severity, then by category order. Each entry has exactly these fields:
+One entry per finding, in category order. Each entry has exactly these fields:
 
 - **`file:line`**
-- **`severity`** — from the table above.
 - **`issue`** — one sentence naming the defect.
 - **`why it matters`** — the proof (the invariant broken, quoting the code, or `measured: <tool> <before>→<after>`) and the cost: FPS, TTI, memory, bundle bytes, or wasted requests.
 - **`evidence`** — exactly one of:
@@ -111,7 +54,7 @@ Close with: `Categories walked: <list>. Skipped: <list + why>.`
 | "This obviously re-renders too much" | Obvious is not measured. Count the renders or drop it. |
 | "They should migrate to FlashList" | A library migration is a proposal, not a review finding. Only admissible with a measurement. |
 | "It looks expensive" | Looks are not evidence. |
-| "I'll flag it as low severity to be safe" | A speculative Low still costs someone an investigation. Severity is not a hedge. |
+| "I'll report it weakly to be safe" | A speculative finding still costs someone an investigation. Hedged wording is not a hedge. |
 | "The file has other problems I noticed" | Out of scope produces speculation. Stay in the diff unless a defect's proof crosses out of it. |
 | "An empty report looks like I didn't try" | Most diffs contain no performance defect. Empty is the honest common case. |
 | "QA filed a ticket, so the defect must be in this diff" | A ticket is a symptom report, not evidence about this code. The cause is frequently in code the diff doesn't touch. Report zero findings and say where to profile next. |
@@ -289,7 +232,7 @@ rg -n 'Skia\.(Paint|Path|PathBuilder|PictureRecorder|RRect|Matrix|Font|Typeface|
 
   **Reportable only when the component provably re-renders continuously** — it is a `renderItem` row, or it reads a value that changes per frame, per scroll event, or per gesture callback. A `Skia.*` allocation in a component that renders once or on rare prop changes is **not** a finding: Skia's own documentation writes `Skia.Path.MakeFromSVGString(...)` inline in a component body, and flagging that is the speculative-optimization failure this review exists to prevent. Name which re-render source you verified.
 
-- **`<Canvas>` rendered per row of a list.** Invariant: every `<Canvas>` instantiates its own native surface (and on web, its own GL context — the reason the library ships `__destroyWebGLContextAfterRender`). One canvas per row means surface allocation on every row that scrolls into view, not one surface for the screen. Fix: one `<Canvas>` for the list with the rows drawn into it, or a static pre-rendered image for the row. Severity is High inside a virtualized `FlatList`; if the rows come from a `ScrollView` + `.map()` over unbounded data, the list-configuration row also applies and Critical wins.
+- **`<Canvas>` rendered per row of a list.** Invariant: every `<Canvas>` instantiates its own native surface (and on web, its own GL context — the reason the library ships `__destroyWebGLContextAfterRender`). One canvas per row means surface allocation on every row that scrolls into view, not one surface for the screen. Fix: one `<Canvas>` for the list with the rows drawn into it, or a static pre-rendered image for the row. If the rows come from a `ScrollView` + `.map()` over unbounded data rather than a virtualized `FlatList`, the list-configuration row also applies — name both.
 
 ### Redux
 

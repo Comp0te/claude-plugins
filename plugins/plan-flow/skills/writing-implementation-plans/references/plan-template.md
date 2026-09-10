@@ -185,11 +185,11 @@ So size a task by what executing it will cost, not by how it reads:
 
 - **Ceiling: about 40 tool-using turns, or 120k tokens of context, for one task.** A task
   expected to exceed either should be split before approval.
-- **Proxies available at writing time:** a task section over ~12KB; more than ~8 checkbox
-  steps; more than one deliverable that needs its own test cycle. In practice a task around
-  8KB runs about 50 turns, one at 15KB about 70, one over 20KB about 90 — and the token cost
-  grows faster than the turn count, because every extra turn re-reads a context the previous
-  turns made bigger.
+- **Proxies available at writing time:** more than ~8 checkbox steps; more than one deliverable
+  that needs its own test cycle; a task section whose steps you cannot hold in your head at
+  once. Token cost grows faster than the turn count, because every extra turn re-reads a
+  context the previous turns made bigger — a task that looks borderline on turns is already
+  over on tokens.
 - **When the deliverable is genuinely atomic** and cannot be split, say so in the task and
   give the implementer an explicit stopping point partway — a state where the work so far is
   consistent, verifiable, and can be handed back before continuing.

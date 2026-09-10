@@ -102,7 +102,7 @@ The handoff header records which mode the review ran in — `local checkout` / `
 
   **A missing `consequence:` field on a Medium is not a pass.** The field is written by the review side for every Medium, and every consumer here greps for it and fails open. Where it is absent — an older handoff, a writer that dropped it — do not treat the finding as consequence-bearing: read the finding and classify it yourself in the proposal table, saying you did. Guessing upward is how the whole filter becomes decorative.
 - **Print the table before anchoring, whether or not you can ask about it.** The table is a *disclosure*, and the question is a separate act layered on top of it. When the run is non-interactive — the user asked you to proceed without stopping, or is not there to answer — the proposal still gets printed, in its own message, before any anchoring or gating work. What must never happen is the whole of step 2 collapsing silently into the defaults because there was no one to hold a conversation with: the user learns the shape of the set either way, and learns it while it can still change something.
-- **Check the volume before you propose it.** If the proposed `post` set runs past ~10 comments, say so **in the same message as the table** and offer a trimmed alternative alongside the full set. (An earlier form of this rule also tripped on "more than half of it is Low". That branch is now dead — Low is dropped at classification, and a Low arriving by any other route defaults to `hold` above — so read a Low in a `post` set as something the user asked for explicitly, not as a volume problem.) Thirty comments do not read as thoroughness; they read as noise, and the Highs get skimmed with everything else. The user may well want all of them — but that should be a choice made while looking at the shape of the set, not a default nobody noticed. A volume warning that arrives in the closing report, after the comments are written, is not a warning — it is a postmortem. If you only realise the count late, you printed the table too late.
+- **Check the volume before you propose it.** If the proposed `post` set runs past ~10 comments, say so **in the same message as the table** and offer a trimmed alternative alongside the full set. Volume is the only trigger: a Low in a `post` set is something the user asked for explicitly, not a volume problem. Thirty comments do not read as thoroughness; they read as noise, and the Highs get skimmed with everything else. The user may well want all of them — but that should be a choice made while looking at the shape of the set, not a default nobody noticed. A volume warning that arrives in the closing report, after the comments are written, is not a warning — it is a postmortem. If you only realise the count late, you printed the table too late.
 
   **The threshold for replies is five, not ten.** It is lower because each reply goes out as its own API call and its own notification, where the inline comments are one notification for the whole review. Warn in the same message as the table and offer a trimmed set alongside the full one.
 
@@ -114,7 +114,7 @@ The handoff header records which mode the review ran in — `local checkout` / `
 
 **Start this chain against the *suggested* set the moment the table is printed — do not wait for the user's reply.** The table is a disclosure and it still goes out first, exactly as step 2 requires; what changes is that anchoring and the gate then run *while* the user is reading it, against the set the handoff already suggested for `post`. Their edits arrive as a delta: a finding they drop was gated for nothing, and a finding they add enters the gate on its own in a second, small call. Nothing about the disclosure or the decision moves.
 
-The saving is the largest single one available in this command. The gate is its longest block — 9.2 and 8.2 minutes of agent time on the two runs measured — and on both of those runs it sat idle behind the approval turn: the table was on screen at +167s and +79s, and the gate was not dispatched until +216s and +426s. Against those two runs the waste was also *zero*: on one, the suggested `post` set and the final set were the same nine findings; on the other, the one finding the user added carried `evidence: verified`, which exempted it from the gate under the rule of the day (it no longer does — see the gate section — so that second leg would cost one small call today, not nothing). And the by-product is worth as much as the minutes — the user's decision is better informed when the gate's verdicts are already on the table rather than arriving after they have committed to a set.
+The saving is the largest single one available in this command: the gate is its longest block, and it otherwise sits idle behind the approval turn. The by-product is worth as much as the minutes — the user's decision is better informed when the gate's verdicts are already on the table rather than arriving after they have committed to a set.
 
 **Two things this does not license.** Do not send anything before the user has resolved the verdicts — the gate running early changes when verification happens, never when publication does. And do not gate the `hold` set on the theory that the user might promote one: the rule below stands, only what is actually being sent is gated, and "suggested `post`" is the handoff's own proposal, not a widening of it.
 
@@ -225,9 +225,9 @@ Only findings that still carry verdict `post` after step 2 — anchored, and thr
   The rule underneath: **name what the author can run, never what you ran it with.** A reproduction is stronger evidence than a citation of authority anyway — it survives the author disagreeing with you.
 - One concrete, actionable point per comment. No severity shouting, no stacked findings in a single comment, no restating the diff back at the author. **This binds in both directions: never two threads on one defect, and never two defects in one thread.** A body that introduces a second problem with its own fix has produced a second finding — give it its own thread or leave it out; folding it in is how one comment reaches five paragraphs. Measured on the longest comment this command has sent, a welded-in second case was its single largest component, at roughly a third of the text.
 
-### Length: one fold, two budgets
+### Length: lead and fold
 
-**These comments are read by two audiences with opposite needs, and the current shape serves neither.** Measured across the last three pull requests published from here: sixteen comments, 828 to 2445 characters, median ~1380, three to seven paragraphs each. At six to nine comments per pull request that is more prose than any author reads carefully — and what they most need is stranded in the middle of it. Meanwhile the full record already exists in the handoff, so nothing about a long comment is protecting information.
+**These comments are read by two audiences with opposite needs.** An author skims for what to change; a reviewer returning to the thread wants the basis. At six to nine comments per pull request, an unstructured comment is more prose than any author reads carefully — and what they most need is stranded in the middle of it. Meanwhile the full record already exists in the handoff, so nothing about a long comment is protecting information.
 
 Compose every comment as an inverted pyramid, with the supporting evidence folded:
 
@@ -243,13 +243,13 @@ Compose every comment as an inverted pyramid, with the supporting evidence folde
 </details>
 ```
 
-**Budget 1, hard — 60 words above the fold.** For most readers that is the entire comment, so it holds the defect, its consequence and the ask, and nothing else.
+**The lead is the whole comment for most readers**, so it holds the defect at this line, its consequence, the ask, and any clause that narrows the claim — and nothing else. Everything that merely supports the point goes under the fold.
 
-**Budget 2, soft — 1200 characters for the whole body, fold included.** Go past it only where the finding genuinely needs it, and **say so in the payload preview**, so the user sees the exception before it is sent rather than after. The threshold comes from this command's own output rather than from taste: it bites on eleven of the sixteen comments measured, and the shortest of those sixteen carried a complete finding — mechanism, counterexample and fix — in 828 characters. Length has never been the constraint on being convincing.
+**Where a comment needs more than its lead to be fair to the finding, say so in the payload preview with the reason** — the user is approving the exact text, and an exception they can see before it is sent is the point. A complete finding — mechanism, counterexample and fix — routinely fits in a short body; length has never been the constraint on being convincing.
 
 **Nothing that changes the verdict may go under the fold.** Any clause that narrows the accusation — "the diff is a net improvement overall", "not reachable from a web page", "pre-existing at the base and only newly visible" — belongs in the lead, as part of the sentence making the accusation. The fold carries evidence *for* the point above it, never a qualification *of* it. A short comment that overstates is worse than a long one that does not: rewriting overstated findings is the single most expensive thing the gate does, and a fold is a very effective way to hide the correction it just paid for.
 
-**The fold is not a second budget.** It is where citations go so the lead can stay short — not space that was freed up. If the fold is carrying real weight, budget 2 is the thing that tells you, which is why it counts the whole body.
+**The fold is not extra room.** It is where citations go so the lead can stay short — not space that was freed up. If the fold is carrying the argument rather than the evidence for it, the lead is in the wrong place.
 
 ### Group same-class Mediums into one comment
 
@@ -262,7 +262,7 @@ Compose it like this:
 - **State the count in the body**, so nothing looks omitted.
 - **Never group across classes**, never group to get under the volume threshold, and never put a High or Critical inside a group — those are always their own comment, even when they share the class. A group is a compression of repetition, not of severity.
 - **Two members is not a group.** Post them separately; the framing costs more than it saves.
-- **The budgets apply, with the instance list exempt.** The lead still gets 60 words — the shape and the count, not the enumeration — and the members go under the fold, one line each. Against budget 2, count the body without the instance list: a group is one point whose evidence happens to be a list, and charging it for its ninth member would push the composer back toward nine separate threads, which is the thing this section exists to prevent.
+- **The lead still gets the shape and the count, not the enumeration**, and the members go under the fold, one line each. A group is one point whose evidence happens to be a list; treating its ninth member as a reason to shorten would push the composer back toward nine separate threads, which is the thing this section exists to prevent.
 
 Count a group as **one** comment against the volume check in step 2, and say in the payload preview which finding ids each group covers — the user is approving a set, and a group silently swallowing four ids is a set they cannot check.
 
@@ -302,7 +302,7 @@ Print what will be sent, verbatim:
 2. **Replies** — per finding: id, `threadId`, the `databaseId` being replied to, and the full body.
 3. **New comments** — as before: `path`, `line`, and full body, plus anchor status.
 
-**Print each comment's length beside it — characters in the whole body, and words above the fold** — and flag every one that breaks either budget from step 3, with the reason it is over. Two numbers per comment, not a paragraph. This exists because a budget written as prose is a budget nobody can check: the user is already reading the exact payload here, and two counts turn "these feel long" into something they can push back on before it is sent. It also accumulates — after a few publications the counts say whether the budgets are holding or quietly lapsed, which no instruction about brevity can tell you on its own.
+**Flag any comment whose lead carries more than the defect, its consequence and the ask**, with the reason it needs to. One line per exception, not a paragraph. The user is already reading the exact payload here, so an exception named beside it is something they can push back on before it is sent rather than after.
 
 Alongside them, two short lists, or an explicit "empty" for each:
 

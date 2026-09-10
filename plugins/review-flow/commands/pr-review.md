@@ -86,7 +86,7 @@ END { for (j=1;j<=k;j++) { f=order[j]; print f; print "  H:" hunks[f]; print "  
 
 Run the same git-exclusion check step 6 uses **before this write**, not after: if `git check-ignore -q .claude/reviews/` fails, append `.claude/reviews/` to `.git/info/exclude`. One shell call, in the same breath as the map build. A map that lands as a tracked change is a map that shows up in the PR you are reviewing.
 
-**Three things about this filter are load-bearing, because an earlier form of it got each one wrong and produced an empty file rather than an error anyone noticed.** The filename comes from the `+++ b/<path>` line, not from `diff --git`, whose `$2` is the literal `--git`. `/^\+\+\+ /` and `/^--- /` must be matched *before* the bare `/^\+/` and `/^-/` rules, or every file header is counted as an added line. And there is no two-argument `split` anywhere: on the `awk` macOS ships (`/usr/bin/awk`, one-true-awk) that is a parse error, and the whole script exits 2 with an empty file on stdout's other end.
+**Three things about this filter are load-bearing, and each one fails silently — producing an empty file rather than an error anyone notices.** The filename comes from the `+++ b/<path>` line, not from `diff --git`, whose `$2` is the literal `--git`. `/^\+\+\+ /` and `/^--- /` must be matched *before* the bare `/^\+/` and `/^-/` rules, or every file header is counted as an added line. And there is no two-argument `split` anywhere: on the `awk` macOS ships (`/usr/bin/awk`, one-true-awk) that is a parse error, and the whole script exits 2 with an empty file on stdout's other end.
 
 **Verify it before relying on it**, in the same breath: the number of unindented lines in the map must equal `gh pr view <N> --json files -q '.files | length'`. One `wc`, and it separates a real extract from a silent parse failure — which otherwise surfaces at step 6 as every finding coming back `file-absent`.
 
@@ -107,21 +107,12 @@ Same convention as branch review: from the agent types available in this session
 **Size the roster to the diff, then trim by trigger.** The value of another reviewer is another lens on the same files, and it runs out fast on a small change — five agents on a three-file diff produce five readings of the same forty lines and a classification pass that costs more than the findings are worth.
 
 - **≤10 changed files → 3 slots**, filled in this order: the test-coverage reviewer, the security-focused reviewer, and **the one remaining agent whose declared trigger this diff satisfies most strongly** — the error-handling reviewer when the diff touches try/catch, error callbacks, fallbacks or retries, the type reviewer when it reshapes types. Nothing beyond the three, **except the deletion check, which is a standing dispatch outside this cap** — see *Deletion check* below.
-  **The third slot is a slot, not a fixed name.** An earlier form of this rule hardcoded the deletion check there, which meant a small diff whose entire subject was error handling got no error-handling reviewer at all, and most pull requests land in this bucket. Say in the report which matched agent you dropped.
-  **Where the error-handling and type triggers are both satisfied, take the type reviewer.** Three measurements now exist, all on this repository, and the two later and larger ones agree against the first:
+  **The third slot is a slot, not a fixed name.** Hardcoding the deletion check there would leave a small diff whose entire subject is error handling with no error-handling reviewer at all — and most pull requests land in this bucket. Say in the report which matched agent you dropped.
+  **Where the error-handling and type triggers are both satisfied, take the type reviewer** — on this repository's reviews it returns materially more findings no other agent found.
 
-  | | error-handling | type | test-coverage |
-  |---|---|---|---|
-  | three pre-2026-08-06 reviews, survived / sole | 24 / **12** | 12 / **5** | 17 / **3** |
-  | two 2026-08-07 reviews (29 findings), raw / sole | 5 / **3** | 9 / **6** | 16 / **11** |
-  | six reviews to 2026-08-11 (90 findings), sole / dispatch | 8 / 6 = **1.33** | 13 / 4 = **3.25** | 33 / 6 = **5.50** |
+  **Two things this does not license.** The tiebreak settles *ties only*: on a diff whose subject is error handling the error-handling reviewer still wins the slot on the "most strongly satisfied" test above, which is decided first. And the gap is smaller than it looks per token: the type reviewer runs on opus and the error-handling reviewer on sonnet, so a tie broken toward type buys the unique findings at a materially higher price. Where the diff is large enough that both fit, take both rather than choosing.
 
-  The third sample was taken under the condition the earlier form of this rule set for flipping it — **hold out the error-handling-shaped diff and compare on the rest.** Excluding the one pull request whose entire subject was a silently-failing signature request, error handling falls to **4 sole over 5 dispatches (0.80)** while type is unchanged at **3.25**. That is a four-fold gap, in the same direction as the 2026-08-07 sample, on twice the corpus. The tie now goes to type.
-
-  **Two things this does not license.** The tiebreak settles *ties only*: on a diff whose subject is error handling the error-handling reviewer still wins the slot on the "most strongly satisfied" test above, which is decided first — and that is exactly what happened on the held-out pull request, where it returned four sole findings, its best run in the corpus. And the gap is smaller than it looks per token: the type reviewer runs on opus and the error-handling reviewer on sonnet, so a tie broken toward type buys roughly 2.5× the unique findings at a materially higher price. Where the diff is large enough that both fit, take both rather than choosing.
-
-  Keep recording sole counts on every review. A fourth sample that puts error handling back on top on non-error-handling diffs should flip this again.
-  **What both samples agree on is that the test-coverage reviewer holds slot 1 on merit.** It went from the weakest sole-finder in the roster to the strongest without changing, which is a warning about how far a single sample carries — not a licence to re-tier anything on this one either.
+  Keep recording `found-by:` on every review, so this can be re-decided on data rather than on memory.
 - **11-30 files → up to 5.**
 - **>30 files → the full matched set.**
 
@@ -170,7 +161,7 @@ The main loop runs proposed probes serially in step 5, where nothing else is tou
 
 ### Verify the tree survived — do not trust that it did
 
-**Snapshot `git status --porcelain` before dispatching, and take it again once every agent has reported** — in the repository itself on every path, **and additionally in the worktree when there is one.** Both, not either: in worktree mode the tree agents were told to *read* is the worktree, but the only directory on the machine where a command can actually run anything is the repository, so that is precisely where a stray mutation lands and precisely the snapshot an earlier form of this rule omitted. The paragraph above is a request, and a request aimed at an agent holding write and shell tools is not a guarantee. Where the session offers reviewer agents defined without those tools, prefer them; for the rest, verify.
+**Snapshot `git status --porcelain` before dispatching, and take it again once every agent has reported** — in the repository itself on every path, **and additionally in the worktree when there is one.** Both, not either: in worktree mode the tree agents were told to *read* is the worktree, but the only directory on the machine where a command can actually run anything is the repository, so that is precisely where a stray mutation lands, and a check that watched only the worktree would miss it. The paragraph above is a request, and a request aimed at an agent holding write and shell tools is not a guarantee. Where the session offers reviewer agents defined without those tools, prefer them; for the rest, verify.
 
 If the two snapshots differ, say so in the report and name the paths: every finding produced in that window was read from a tree somebody mutated mid-review, so its evidence level means nothing. This matters most in the **no-worktree** path, where the tree is the user's own checkout rather than a disposable copy — there, do not attempt to restore it yourself, since you cannot tell an agent's edit from the user's own work.
 
@@ -202,7 +193,7 @@ This is a bar on the *statement*, not a cap on the count and not a severity judg
 
 ### Deletion check (standing dispatch, outside the cap)
 
-**This dispatch is additional to the roster above and is never counted against it, at any diff size.** The cap sizes the number of *lenses on added code*; this reviewer reads what left and what the change silently falsified, which no other check looks at. Putting it inside the ≤10 bucket would be self-defeating in a specific way: its second trigger fires on nearly every diff, but comment rot is by definition *incidental* to the change, so the "subject is the point of the change" test above would lose it the slot on almost every pull request — and since the separate comment reviewer was retired, that would leave the class with no owner at all on the bucket most pull requests land in. `/pr-recheck` states the same exemption; the three commands must not disagree about this.
+**This dispatch is additional to the roster above and is never counted against it, at any diff size.** The cap sizes the number of *lenses on added code*; this reviewer reads what left and what the change silently falsified, which no other check looks at. Putting it inside the ≤10 bucket would be self-defeating in a specific way: its second trigger fires on nearly every diff, but comment rot is by definition *incidental* to the change, so the "subject is the point of the change" test above would lose it the slot on almost every pull request — and where the session offers no separate comment reviewer, which is the common case, that would leave the class with no owner at all on the bucket most pull requests land in. `/pr-recheck` states the same exemption; the three commands must not disagree about this.
 
 If the PR removes or replaces meaningful code — ignoring pure renames, moves, and whitespace — **or leaves comments, docstrings or docs standing next to code it rewrote** — dispatch one additional **context-free** reviewer alongside the others. Prefer a purpose-built one: if the session offers an agent whose description declares removed/replaced code as its subject, dispatch that and hand it the same read path, diff scope, and gate result as everyone else. Otherwise compose it inline with this brief:
 
@@ -250,8 +241,8 @@ Deleted lines are the blind spot every other check shares: reviewers read what w
 
 **Hard gate — do not write any part of the report until every dispatched agent has reported and the built-in security pass of step 4 has either finished or been recorded as skipped.**
 
-- A pending agent is not an excuse to publish early and append later. Addenda, "one reviewer is still running", corrections to a section you already wrote — all forbidden. The user gets exactly one report.
-- While waiting, ground findings yourself by **reading** the code an agent cited. The gate was settled in step 3 — do not run it again. This raises a finding's `evidence` level; it never removes a finding. Do not narrate the wait.
+- Do not publish any part of the report before every check has reported. No addenda, no corrections to a section you already wrote — the user gets exactly one report.
+- While waiting, ground findings yourself by **reading** the code an agent cited. The gate was settled in step 3 — do not run it again. This raises a finding's `evidence` level; it never removes a finding.
 - **Run any `proposed-probe` serially, once every agent has reported** and nothing else is touching the tree — see *Running the probes* below for the environment and the bounds. Resolve each probe to `verified: <what failed>` or drop the finding. If a probe cannot be run, keep it as `proposed-probe` and say so in the report rather than silently promoting or dropping it.
 - If an agent dies or never returns, note it in the report as a failed check and continue — never block the whole report on one check.
 

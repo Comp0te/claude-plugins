@@ -86,10 +86,6 @@ A real gated set mixes genuine vulnerabilities with stale comments, missing test
 
 For a non-security finding the question is only: **is the claim factually confirmed against the code in the given tree?** Does the cited line say what the finding says it says, and does the stated consequence follow from it? Keep the restate-then-confirm spine. Drop the exploitability machinery rather than manufacturing a threat model that was never the point.
 
-### Read what the claim actually rests on
-
-Read the cited lines, and enough around them to know whether the mechanism holds — the callers, the reducer the action reaches, the guard the finding says is missing. A claim confirmed only by the quoted excerpt is `PLAUSIBLE`, not confirmed.
-
 **Go up, not only around — at least two levels of caller.** A condition that plainly holds inside a function is routinely unreachable given what every caller actually passes, and the finding is then right about the function and wrong about the program. This is the most common shape a plausible false positive takes, and it is invisible from the cited lines by construction: the cited lines are precisely where the claim looks true. Where a claim turns on a value being caller- or attacker-controlled, follow that value back to where it enters rather than accepting the finding's account of where it comes from. If the callers are too many or too dynamically dispatched to enumerate under the tree you were given, that is `INCONCLUSIVE: reasoning` — not a point resolved in the finding's favour.
 
 Be as willing to correct a finding as to reject it. The most common real outcome is not "wrong" but "right for a wrong reason": the defect exists and one clause of the explanation does not survive contact with the code. That has its own verdict below, and losing it into `TRUE POSITIVE` ships a refutable claim attached to a real bug — which, when the consumer is someone about to *edit code*, becomes a wrong patch rather than merely a wrong sentence.

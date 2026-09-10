@@ -166,10 +166,10 @@ for that asset type, or a path the caller explicitly named, plus the session scr
 
 ## Report format (final message)
 
-Budget: aim for roughly 1k tokens per screen, with a hard ceiling around 6k total. Within that,
-completeness beats brevity — never drop a measurement, token, state or interaction hint to save
-space; cut narration and repetition instead. If the scope genuinely exceeds the ceiling, say
-which screens got a shallow pass so the caller can follow up.
+The caller implements from this report, so completeness beats brevity — never drop a measurement,
+token, state or interaction hint to save space; cut narration and repetition instead. Where the
+scope was large enough that some screens only got a shallow pass, say which ones so the caller
+can follow up.
 
 1. **Screens** — one short paragraph per screen: purpose, layout structure (described as flex),
    and interaction hints (arrows, badges, sheets, accordions, states).

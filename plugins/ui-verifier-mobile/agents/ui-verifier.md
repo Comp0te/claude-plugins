@@ -58,9 +58,14 @@ current.
 - **If the build itself fails, stop and report it as a build blocker rather than debugging it.**
   That is outside your mandate: you verify a running app, you do not fix its build.
 - **Prove the bundle is not stale before trusting a "the fix isn't working" result.** Grep the
-  served JS bundle for a symbol from the diff before concluding a fix is absent — a single
-  `curl -s 'http://localhost:8081/index.bundle?platform=ios' | grep <symbol>` settles it.
-  Reporting a fix as broken while the device ran an old bundle costs a whole fix round.
+  served JS bundle for a symbol from the diff before concluding a fix is absent — but take the
+  host, port and bundle path from the session's own Metro binding (`agent-device help metro`)
+  rather than assuming `localhost:8081/index.bundle`: an Expo project serves
+  `.expo/.virtual-metro-entry.bundle` and answers `index.bundle` with a 404 or 500, so a grep
+  against the wrong URL reads as "symbol absent" and produces the very false verdict this check
+  exists to prevent. Confirm the response is a real bundle before drawing any conclusion from a
+  missing symbol. Reporting a fix as broken while the device ran an old bundle costs a whole
+  fix round.
 
 ### Session, daemon and sandbox traps
 
@@ -299,8 +304,11 @@ for one **before** you start navigating.
   keep a recorded script from replaying green while mis-tapping are in this plugin's
   `reference/route-scripts.md`. It ships with the plugin, not with the project you are driving, so
   locate it by path rather than by Glob over the working directory:
-  `find ~/.claude/plugins/cache -path '*ui-verifier-mobile*/reference/route-scripts.md' | head -1`
-  (falling back to a Glob only when you are working inside the plugin repository itself).
+  `find ~/.claude/plugins/cache -path '*ui-verifier-mobile*/reference/route-scripts.md' | sort -V | tail -1`
+  — the cache holds one directory per installed version, so take the highest, not the first.
+  **If that returns nothing, the installed plugin copy predates this reference**: say so in your
+  report and drive the route live instead of arming a recording. Fall back to a Glob only when you
+  are working inside the plugin repository itself.
   **Read it before you arm a recording** — one route shape must not be recorded at all, and a credential
   in the route needs `--record-as` or its literal text lands in the file.
 - **A replay failure is not a checklist failure.** It means the route drifted. Repair or re-record
