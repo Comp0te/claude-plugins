@@ -2,10 +2,9 @@
 
 ## Before Writing Code
 
-- If requirements are ambiguous, ask clarifying questions before writing code.
+- Ask before writing code only where the readings of a requirement lead to materially
+  different work; otherwise take the reasonable reading and name the assumption in one line.
 - When there's a bug, start by writing a test that reproduces it, then fix it.
-- When multiple interpretations exist, present them — don't pick silently.
-- If you're uncertain, say so explicitly. Don't paper over confusion with confident phrasing.
 
 ## Code Comments
 
@@ -50,5 +49,5 @@ Applies to every project that provides a way to drive the running application an
 
 - Any change with an **observable surface** — screens, components, styles, navigation, routing, state, data rendered on screen, error/empty/loading states — is not done until it has been verified in the running app. Tests passing is not verification.
 - **Delegate it**: where the project provides a way to drive the running application, use it; where a dedicated verification worker exists, delegate to it with a concrete checklist (how to reach the screen, what to expect, which states to cover) rather than driving the automation from the main conversation. Don't drive the automation CLI in the main loop — do that yourself only when exploring a flow for the first time, where mid-course judgment is needed. If no such worker exists, drive it yourself and say so.
-- **Skip only for changes with no observable surface** (pure logic/utils/types, build config, tests, docs) or in projects with no UI at all (libraries, SDKs). If you skip in a project that has a verification worker, say in the final message that you skipped it and why — silence is not an allowed answer.
+- **Skip only for changes with no observable surface** (pure logic/utils/types, build config, tests, docs) or in projects with no UI at all (libraries, SDKs). If you skip in a project that has a verification worker, say in the final message that you skipped it and why.
 - A failing or unrun verification is not "done": fix and re-run the agent. Include the screenshot paths from its report in the final message.
