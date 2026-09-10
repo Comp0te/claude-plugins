@@ -107,9 +107,9 @@ claude plugin install <name>@compote --scope user
 Seven projects held a project-local `ui-verifier` agent and four a local `figma-extractor` —
 copies that predate this marketplace. A local agent under `.claude/agents/` shadows a shipped one
 of the same `name:`, so installing the plugin next to it changes nothing until the local copy is
-gone. Note the shipped verifier agent is now also called `ui-verifier`, so that collision is exact
-and silent. The recipe,
-run once per project:
+gone. The shipped verifier agents are named `ui-verifier-mobile` and `ui-verifier-web`, so a
+local `ui-verifier` no longer shadows them — but it does still run in their place whenever a
+dispatch names the bare old name. The recipe, run once per project:
 
 1. **Install** the plugin the project needs, at **project** scope, from inside that repository —
    `ui-verifier-mobile` or `ui-verifier-web` (never both, and never at user scope: they would
@@ -118,7 +118,8 @@ run once per project:
 2. **Move the agent's memory store to the address the *plugin* agent reads.** A project-local
    agent is addressed by `<agent name>`, but an agent that arrives from a plugin is addressed by
    `<plugin name>-<agent name>` — so `agent-memory-local/ui-verifier/` becomes
-   `agent-memory-local/ui-verifier-mobile-ui-verifier/` (or `-web-`), and the extractor's store
+   `agent-memory-local/ui-verifier-mobile-ui-verifier-mobile/` (or
+   `ui-verifier-web-ui-verifier-web/`), and the extractor's store
    becomes `agent-memory/figma-flow-extractor/`. Do this before the agent ever runs, and if it has
    already run, merge rather than overwrite — it will have created the correct directory empty and
    written into it. Left alone, the old directory keeps every accumulated note and the shipped
