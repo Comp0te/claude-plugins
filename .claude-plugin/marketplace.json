@@ -25,7 +25,7 @@
     },
     {
       "name": "rn-performance-reviewer",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "description": "A React Native performance reviewer for the review flow: reports statically-provable defects in lists, effects and subscriptions, animations, Skia usage, memoization, bundle size and image rendering — and never speculative optimization advice. Install it in React Native repositories only.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/rn-performance-reviewer"
@@ -39,14 +39,14 @@
     },
     {
       "name": "ui-verifier-mobile",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "description": "Verifies UI changes in a running React Native app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-mobile"
     },
     {
       "name": "ui-verifier-web",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "description": "Verifies UI changes in a running web app or browser extension against a caller-supplied checklist: drives the browser, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-web"
