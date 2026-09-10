@@ -105,11 +105,15 @@ claude plugin install <name>@compote --scope user
 ## Migrating a project off its local verifier or extractor agent
 
 Seven projects held a project-local `ui-verifier` agent and four a local `figma-extractor` —
-copies that predate this marketplace. A local agent under `.claude/agents/` shadows a shipped one
-of the same `name:`, so installing the plugin next to it changes nothing until the local copy is
-gone. The shipped verifier agents are named `ui-verifier-mobile` and `ui-verifier-web`, so a
-local `ui-verifier` no longer shadows them — but it does still run in their place whenever a
-dispatch names the bare old name. The recipe, run once per project:
+copies that predate this marketplace. All seven have since been migrated; the recipe is kept for
+the next project that arrives with a local copy, and because steps 2 and 3 are where the
+migration loses things quietly.
+
+A local agent under `.claude/agents/` shadows a shipped one of the same `name:`, so installing
+the plugin next to it changes nothing until the local copy is gone. The shipped verifier agents
+are named `ui-verifier-mobile` and `ui-verifier-web`, so a local `ui-verifier` no longer shadows
+them — but it still runs in their place whenever a dispatch names the bare old name. The recipe,
+run once per project:
 
 1. **Install** the plugin the project needs, at **project** scope, from inside that repository —
    `ui-verifier-mobile` or `ui-verifier-web` (never both, and never at user scope: they would
@@ -156,11 +160,17 @@ doesn't exist. Until the local copy is removed, the project holds both it and th
 at once, and **the local one wins**; that overlap is only safe as a temporary state between step
 5 and step 6, never as an end state.
 
-**Two pilots have run steps 1–4 of this recipe** (a mobile project for `ui-verifier-mobile` and
-`figma-flow`, a web project for `ui-verifier-web`); steps 5 and 6 are deferred to a session
-with a booted simulator/emulator and a reachable Figma node, so both pilots currently hold a
-local copy and the shipped plugin at once. **Remaining projects, not started:** five hold a local
-verifier, and three of those also hold a local extractor.
+**Current state — the migration is complete.** No project under `~/Projects` holds a local
+`ui-verifier` or `figma-extractor` in `.claude/agents/` any more, and all seven verifier projects
+run the shipped agent at project scope with `figma-flow` alongside it and a
+`.claude/docs/ui-verification.md` facts file in place.
+
+An empty memory column is not an unfinished step — it is an agent that has met no project fact
+worth keeping yet. The three stores that do exist were moved to the plugin-prefixed address when
+the agents were renamed to `ui-verifier-mobile` / `ui-verifier-web`, per the warning in step 2;
+the rename was caught by the cross-reference checker in `scripts/check-structure.py`, but only
+inside this repository — the consuming projects' `CLAUDE.md` files and memory stores had to be
+found by hand, which is the argument for keeping that column honest here.
 
 ## Repository-local reviewers
 
