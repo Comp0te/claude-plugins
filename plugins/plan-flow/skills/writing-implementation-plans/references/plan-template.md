@@ -153,8 +153,9 @@ Keep the block short — it is loaded into every implementer's context and re-re
 But budget the prose and the matrix **separately**, because a token of each is worth a very
 different amount:
 
-- **Intent + Ask First: target ~300 tokens.** Past that they are being written as narrative
-  rather than as a contract, and trimming is the fix.
+- **Intent + Ask First: keep them contract-shaped.** A sentence or two of intent, and halt
+  conditions written as conditions. Once they read as narrative rather than as a contract,
+  trimming is the fix.
 - **The matrix: no token budget, and no row limit either.** A row costs ~50 tokens and buys
   one complete, independently testable scenario — the densest content in the whole plan, and
   the thing the executor is graded against. Length is not the signal. Ask instead whether the
@@ -184,7 +185,9 @@ to prevent, arriving through a different door.
 So size a task by what executing it will cost, not by how it reads:
 
 - **Ceiling: about 40 tool-using turns, or 120k tokens of context, for one task.** A task
-  expected to exceed either should be split before approval.
+  expected to exceed either should be split before approval. Both figures measure one thing —
+  a task should finish before the executor's context is compacted — so re-measure them when the
+  harness's window or compaction threshold changes.
 - **Proxies available at writing time:** more than ~8 checkbox steps; more than one deliverable
   that needs its own test cycle; a task section whose steps you cannot hold in your head at
   once. Token cost grows faster than the turn count, because every extra turn re-reads a

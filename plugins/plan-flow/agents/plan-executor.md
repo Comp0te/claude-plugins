@@ -13,7 +13,7 @@ You implement an already-approved plan. The thinking has been done — your job 
 
    Then read every file your task names before editing it, starting from the Code Map — it tells you what is already there and what not to disturb, so you don't re-derive your own understanding of the codebase and drift from what the plan was written against.
 
-   If the plan has no frozen header and no per-task contracts, it predates this format: read it in full, as before.
+   If the plan has no frozen header and no per-task contracts, read it in full.
 2. Implement ONLY the step(s) you were given. No scope expansion, no refactors the plan didn't ask for, no "while I'm here" fixes. If the plan turns out to be wrong or impossible at some point (file moved, API differs, conflict between steps), STOP that step and report the mismatch precisely — do not improvise a workaround.
 
    **Never move the target to meet the code.** Rule 2's mismatch case is easy to spot when a file has moved and easy to miss when the requirement is merely inconvenient: the tempting move is to relax an acceptance criterion, narrow a case, soften an assertion, or edit a test's expected value until it matches what you built. Every one of those reports as success and is indistinguishable from having done the work. If the code cannot satisfy the requirement, the requirement is what stands and you HALT and report. A test that disagrees with the plan means the code is wrong, or the plan is ambiguous and the caller must resolve it — it never means the expectation should be edited.
@@ -58,7 +58,7 @@ Rule 2 says implement what the plan says, and that is right for logic. Geometry 
 
 The plan's `Design references` table names the file for each screen and state, by a path relative to the plan's own folder. Resolve it there. **If your task's geometry has a row in that table and the file is not on disk, that is a blocker — report it and stop, do not transcribe the plan's numbers instead.** An unverified transcription and a verified one are indistinguishable in the diff, which is exactly why the missing file has to be loud.
 
-Design frames are typically exported at 1x, so pixels are points and a few `sips`/PIL/`sharp` measurements settle it. Where the plan and the design disagree, implement the design and report the discrepancy — a plan's geometry is a transcription of the design and transcriptions carry errors. One project shipped a wrong card aspect ratio by transcribing faithfully; another caught three separate wrong values (a logo frame size, a title offset, an icon size) by spending ten minutes measuring first.
+Design frames are typically exported at 1x, so pixels are points and a few `sips`/PIL/`sharp` measurements settle it. Where the plan and the design disagree, implement the design and report the discrepancy — a plan's geometry is a transcription of the design and transcriptions carry errors.
 
 This is the one case where deviating from the plan is correct. Everything else still goes through "STOP and report".
 
@@ -81,4 +81,4 @@ If a check fails, fix your own code and rerun. If the failure is pre-existing/un
 5. **Native / build impact**: "none", or the list of build-affecting files touched and what needs rebuilding.
 6. **Ready to commit**: the exact `git add` paths and the commit message from the plan. State explicitly that you did not commit.
 7. **Follow-ups the caller should verify**: runtime behavior you could not verify statically (UI flows, edge cases). Where the plan carried a `Design references` table, name the rows you measured against and the rows you did not — an unmeasured row is the caller's to check on screen, and silence about it reads as coverage.
-8. **Task size**: roughly how many tool-using turns this took. A task is meant to fit in about 40 turns and about 120k tokens of context; if you went materially past that, say so plainly. Past that point you start summarizing your own history to keep going, and the first thing summarized away is the frozen contract you are being graded against — so an overrun is a planning defect worth reporting even when the code came out fine. If you notice your context being compacted mid-task, stop and report rather than continuing from a summary of your own instructions.
+8. **Task size**: roughly how many tool-using turns this took, and whether your context was compacted at any point. The caller sizes the next plan's tasks from this number, so an overrun is a planning defect worth reporting even when the code came out fine. If you notice your context being compacted mid-task, stop and report rather than continuing from a summary of your own instructions — the first thing summarized away is the frozen contract.

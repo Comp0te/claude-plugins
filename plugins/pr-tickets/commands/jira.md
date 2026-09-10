@@ -85,7 +85,7 @@ Take the first rule that fires. `consequence` is `user-visible` / `security` / `
 
 - **`skip — duplicate of <KEY>`** — a live ticket already covers the mechanism. Decided by the Jira pass below.
 - **`skip — trivial`** — cosmetic, and self-evidently cheaper to fix than to track. A duplicated host in a CSP source list is the shape of this; anything with a user-visible consequence is not.
-  **Reviews no longer emit Low, so this rule fires rarely and never on severity alone.** A Low is dropped at classification and never reaches the deferred log, so a row that arrives here has already been judged worth recording — skipping it as trivial takes a second decision away from the review that made the first one, and needs the concrete reason ("one duplicated entry in a list the browser deduplicates anyway"), not a tier. Rows carrying an explicit `Low` come from logs written before that policy; treat the label as historical and judge the row on what it says.
+  **This rule never fires on severity alone.** A row that reached the deferred log has already been judged worth recording — skipping it as trivial takes a second decision away from the review that made the first one, and needs the concrete reason ("one duplicated entry in a list the browser deduplicates anyway"), not a tier. A row carrying an explicit `Low` came from an older log: judge it on what it says, not on the label.
 - **`skip — internal Medium`** — the finding is rated Medium and names no user-visible or security consequence. **Critical and High are exempt from this rule: they are filed on the strength of severity alone.** At Medium the bar is different: a ticket is a claim on someone's future sprint, and a backlog of "this type could be narrower" and "this comment is imprecise" is a backlog nobody grooms — which then buries the Mediums that do name a consequence.
 
   Read the finding's `consequence:` field first: `internal — <why>` is this skip, and a named effect or `safety-net — <…>` is not. **Where the field is absent** — an older handoff, a review that predates the split — do not treat the absence as a pass. Decide it yourself from the finding's text and say in the `why` column that you classified it here, against these three:
@@ -226,7 +226,7 @@ Each ticket:
 - **type** — `Bug` for a defect. A missing test, a cleanup, or a design change is a `Task`; say which and why in one clause.
 - **priority** — from severity, and this mapping is fixed: **Critical → Highest, High → High, Medium → Medium.** Every Medium that reaches this step has already cleared the `skip — internal Medium` rule, so a Medium on the board is by construction one naming a user-visible or security consequence, and Medium is the right priority for it — not lower for being a Medium, not raised for being security-adjacent. Current reviews emit nothing below Medium — Low is dropped at classification and never reaches the deferred log — so a row arriving without a severity is a Medium unless its own text argues otherwise, and a row still carrying `Low` came from a log written before that policy: map it to Low, and say in the ticket that the severity is inherited from an older review rather than assigned to this row.
 - **component** — as established in step 2.
-- **description**, in the sections `PROJ-1234` uses:
+- **description**, in these sections:
 
   A provenance paragraph first: what review surfaced it, that line numbers are from `<base-sha>` (`<base>`) and were re-verified against that commit, and why this PR did not cause it. For a source-C row, say instead that the author agreed to defer it, **quote their sentence**, and link the thread; if the PR is still open and the row is about the PR's own code, say that too and pin the lines to its head.
 
@@ -234,7 +234,7 @@ Each ticket:
 
   **Omit `## Reproduction` when nothing was executed.** Never write reproduction steps you have not run — a ticket whose repro does not reproduce is worse than one that admits it has none. `## Related` names adjacent tickets and the PR; omit it when there is nothing to name.
 
-**Describe the finding, never how it was found.** No agent names, no skill names, no "automated review", no `.claude/` paths. `PROJ-1234` opens with "Surfaced while reviewing PR #1429" and that is the whole of it.
+**Describe the finding, never how it was found.** No agent names, no skill names, no "automated review", no `.claude/` paths. One opening clause — "Surfaced while reviewing PR #<N>" — is the whole of it.
 
 Then print the **final table** in chat, and nothing longer:
 
