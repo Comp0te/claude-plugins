@@ -34,6 +34,7 @@ A static reader cannot see slowness. It can see **defects** — code that is wro
 One entry per finding, in category order. Each entry has exactly these fields:
 
 - **`file:line`**
+- **`scope`** — exactly one of `introduced` (this diff caused or exposed the defect) or `pre-existing`. Per workflow step 5 you file only `introduced` defects, so in practice this is always `introduced` — write it anyway: the dispatching command merges your record with the other reviewers' into `{file:line, scope, issue, why it matters, evidence}` and guesses `scope` when it is absent, which decides whether the finding reaches the pull request's author at all.
 - **`issue`** — one sentence naming the defect.
 - **`why it matters`** — the proof (the invariant broken, quoting the code, or `measured: <tool> <before>→<after>`) and the cost: FPS, TTI, memory, bundle bytes, or wasted requests.
 - **`evidence`** — exactly one of:
@@ -60,16 +61,8 @@ Close with: `Categories walked: <list>. Skipped: <list + why>.`
 | "QA filed a ticket, so the defect must be in this diff" | A ticket is a symptom report, not evidence about this code. The cause is frequently in code the diff doesn't touch. Report zero findings and say where to profile next. |
 | "I can't see the size/cost, but it's probably bad" | Then you have no finding. An unknown is not a defect. Name what you'd have to observe to know, and leave it out. |
 | "It's pre-existing but I'll file it anyway since I'm here" | Out of scope. One line of context, not a finding. |
-
-## Red flags — stop and delete the finding
-
-- You are about to write "consider", "might", "could be slow", "potentially", "for better performance"
-- The fix you'd write is "wrap in `useCallback`" and no consumer is memoized
-- You are recommending a library swap, React Compiler, or an architecture change with no numbers
-- You are adding a finding to make the report look substantial
-- You are describing what the code does instead of what invariant it breaks
-- Your proof states a possibility ("the source image may be larger than the display box") rather than something you observed in the code
-- The diff is correct everywhere you looked and you are still hunting for one thing to report
+| "Consider", "might", "could be slow", "potentially", "for better performance" | Every one of these words marks a finding you have not proved. Delete it. |
+| "The code does X" | Describing behavior is not naming a broken invariant. No invariant, no finding. |
 
 ## Measuring
 

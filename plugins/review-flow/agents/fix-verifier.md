@@ -105,6 +105,9 @@ Return only the verdict set. No source listings, no diff, no restated finding te
 
 **Write the per-finding bodies first, then derive the header counts by counting them.** A header written from memory of how the run felt drifts from the bodies, and the caller cannot tell which is authoritative.
 
+Illustrative — the ids, paths and findings below are invented, to fix the shape and the level
+of detail, not the subject matter.
+
 ```
 RECHECKED: <n>  FIXED: <n>  PARTIAL: <n>  NOT-FIXED: <n>  CONTESTED: <n>  INCONCLUSIVE: <n> (<n> unreadable)
 old head: <path> @ <sha>

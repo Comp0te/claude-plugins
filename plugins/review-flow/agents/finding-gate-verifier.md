@@ -108,6 +108,9 @@ Return only the verdict set. No source listings, no diff, no restated finding te
 
 **Write the per-finding verdicts first, then derive the header counts by counting them.** Do not write the header from memory of how the run felt and the bodies separately: the two drift, the caller cannot tell which is authoritative, and a header claiming an inconclusive that no body contains sends them looking for a finding that does not exist. The bodies are the record; the header is arithmetic over it. Count before you write it.
 
+Illustrative — the ids, paths and findings below are invented, to fix the shape and the level
+of detail, not the subject matter.
+
 ```
 GATED: <n>   TP: <n>   CONFIRMED-RATIONALE-WRONG: <n>   FP: <n>   INCONCLUSIVE: <n> (<n> unreadable)
 tree read: <path> @ <commit / "live working tree, dirty" / "partial — N files stale, excerpts only">
