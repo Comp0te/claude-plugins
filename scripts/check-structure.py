@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Fail if a plugin's manifest, frontmatter, or cross-references are malformed."""
-import json, pathlib, sys
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MARKETPLACE = ROOT / ".claude-plugin/marketplace.json"
 PLUGINS = ROOT / "plugins"
+REFERENCE_RE = re.compile(r"\b([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)\b")
 
 
 def frontmatter(path):
@@ -90,10 +91,39 @@ def check_frontmatter(problems):
             problems.append(f"duplicate agent name '{name}': {names}")
 
 
+def check_cross_references(problems):
+    local_plugins = sorted(
+        d.name for d in PLUGINS.iterdir() if d.is_dir() and not d.name.startswith(".")
+    )
+
+    resolvable = set()
+    for plugin in local_plugins:
+        for path in (PLUGINS / plugin / "agents").glob("*.md"):
+            fm = frontmatter(path)
+            if "name" in fm:
+                resolvable.add(f"{plugin}:{fm['name']}")
+        for path in (PLUGINS / plugin / "commands").glob("*.md"):
+            resolvable.add(f"{plugin}:{path.stem}")
+        for path in (PLUGINS / plugin / "skills").glob("*/SKILL.md"):
+            resolvable.add(f"{plugin}:{path.parent.name}")
+
+    local_plugin_names = set(local_plugins)
+    for path in sorted(PLUGINS.glob("**/*.md")):
+        rel = path.relative_to(ROOT)
+        text = path.read_text()
+        for prefix, name in REFERENCE_RE.findall(text):
+            if prefix not in local_plugin_names:
+                continue
+            ref = f"{prefix}:{name}"
+            if ref not in resolvable:
+                problems.append(f"dangling cross-reference: {ref} in {rel}")
+
+
 def main():
     problems = []
     check_manifests(problems)
     check_frontmatter(problems)
+    check_cross_references(problems)
     for problem in problems:
         print(problem, file=sys.stderr)
     return 1 if problems else 0
