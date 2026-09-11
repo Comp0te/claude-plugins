@@ -1,5 +1,5 @@
 {
-  "description": "Injects the main-conversation operating rules at the start of any session opened inside a git repository, and warns when the memory-file import that delivers the rest is missing or stale. It emits context only; it never returns a permission decision.",
+  "description": "Injects the main-conversation operating rules at the start of any session opened inside a git repository, and warns when the memory-file import that delivers the rest is missing or stale. A second hook checks comment blocks as they are written against the budget in the working agreements. Both emit context only; neither returns a permission decision. Set PLAN_FLOW_COMMENT_BUDGET=off to silence the comment check on its own.",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,18 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/comment-budget.py\"",
             "timeout": 5
           }
         ]

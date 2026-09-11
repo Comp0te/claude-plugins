@@ -24,7 +24,9 @@ That single test kills most bad comments.
 - **Budget: 2 lines inline, 4 for a docstring — a ceiling, not an average.** Exceptions: a money-
   or security-critical contract on an exported symbol, and a module doc that maps what a barrel
   exports. Over budget means cut, or the ticket — never split into two comments, which is worse.
-  If a function needs more than one or two, the smell is the code.
+  If a function needs more than one or two, the smell is the code. The budget outranks the file
+  you are editing: a neighbour with a twelve-line block is not a precedent, and not a migration
+  to start.
 
 Changelog entries follow the same rules: what changed and what the consumer does about it, not
 why it was built that way.
