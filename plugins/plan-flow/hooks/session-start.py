@@ -19,7 +19,7 @@ def imported_path():
     return None
 
 def integrity(root):
-    line = "@<path to this plugin>/%s/%s" % SHIPPED
+    line = "@" + os.path.join(root, *SHIPPED)
     path = imported_path()
     if path is None:
         return ("The rules this plugin ships are not reaching dispatched workers: "

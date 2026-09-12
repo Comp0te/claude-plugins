@@ -71,6 +71,15 @@ echo '{}' | python3 "<path to this plugin>/hooks/session-start.py" \
   | grep -o 'Setup warning[^"]*' || echo 'No setup warning: the import is healthy.'
 ```
 
+To see the exact import line the hook would advertise for an install with none, point it at a
+throwaway home:
+
+```bash
+H=$(mktemp -d); echo '{}' | HOME="$H" CLAUDE_PLUGIN_ROOT="$PWD/plugins/plan-flow" \
+  python3 plugins/plan-flow/hooks/session-start.py \
+  | python3 -c "import json,sys; t=json.load(sys.stdin)['hookSpecificOutput']['additionalContext']; [print(l) for l in t.splitlines() if 'Add: @' in l]"
+```
+
 It can report one of three problems:
 
 - **No import line** — `~/.claude/CLAUDE.md` has no import for the working agreements at all. Add
