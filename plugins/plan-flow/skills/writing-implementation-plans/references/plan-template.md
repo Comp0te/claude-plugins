@@ -117,8 +117,8 @@ not the *how*.
 
 - [ ] **Step 1: Write the failing test**
       ...one action per step, carrying real code — see *Step size* below.
-      Label every code block `contract` or `reference` — see *Contract code and
-      reference code* below. An unlabelled block is read as `contract`.
+      Mark a block `reference` if the implementer may write it differently — see
+      *Contract code and reference code* below. Unmarked code is binding.
 
 **Verification:**
 - `COMMAND` — expected: SUCCESS_CRITERIA
@@ -298,21 +298,33 @@ that adaptation has only two exits, and both are bad: treat it as "the plan is w
 halt on something trivial, or quietly rewrite until it fits and report success. The fix is
 not less code. It is saying which code is the agreement and which code is an illustration.
 
-Label each block:
+Code in a plan is binding by default: reproduce it exactly. That is type and function
+signatures, public interfaces, test bodies together with their expected values,
+schema/DDL and migrations,
+config keys, exact user-visible strings, and any body whose *sequence* is the point — an
+algorithm, an ordering, a concurrency dance, a workaround for a specific API quirk. For
+that last group add one line saying why it is exact, so the reader can tell a deliberate
+sequence from ordinary code. Changing binding code is a mismatch to report, never a
+decision to make.
 
-- **`contract` — reproduce exactly.** Type and function signatures, public interfaces, test
-  bodies together with their expected values, schema/DDL and migrations, config keys, exact
-  user-visible strings, and any body whose *sequence* is the point — an algorithm, an
-  ordering, a concurrency dance, a workaround for a specific API quirk. For that last group
-  add one line saying why it is exact, so the reader can tell a deliberate sequence from
-  ordinary code. Changing a `contract` block is a mismatch to report, never a decision to
-  make.
-- **`reference` — match the behavior, not the text.** Bodies of functions whose contract is
-  already pinned above, wiring, boilerplate, styling and layout. The implementer may write
-  it differently if the pinned signatures still hold and the task's tests and matrix rows
-  pass. Doing so is not a deviation and does not need to be reported.
+Mark the exceptions — and only the exceptions — `reference`, on the fence line after the
+language tag:
 
-An unlabelled block counts as `contract` — the safe default, and a nudge to label.
+```ts reference
+function onFilterChange(next: FilterState) {
+  // wiring: match the behavior, write it how you like
+  setFilters(next)
+}
+```
+
+**`reference` — match the behavior, not the text.** Bodies of functions whose contract is
+already pinned above, wiring, boilerplate, styling and layout. The implementer may write
+it differently if the pinned signatures still hold and the task's tests and matrix rows
+pass. Doing so is not a deviation and does not need to be reported.
+
+An unmarked block is binding — the safe default, and the reason marking only the
+exceptions loses nothing. An explicit `contract` on a fence line still reads as binding,
+so plans written under the older rule are unaffected.
 
 This is what keeps a plan portable *and* honest. Another developer, or an agent from another
 vendor, still receives the full set of signatures, tests with expected values, and the matrix
