@@ -1,0 +1,125 @@
+schema_version: "1.1"
+name: 03-dependency-migration
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    `@vendor/hw-transport` is being retired and replaced by `@vendor/device-kit`. It's a different
+    API: `transport.send(apdu)` is gone, and the kit instead exposes a session you open per device
+    plus `session.exec(command)` with typed commands, and it owns its own discovery/connect state
+    machine. We need to migrate the app and the core package and keep the existing callers working.
+
+    Plan it, don't write code. Put the plan at `docs/plans/2026-09-12-device-kit-migration.md`.
+
+    The files that matter:
+
+    - `packages/core/src/device/transport.ts` — wraps `@vendor/hw-transport`, exports
+      `openTransport(kind)` and `TransportKind`.
+    - `packages/core/src/device/commands.ts` — six commands that each build an APDU and call `send`.
+    - `apps/wallet/src/device/useDevice.ts` — the hook owning connection state.
+    - `apps/wallet/src/device/DeviceModal.tsx` — renders that state, including the connect timeout.
+    - `packages/core/package.json` — where `@vendor/hw-transport` is declared.
+      `@vendor/device-kit` is not installed yet.
+
+    Tests: `npm test` (vitest). Types: `npm run typecheck`.
+  max_turns: 45
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: block-labels
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '```[a-zA-Z]*[ \t]+(contract|reference)\b'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: code-map-annotated
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '\*\*Code Map[\s\S]{0,2500}`[\w./@-]+\.[a-zA-Z]+:\d+(-\d+)?`'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: constraint-tiers
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '\*\*Always:\*\*[\s\S]{0,6000}\*\*Ask First:\*\*[\s\S]{0,6000}\*\*Never:\*\*'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: covers-the-request
+    focus:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    criteria: |
+      One question only: does every requirement below map to at least one task in this plan?
+
+      - `@vendor/device-kit` is installed and `@vendor/hw-transport` is removed
+      - `openTransport` is replaced by the kit's per-device session
+      - all six existing commands (`getAddress`, `signHash`, `getVersion`, `openApp`, `closeApp`,
+        `getDeviceInfo`) are ported to `session.exec`
+      - the hook's four connection states (`idle`, `connecting`, `ready`, `error`) still work, now
+        driven by the kit's own discovery/connect state machine
+      - the modal's connecting spinner and its 30-second timeout still work
+      - the existing callers keep working
+
+      Go through the list item by item and say, for each, which task covers it — or say it is
+      uncovered. Pass only if every item is covered by a named task.
+
+      Ignore everything else: formatting, section order, length, whether the code in the plan would
+      compile, and whether the plan is well written. Those are checked by other graders. Judge
+      coverage and nothing else.
+    weight: 1
+  - type: regex
+    name: exec-header
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '##\s+How to execute this plan'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: frozen-block
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '<frozen-after-approval'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: matrix-present
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: 'I/O & Edge-Case Matrix'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: no-placeholders
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: 'similar to Task \d|add appropriate error handling|FILL_IN|\|\s*TBD\s*\||:\s*TBD\s*$'
+    match: not_contains
+    flags: i
+    weight: 0.5
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
+  - type: regex
+    name: verification-commands
+    target:
+      source: file
+      path: docs/plans/2026-09-12-device-kit-migration.md
+    pattern: '\*\*Verification[\s\S]{0,900}`(npm|yarn|pnpm|npx)'
+    match: contains
+    weight: 0.5

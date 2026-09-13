@@ -1,0 +1,129 @@
+schema_version: "1.1"
+name: 02-agreed-approach-followup
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    We already agreed the approach earlier; here it is again so it's all in one place.
+
+    The wallet signs transactions in two places today and they have drifted. We're splitting
+    signing into two tiers in the core package:
+
+    - Tier 1 — plain transfers and delegation. Fully deterministic payload, no contract call.
+      Core owns building, hashing and signing; the app only supplies the key handle.
+    - Tier 2 — contract calls (swap, NFT, staking). The payload is built by the caller and core
+      only hashes and signs it, because the app knows the ABI and core must not.
+
+    Both tiers return the same `SignedTx` shape so the broadcast path stays single. Anything that
+    needs a Ledger device goes through the existing key-signing path, unchanged.
+
+    The files that matter:
+
+    - `packages/core/src/signing/index.ts` — the current single `signTransaction(tx, key)`.
+    - `packages/core/src/signing/hash.ts` — `hashPayload`, pure, already tested.
+    - `packages/core/src/types/tx.ts` — `Transaction`, `SignedTx`, `KeyHandle`.
+    - `packages/core/src/broadcast/send.ts` — consumes `SignedTx`.
+    - `packages/core/src/index.ts` — the package barrel.
+    - `apps/wallet/src/features/swap/useSwapSign.ts` — builds a contract-call payload by hand
+      today and calls `signTransaction` with it.
+
+    Tests: `npm test` (vitest). Types: `npm run typecheck`.
+
+    делай core-side plan для Tier 1 и Tier 2, положи его в
+    `docs/plans/2026-09-12-core-tx-signing.md`
+  max_turns: 45
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: block-labels
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '```[a-zA-Z]*[ \t]+(contract|reference)\b'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: code-map-annotated
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '\*\*Code Map[\s\S]{0,2500}`[\w./@-]+\.[a-zA-Z]+:\d+(-\d+)?`'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: constraint-tiers
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '\*\*Always:\*\*[\s\S]{0,6000}\*\*Ask First:\*\*[\s\S]{0,6000}\*\*Never:\*\*'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: covers-the-request
+    focus:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    criteria: |
+      One question only: does every requirement below map to at least one task in this plan?
+
+      - a Tier 1 entry point: core builds, hashes and signs a transfer or delegation, with the
+        caller supplying only the key handle
+      - a Tier 2 entry point: the caller supplies an already-built contract-call payload and core
+        only hashes and signs it
+      - both entry points return the same `SignedTx` shape, so the broadcast path stays single
+      - the plan says what becomes of the existing `signTransaction` export and of its one
+        app-side caller — either migrating it or recording it as out-of-scope follow-up work.
+        Either answer counts as covered; silently leaving a broken caller does not.
+
+      The request asked for a core-side plan, so work inside `apps/wallet/` is out of scope:
+      do not treat its absence as a gap.
+
+      Go through the list item by item and say, for each, which task covers it — or say it is
+      uncovered. Pass only if every item is covered by a named task.
+
+      Ignore everything else: formatting, section order, length, whether the code in the plan would
+      compile, and whether the plan is well written. Those are checked by other graders. Judge
+      coverage and nothing else.
+    weight: 1
+  - type: regex
+    name: exec-header
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '##\s+How to execute this plan'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: frozen-block
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '<frozen-after-approval'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: no-placeholders
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: 'similar to Task \d|add appropriate error handling|FILL_IN|\|\s*TBD\s*\||:\s*TBD\s*$'
+    match: not_contains
+    flags: i
+    weight: 0.5
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
+  - type: regex
+    name: spec-change-log
+    target:
+      source: file
+      path: docs/plans/2026-09-12-core-tx-signing.md
+    pattern: '##\s+Spec Change Log'
+    match: contains
+    weight: 0.5

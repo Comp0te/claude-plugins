@@ -1,0 +1,130 @@
+schema_version: "1.1"
+name: 05-observable-ui-feature
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    We need a filter panel on the orders list. Plan it, no code. Put the plan at
+    `docs/plans/2026-09-12-order-filter-panel.md`.
+
+    What it has to do: filter by production line (multi-select), by status (single select), and by
+    a date range. Filters apply together, are reflected in the URL so a filtered view can be
+    shared, and survive a reload. Clearing all filters returns the unfiltered list.
+
+    States that have to be right:
+
+    - nothing selected — the list is unfiltered and the panel shows no active-filter count
+    - a filter is selected but the result set is empty — the list shows an empty state naming
+      which filters caused it, and offers to clear them
+    - the filter options are still loading — the panel is disabled, not hidden
+    - the options request failed — the panel shows an inline error and a retry, and the list stays
+      usable unfiltered
+    - a shared URL carries a production line that no longer exists — that value is dropped, the
+      rest of the filters still apply, and the user is told
+
+    The files that matter:
+
+    - `src/features/orders/OrdersList.tsx` — the list, with an existing "no orders at all" state.
+    - `src/features/orders/useOrders.ts` — react-query hook, takes no arguments today.
+    - `src/features/orders/api.ts` — `fetchOrders(params)` already accepts the filter shape.
+    - `src/lib/useUrlState.ts` — zod-validated query-param state, used by two other screens.
+    - `src/features/lines/useLines.ts` — the production-line list.
+
+    Tests: `npm test` (vitest + @testing-library/react). Types: `npm run typecheck`.
+  max_turns: 45
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: block-labels
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: '```[a-zA-Z]*[ \t]+(contract|reference)\b'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: code-map-annotated
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: '\*\*Code Map[\s\S]{0,2500}`[\w./@-]+\.[a-zA-Z]+:\d+(-\d+)?`'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: constraint-tiers
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: '\*\*Always:\*\*[\s\S]{0,6000}\*\*Ask First:\*\*[\s\S]{0,6000}\*\*Never:\*\*'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: covers-the-request
+    focus:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    criteria: |
+      One question only: does every requirement below map to at least one task in this plan?
+
+      - filter by production line (multi-select), by status (single select), and by date range
+      - the filters apply together
+      - the active filters are reflected in the URL, so a filtered view can be shared
+      - the filters survive a page reload
+      - clearing all filters returns the unfiltered list
+      - nothing selected: the list is unfiltered and no active-filter count is shown
+      - a filter selected but no results: an empty state naming which filters caused it, offering to
+        clear them
+      - filter options still loading: the panel is disabled, not hidden
+      - the options request failed: an inline error with a retry, and the list stays usable
+      - a shared URL carrying a production line that no longer exists: that value is dropped, the
+        other filters still apply, and the user is told
+
+      Go through the list item by item and say, for each, which task covers it — or say it is
+      uncovered. Pass only if every item is covered by a named task.
+
+      Ignore everything else: formatting, section order, length, whether the code in the plan would
+      compile, and whether the plan is well written. Those are checked by other graders. Judge
+      coverage and nothing else.
+    weight: 1
+  - type: regex
+    name: exec-header
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: '##\s+How to execute this plan'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: frozen-block
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: '<frozen-after-approval'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: matrix-present
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: 'I/O & Edge-Case Matrix'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: no-placeholders
+    target:
+      source: file
+      path: docs/plans/2026-09-12-order-filter-panel.md
+    pattern: 'similar to Task \d|add appropriate error handling|FILL_IN|\|\s*TBD\s*\||:\s*TBD\s*$'
+    match: not_contains
+    flags: i
+    weight: 0.5
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1

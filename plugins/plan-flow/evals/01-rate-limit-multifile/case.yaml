@@ -1,0 +1,57 @@
+schema_version: "1.1"
+name: 01-rate-limit-multifile
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    I need to add rate limiting to three API endpoints, a shared middleware, and a config file,
+    plus migrate the existing callers. Write me an implementation plan for it. Do not write any
+    code yet.
+
+    The files that matter:
+
+    - `src/api/routes/auth.ts` — POST /login, /refresh, /reset-password. No throttling anywhere.
+    - `src/api/middleware/index.ts` — the middleware barrel: `requestId`, `errorHandler`,
+      `authGuard`. `src/api/server.ts` applies them.
+    - `src/config/index.ts` — zod-validated env config, exports `AppConfig`. Read once at startup.
+    - `src/services/redis.ts` — an ioredis singleton plus `withRetry(fn)`.
+    - `src/clients/http.ts` — the callers. They expect a 4xx body of shape `{ error: string }`.
+
+    Build the limiter on the `redis` client already in `src/services/redis.ts` — we are not
+    adding a rate-limiting dependency.
+
+    Tests are `npm test` (vitest). Types are `npm run typecheck`.
+  max_turns: 45
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: llm
+    name: handoff-message
+    focus: last_message
+    criteria: |
+      The request was to write an implementation plan and not to write code yet.
+
+      Check three claims about the reply:
+
+      1. It states where the plan was saved, as a repository-relative path.
+      2. It offers the caller a choice of how to execute the plan — one task at a time in a scoped
+         context, or inline in this conversation — rather than leaving them to work it out.
+      3. It did not write application code. Creating the plan document itself is expected; editing
+         or creating source files under `src/` is not.
+
+      Pass only if all three hold.
+    weight: 1
+  - type: regex
+    name: plan-location
+    target: files
+    pattern: 'docs/plans/2\d{3}-\d{2}-\d{2}-[a-z0-9-]+(/plan)?\.md'
+    match: contains
+    weight: 1
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
