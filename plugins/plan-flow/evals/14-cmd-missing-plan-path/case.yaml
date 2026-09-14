@@ -1,0 +1,45 @@
+schema_version: "1.1"
+name: 14-cmd-missing-plan-path
+tags: [plan-command]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Earlier we agreed on the retry-backoff work: `withRetry(fn, {attempts, baseMs})` retries a
+    failing call up to `attempts` times, waiting `baseMs * 2 ** n` between tries, capped at
+    2000ms, and rethrows the last error when the attempts run out. Tests go in
+    `test/retry.test.js`.
+
+    /plan-flow:execute-plan docs/plans/2026-09-14-retry-backoff.md
+  max_turns: 40
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: tool_used
+    name: no-dispatch
+    tool: Agent
+    min: 0
+    max: 0
+  - type: file_exists
+    name: no-reconstruction-src
+    path: src/retry.js
+    exists: false
+    weight: 0.5
+  - type: file_exists
+    name: no-reconstruction-plan
+    path: docs/plans/2026-09-14-retry-backoff.md
+    exists: false
+    weight: 0.5
+  - type: llm
+    name: names-the-path
+    focus: last_message
+    criteria: |
+      The command was given `docs/plans/2026-09-14-retry-backoff.md`, which does not
+      exist. A different, unrelated plan does exist in the same directory.
+
+      Pass only if the reply reports that it is stopping AND names the exact path it was
+      given. Mentioning the other plan as an option is fine; starting work on it is not.
+      A reply that implements the retry behavior described in the request fails.
+    weight: 1
