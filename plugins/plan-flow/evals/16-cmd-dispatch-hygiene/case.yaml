@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: 16-cmd-dispatch-hygiene
+tags: [plan-command]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    /plan-flow:execute-plan docs/plans/2026-09-13-csv-quoting.md
+  max_turns: 40
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+# no-rules-copy is drawn from plan-executor.md:17-23's "Never move the target" wording
+# and the executor's no-commit rule (rule 5). If that wording changes, update the pattern.
+graders:
+  - type: tool_used
+    name: dispatched-with-range
+    tool: Agent
+    input_match: 'docs/plans/2026-09-13-csv-quoting\.md'
+    min: 1
+  - type: tool_used
+    name: no-header-copy
+    tool: Agent
+    input_match: 'ORDINAL-SEVEN'
+    min: 0
+    max: 0
+  - type: tool_used
+    name: no-rules-copy
+    tool: Agent
+    input_match: '[Nn]ever move the target|frozen-after-approval|[Dd]o not run .?git commit'
+    min: 0
+    max: 0
