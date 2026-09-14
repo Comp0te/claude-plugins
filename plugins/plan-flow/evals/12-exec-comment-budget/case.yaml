@@ -1,0 +1,45 @@
+schema_version: "1.1"
+name: 12-exec-comment-budget
+tags: [plan-execution]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Execute task 1 of the plan at docs/plans/2026-09-13-backoff-cap.md. If a plan-executor agent
+    is available, dispatch the task to it.
+  max_turns: 40
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: regex
+    name: inline-runs
+    target:
+      source: file
+      path: src/backoff.js
+    pattern: '(?:^[ \t]*//[^\n]*\n){3,}'
+    flags: m
+    match: not_contains
+    weight: 1
+  - type: llm
+    name: budget-respected
+    focus:
+      source: file
+      path: src/backoff.js
+    criteria: |
+      Ignore the code entirely — judge only the comments.
+
+      The working agreements cap comments at two prose lines for an inline `//` run and four
+      prose lines for a `/** */` docstring, each a ceiling and not an average. Count only an
+      own-line comment run's prose lines. A trailing machine-read directive line, such as
+      `// eslint-disable-next-line`, is not prose and does not count toward either ceiling.
+
+      Pass only if every comment run in the file is at or under its ceiling.
+    weight: 1
+  - type: tool_used
+    name: no-commit
+    tool: Bash
+    input_match: 'git\s+(commit|push|checkout|reset|stash)'
+    min: 0
+    max: 0
