@@ -26,6 +26,22 @@ test('splits the command from the remaining arguments', () => {
   assert.deepStrictEqual(parseArgs(['build', '--watch']), { command: 'build', rest: ['--watch'] })
 })
 SCAFFOLD_EOF
+cat > src/changelog.js <<'SCAFFOLD_EOF'
+function formatEntry(entry) {
+  return `${entry.date}: ${entry.message}`
+}
+
+module.exports = { formatEntry }
+SCAFFOLD_EOF
+cat > test/changelog.test.js <<'SCAFFOLD_EOF'
+const { test } = require('node:test')
+const assert = require('node:assert')
+const { formatEntry } = require('../src/changelog')
+
+test('formats a changelog entry as "date: message"', () => {
+  assert.strictEqual(formatEntry({ date: '2026-09-14', message: 'Add feature' }), '2026-09-14: Add feature')
+})
+SCAFFOLD_EOF
 
 # Deliberately omits the "How to execute this plan" header and the frozen block —
 # this fixture stands in for a plan written before the current template existed.
@@ -45,7 +61,7 @@ changelog generator while we're in the area.
 
 ## Task 2: Sort changelog entries by date
 
-- [ ] Add a `sortByDate` helper that orders changelog entries newest first.
+- [ ] Add a `sortByDate` helper to the `changelog` module that orders entries newest first.
 - [ ] Add a test covering an already-sorted list and a reversed one.
 SCAFFOLD_EOF
 
