@@ -5,7 +5,7 @@ case twice — with the plugin loaded and without it — and reporting the score
 
 ## Running it
 
-The suite has two tiers, selected by tag, each with its own operator grant.
+The suite has three tiers, selected by tag, each with its own operator grant.
 
 ### Plan-writing tier
 
@@ -44,6 +44,23 @@ The grant is wider than the plan-writing tier's — `Bash` alongside `Write Edit
 case dispatches a task to the executor, and the executor's own rules tell it to run the fixture's
 checks to verify its work. A case that cannot run them measures nothing.
 
+### Command tier
+
+```bash
+claude plugin eval . --tag plan-command --ablation none --scaffold \
+  --allow-tools Write Edit Bash --judge-model opus --no-publish
+```
+
+`--ablation none` rather than `with-without`: without the plugin loaded, `/plan-flow:execute-plan`
+is not a recognized command, so the without-arm would measure a bare model's reaction to an
+unexpanded string instead of the behavior under test, at double the cost for a delta that is 1 by
+construction (D2).
+
+`Agent`, `Write` and `Edit` are granted even to the cases whose correct outcome is that none of
+them fires — a case where the agent was never allowed to dispatch or write cannot show that it
+chose not to; a passing negative grader only means something when the tool it counts was actually
+reachable.
+
 ## The cases
 
 | case | shape | what it measures |
@@ -59,6 +76,10 @@ checks to verify its work. A case that cannot run them measures nothing.
 | `09-exec-halt-impossible-contract` | cache-key task pinned to a module the fixture never creates | halts and names the missing module instead of inventing it or a substitute |
 | `11-exec-reference-block` | flatten task with a `reference`-labelled implementation body | writing the body differently from the reference is not reported as a deviation |
 | `12-exec-comment-budget` | backoff-cap task with a comment that invites over-explaining | the comment-budget hook keeps an inline run at or under its two-line ceiling |
+| `13-cmd-no-plan-argument` | command run with no path, two candidate plans on disk | no argument and more than one plan means asking which to run, not picking one and proceeding |
+| `14-cmd-missing-plan-path` | command given a plan path that does not exist, alongside an unrelated plan that does | a missing plan is reported by its exact path, never reconstructed from the prompt's own description of the work |
+| `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a headerless plan is named as legacy and handed to the executor whole, not sliced by a task's line range |
+| `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
 convention. The other four pin it, because `{source: file, path}` does not accept a glob and
@@ -115,6 +136,35 @@ commits because the execute-plan command tells it to. Instructing it not to comm
 a source but also dictated the answer to `reports-handoff`, which reads the same reply. A green
 score either way, for the wrong reason.
 
+## Command tier baseline
+
+Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, judge `opus`:
+
+| case | score | pass% | the miss |
+| --- | --- | --- | --- |
+| `13-cmd-no-plan-argument` | 1.00 | 100% | — |
+| `14-cmd-missing-plan-path` | 1.00 | 100% | — |
+| `15-cmd-legacy-plan-no-frozen-header` | 0.44 | 0% | `no-line-range` fired in three runs of three; `says-legacy` failed in two |
+| `16-cmd-dispatch-hygiene` | 1.00 | 100% | — |
+
+`15-cmd-legacy-plan-no-frozen-header` is below the 0.8 floor this task set for itself, in every
+run, and per this task's own Ask-First clause that is a stop-and-report rather than a grader to
+retune. Two of its three runs show the command splitting the headerless plan into two separate
+`Agent` dispatches, one per task, each citing something matching `no-line-range`'s pattern — the
+opposite of the "hand it over whole" behavior the case exists to check; the third run dispatched
+once but still tripped the same grader. Whether that means the command's fallback for a
+headerless plan does not collapse to a single whole-plan dispatch, or the grader's line-range
+pattern is over-broad — catching an incidental `file:NN-NN` citation rather than a real per-task
+slice — is unresolved: the run did not use `--keep-temp`, so the dispatch text that triggered the
+match was not kept. Deciding which, and whether to fix the command or the grader, is the author's
+call, ideally from a `--keep-temp` run that can be inspected directly.
+
+`no-rules-copy` (case 16) matches the executor agent's own wording — "Never move the target", the
+`frozen-after-approval` tag, "do not run `git commit`" — quoted from `agents/plan-executor.md`.
+That wording can be rewritten independently of whether the rule it expresses still holds, so a
+`no-rules-copy` failure is a cue to re-read the pattern against the current agent file before it
+is read as a regression.
+
 ## Regression gate: `block-labels`
 
 `block-labels` used to fail in every plan-producing case: 0 of 88 fences labelled across the five
@@ -133,9 +183,14 @@ consistently as a regression.
 
 - **A competing plan skill winning.** The runner loads only the plugin under test, so it cannot
   reproduce a case where another installed skill claims the request first.
-- **The execute-plan command's own protocol.** Every execution case dispatches its task straight
-  to the executor agent, bypassing the command that would normally read the plan and choose what
-  to hand it — that hand-off stays uncovered.
+- **The execute-plan command's later sections.** The command tier covers plan resolution and the
+  dispatch itself (sections 0–2), but not section 3's review loop, section 4's batching of
+  independent tasks, or section 5's commit — the last is excluded on purpose (D4): `tool_used`
+  counts a run's Bash calls without attributing them to the supervisor or the executor, so a
+  green `git commit` grader cannot show *who* committed.
+- **A dispatch that paraphrases instead of quoting.** `no-header-copy` and `no-rules-copy` match
+  the fixture's exact sentinel text; a dispatch that restates the plan's header or rules in its
+  own words passes both graders while still failing the rule they stand in for.
 - **Whether the executor reads only its own slice.** Rule 1 tells it to read its task's range and
   not the rest of the plan; no grader can see what it read, only what it produced, so a case
   cannot distinguish scoped reading from a lucky guess.
