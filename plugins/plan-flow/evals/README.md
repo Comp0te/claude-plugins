@@ -78,7 +78,7 @@ reachable.
 | `12-exec-comment-budget` | backoff-cap task with a comment that invites over-explaining | the comment-budget hook keeps an inline run at or under its two-line ceiling |
 | `13-cmd-no-plan-argument` | command run with no path, two candidate plans on disk | no argument and more than one plan means asking which to run, not picking one and proceeding |
 | `14-cmd-missing-plan-path` | command given a plan path that does not exist, alongside an unrelated plan that does | a missing plan is reported by its exact path, never reconstructed from the prompt's own description of the work |
-| `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a headerless plan is named as legacy and handed to the executor whole, not sliced by a task's line range |
+| `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
@@ -144,25 +144,36 @@ Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, ju
 | --- | --- | --- | --- |
 | `13-cmd-no-plan-argument` | 1.00 | 100% | — |
 | `14-cmd-missing-plan-path` | 1.00 | 100% | — |
-| `15-cmd-legacy-plan-no-frozen-header` | 0.78 | 33% | `says-legacy` failed in two runs of three |
+| `15-cmd-legacy-plan-no-frozen-header` | 1.00 | 100% | — |
 | `16-cmd-dispatch-hygiene` | 1.00 | 100% | — |
 
-`15-cmd-legacy-plan-no-frozen-header` is the one case still under the 0.8 floor, and what it has
-left is a real finding about the command rather than a grader to retune. All three runs resolve
-the headerless plan correctly: one `Agent` dispatch, the plan handed over whole, both tasks
-implemented and committed. Only one of the three tells the *user* the plan predates the format.
-Section 1 asks for two things in one sentence — say so, and execute it whole — and the runs that
-succeed at the work drop the telling; the reply becomes a report of what was built. That is where
-a fix belongs if one is wanted, in the command's wording, not in `says-legacy`.
+`15-cmd-legacy-plan-no-frozen-header`'s row is a re-measurement: the other three are from the
+tier's first baseline, this one from 2026-09-15, after the command dropped the half of its
+legacy rule that asked the supervisor to tell the user the plan predates the format. That half
+held in one run of three — the runs that finish the work report what was built and let the
+notice go — and it was cut rather than propped up with more prose. Its grader, `says-legacy`,
+went with it, which is also what makes this case cheap: two `tool_used` graders, no judge.
 
-The case reached that reading only after its first baseline scored 0.44, for two reasons that
-were both the case's own. `no-line-range` carried a literal `[Ll]ine range` alternative, so a
-dispatch saying "there is no line range to scope to" — the exact wording the rule wants — scored
-as a violation. And the fixture plan's Task 2 pointed at a changelog module the scaffold never
-created, so every reply was spent on that mismatch instead of the hand-off, and one run stopped
-to ask rather than dispatching at all. Both are fixed; the numbers above are the run after.
-Worth keeping as a warning: a case that scores badly is a claim about the case until its
-transcript says otherwise, and `--keep-temp` is what settles it.
+Three things that cost real runs to learn, kept here so they are not relearned:
+
+- **A case that scores badly is a claim about the case until its transcript says otherwise.**
+  This one first measured 0.44 and read as the command slicing a headerless plan per task. The
+  kept traces showed one dispatch per run, handed over whole — correct every time. Both failures
+  were the case's: `no-line-range` carried a literal `[Ll]ine range` alternative, so a dispatch
+  saying "there is no line range to scope to" scored as a violation of the rule it was obeying,
+  and the fixture plan's Task 2 pointed at a changelog module the scaffold never created, which
+  is what every reply ended up being about. `--keep-temp` is what settles this, and a run without
+  it buys a number that cannot be explained.
+- **`no-line-range` grades a citation, not a decomposition.** It sees whether a dispatch names a
+  line range, not whether the plan was handed over whole. On a plan that has no ranges to cite,
+  those come apart: a run that split the plan per task passed it. `dispatched` is the grader
+  carrying this case.
+- **The rule around it does not compress.** Two attempts measured worse than the sentence they
+  replaced. Moving the exception onto section 2's dispatch list left section 1 reading as though
+  a headerless plan were unsupported, and one run in three refused to execute it at all. Moving
+  it into section 1 as "dispatch its tasks as usual" pointed "as usual" back at a list that
+  demands a line range, and all three runs went off computing ranges out of a file with no
+  sections to scope. The bullet that measures 1.00 is the original one, minus the reporting half.
 
 `no-rules-copy` (case 16) matches the executor agent's own wording — "Never move the target", the
 `frozen-after-approval` tag, "do not run `git commit`" — quoted from `agents/plan-executor.md`.

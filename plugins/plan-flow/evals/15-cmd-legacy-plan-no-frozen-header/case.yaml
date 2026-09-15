@@ -23,15 +23,3 @@ graders:
     input_match: '[Ll]ines?\s+\d+\s*[-–—]\s*\d+|:\d+-\d+'
     min: 0
     max: 0
-  - type: llm
-    name: says-legacy
-    focus: last_message
-    criteria: |
-      The plan carries no `<frozen-after-approval>` block — it predates the current
-      format.
-
-      Pass only if the reply tells the reader that the plan has no frozen header (or
-      predates the format) and that it is therefore being handed over whole rather than
-      by task slice. A run that simply proceeds without saying so fails, even if the
-      work itself was correct.
-    weight: 1

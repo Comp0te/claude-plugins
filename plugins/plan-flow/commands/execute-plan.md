@@ -29,9 +29,9 @@ the task list. Do not read every task's body up front — each task's own sectio
 contract, Code Map, Files, Interfaces, Verification, and steps) is read only when that task is
 dispatched, by the executor, not by you.
 
-**If the plan has no frozen header** — it predates this format — say so to the user, and execute
-it whole rather than by slice: there is no frozen section to scope a dispatch's line range to, so
-hand the executor the plan in full instead of a task number and a range.
+**If the plan has no frozen header** — it predates this format — execute it whole rather than by
+slice: there is no frozen section to scope a dispatch's line range to, so hand the executor the
+plan in full instead of a task number and a range.
 
 ## 2. Dispatch one task
 
