@@ -2,7 +2,7 @@ import json, os, pathlib, shutil, subprocess, sys, tempfile, types, unittest
 from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from run_e2e import (
-    HarnessError, require_existing, workspaces_from_result,
+    HarnessError, NoTestFiles, require_existing, workspaces_from_result,
     find_plan, parse_tap, tap_result_or_raise, run_node_tap, copy_workspace,
     run_phase2, score_tests, compute_report, render_summary, write_report,
     run_case, main,
@@ -171,6 +171,7 @@ class RunNodeTap(unittest.TestCase):
                 with self.assertRaises(HarnessError) as ctx:
                     run_node_tap(cwd, "test/*.test.js")
             run.assert_not_called()
+        self.assertIsInstance(ctx.exception, NoTestFiles)  # distinguishable from a real crash
         self.assertIn("test/*.test.js", str(ctx.exception))
         self.assertIn(str(cwd), str(ctx.exception))
 
@@ -303,6 +304,19 @@ class WriteReport(unittest.TestCase):
         ], phase1_cost_usd=None)
         self.assertIn("regression", render_summary(report, ["/sealed"]))
 
+    def test_notes_regression_when_fixture_suite_is_missing_even_though_it_scores_0_of_0(self):
+        # A deleted test/*.test.js reads identically to a genuinely empty one at the JSON
+        # level ({"passed": 0, "failed": 0}) — the missing-suite flag is what tells them apart.
+        report = compute_report("case", "now", [
+            {"workspace": "/out/ws-1", "plan_path": "p.md",
+             "phase2": {"status": "ok", "cost_usd": 1.0, "turns": 1},
+             "acceptance": {"passed": 8, "failed": 0, "total": 8, "tests": []},
+             "fixture_tests": {"passed": 0, "failed": 0},
+             "score": 1.0},
+        ], phase1_cost_usd=None)
+        self.assertIn("regression", render_summary(report, ["/sealed"], [True]))
+        self.assertNotIn("regression", render_summary(report, ["/sealed"], [False]))
+
 
 LEDGER_JOURNAL_JS = '''const fs = require('node:fs')
 
@@ -425,6 +439,50 @@ class Phase1JsonRerunIntegration(unittest.TestCase):
         result_json = json.loads((out_dir / "e2e-result.json").read_text())
         self.assertEqual(0.875, result_json["score"])
         self.assertTrue((out_dir / "summary.md").exists())
+        shutil.rmtree(out_dir)
+
+    def test_deleted_fixture_suite_is_flagged_in_summary_but_not_in_the_json_contract(self):
+        root = pathlib.Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR")))
+        sealed = root / "sealed"
+        workspace = sealed / "home" / "cwd"
+        (workspace / "docs" / "plans").mkdir(parents=True)
+        (workspace / "docs" / "plans" / "2026-09-15-report.md").write_text("# report plan\n")
+        _write_ledger_fixture(workspace)
+        (workspace / "test" / "journal.test.js").unlink()  # agent deleted its own suite
+        trace_dir = root / "out"
+        trace_dir.mkdir()
+        (trace_dir / "trace.jsonl").write_text("")
+        os.chmod(sealed, 0o000)
+
+        out_dir = pathlib.Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR")))
+        phase1_json = root / "phase1.json"
+        phase1_json.write_text(json.dumps({
+            "cases": [{"name": "e2e-01-ledger-report",
+                       "arms": {"with": [{"tracePath": str(trace_dir / "trace.jsonl"), "costUsd": 0.5}]}}],
+        }))
+        args = types.SimpleNamespace(case="e2e-01-ledger-report", runs=1,
+                                      phase1_json=str(phase1_json), out=str(out_dir))
+
+        try:
+            with mock.patch("run_e2e.run_phase1", side_effect=AssertionError), \
+                 mock.patch("run_e2e.run_phase2", return_value={
+                     "status": "ok", "cost_usd": 0.02, "turns": 3, "text": "done"}):
+                report = run_case(args)
+        finally:
+            if sealed.exists():
+                os.chmod(sealed, 0o700)
+            shutil.rmtree(root)
+
+        run = report["runs"][0]
+        self.assertEqual({"passed": 0, "failed": 0}, run["fixture_tests"])
+
+        result_json = json.loads((out_dir / "e2e-result.json").read_text())
+        self.assertEqual({"passed": 0, "failed": 0}, result_json["runs"][0]["fixture_tests"])
+        self.assertNotIn("fixture_suite_missing", json.dumps(result_json))  # contract unchanged
+
+        summary = (out_dir / "summary.md").read_text()
+        self.assertIn("regression", summary)
+        self.assertIn("missing", summary)
         shutil.rmtree(out_dir)
 
 

@@ -12,6 +12,11 @@ class HarnessError(RuntimeError):
     """Сломался прогон, а не измеряемое поведение."""
 
 
+class NoTestFiles(HarnessError):
+    """Glob для `node --test` пуст — отдельный тип, чтобы отличить это от прочих
+    поломок раннера (например, ненулевого кода без единой строки TAP)."""
+
+
 def workspaces_from_result(result):
     case = result["cases"][0]
     runs = (case.get("arms") or {}).get("with")
@@ -91,7 +96,7 @@ def run_node_tap(cwd, glob_pattern):
     # позиционный аргумент без раскрытия шеллом читается как имя модуля, а не как маска.
     files = sorted(str(p.relative_to(cwd)) for p in cwd.glob(glob_pattern))
     if not files:
-        raise HarnessError(f"ни одного файла не найдено по маске {glob_pattern!r} в {cwd}")
+        raise NoTestFiles(f"ни одного файла не найдено по маске {glob_pattern!r} в {cwd}")
     cmd = ["node", "--test", "--test-reporter=tap", *files]
     done = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     return tap_result_or_raise(done.returncode, done.stdout, f"{cwd} ({glob_pattern})")
@@ -167,7 +172,7 @@ def run_single(dest, sealed_source, acceptance_dir, plugin_dir):
     plan_path = find_plan(dest)
     if plan_path is None:
         return {"workspace": str(dest), "plan_path": None,
-                "phase2": {"status": "skipped"}, "score": 0.0}, sealed_source
+                "phase2": {"status": "skipped"}, "score": 0.0}, sealed_source, False
 
     relative_plan = plan_path.relative_to(dest)
     phase2 = run_phase2(dest, relative_plan, plugin_dir, PHASE2_TIMEOUT_SECONDS)
@@ -176,9 +181,15 @@ def run_single(dest, sealed_source, acceptance_dir, plugin_dir):
     acceptance_tests = run_node_tap(dest, "acceptance/*.test.js")
     try:
         fixture_tests = run_node_tap(dest, "test/*.test.js")
-    except HarnessError:
-        # Deleted by the agent, not the harness — stays out of the score like any fixture result.
+        fixture_suite_missing = False
+    except NoTestFiles:
+        # Deleted by the agent — flagged separately since {} alone reads as zero tests.
         fixture_tests = []
+        fixture_suite_missing = True
+    except HarnessError:
+        # Fixture's own runner broke (e.g. a syntax error) — still the agent's file, not ours.
+        fixture_tests = []
+        fixture_suite_missing = False
 
     passed, failed, total = score_tests(acceptance_tests)
     fx_passed, fx_failed, _ = score_tests(fixture_tests)
@@ -191,7 +202,7 @@ def run_single(dest, sealed_source, acceptance_dir, plugin_dir):
         "acceptance": {"passed": passed, "failed": failed, "total": total, "tests": acceptance_tests},
         "fixture_tests": {"passed": fx_passed, "failed": fx_failed},
         "score": run_score,
-    }, sealed_source
+    }, sealed_source, fixture_suite_missing
 
 
 def compute_report(case, started_at, runs, phase1_cost_usd):
@@ -212,7 +223,9 @@ def compute_report(case, started_at, runs, phase1_cost_usd):
     }
 
 
-def render_summary(report, sealed_sources):
+def render_summary(report, sealed_sources, fixture_suite_missing=None):
+    if fixture_suite_missing is None:
+        fixture_suite_missing = [False] * len(report["runs"])
     lines = [
         f"# {report['case']}",
         "",
@@ -225,12 +238,15 @@ def render_summary(report, sealed_sources):
         "## Runs",
         "",
     ]
-    for i, (run, sealed_source) in enumerate(zip(report["runs"], sealed_sources), start=1):
+    for i, (run, sealed_source, suite_missing) in enumerate(
+            zip(report["runs"], sealed_sources, fixture_suite_missing), start=1):
         status = run["phase2"]["status"]
         note = ""
         acceptance = run.get("acceptance")
         fixture = run.get("fixture_tests")
-        if acceptance and fixture and fixture["failed"] > 0 and acceptance["failed"] == 0:
+        if suite_missing:
+            note = " — regression: fixture test suite missing (agent deleted test/*.test.js)"
+        elif acceptance and fixture and fixture["failed"] > 0 and acceptance["failed"] == 0:
             note = " — regression: fixture tests red while acceptance is green"
         lines.append(
             f"{i}. plan: {run['plan_path'] or 'none'} — phase2: {status} — score: {run['score']:.3f}{note}\n"
@@ -240,12 +256,12 @@ def render_summary(report, sealed_sources):
     return "\n".join(lines) + "\n"
 
 
-def write_report(out_dir, report, sealed_sources):
+def write_report(out_dir, report, sealed_sources, fixture_suite_missing=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     result_path = out_dir / "e2e-result.json"
     result_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     summary_path = out_dir / "summary.md"
-    summary_path.write_text(render_summary(report, sealed_sources))
+    summary_path.write_text(render_summary(report, sealed_sources, fixture_suite_missing))
     return result_path, summary_path
 
 
@@ -270,15 +286,17 @@ def run_case(args):
 
     runs = []
     sealed_sources = []
+    fixture_suite_missing = []
     for i, sealed_workspace in enumerate(sealed_workspaces, start=1):
         dest = out_dir / f"ws-{i}"
         copy_workspace(sealed_workspace, dest)
-        run_record, sealed_source = run_single(dest, sealed_workspace, acceptance_dir, PLUGIN_DIR)
+        run_record, sealed_source, suite_missing = run_single(dest, sealed_workspace, acceptance_dir, PLUGIN_DIR)
         runs.append(run_record)
         sealed_sources.append(sealed_source)
+        fixture_suite_missing.append(suite_missing)
 
     report = compute_report(args.case, started_at, runs, phase1_cost_usd)
-    write_report(out_dir, report, sealed_sources)
+    write_report(out_dir, report, sealed_sources, fixture_suite_missing)
     return report
 
 
