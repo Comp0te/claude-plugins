@@ -1,4 +1,4 @@
-import pathlib, sys, unittest
+import os, pathlib, shutil, sys, tempfile, unittest
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from run_e2e import HarnessError, require_existing, workspaces_from_result
 
@@ -52,10 +52,27 @@ class RequireExisting(unittest.TestCase):
         self.assertIn("временных файлов", message)
 
     def test_existing_workspace_is_returned_unchanged(self):
-        import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             workspace = pathlib.Path(tmp)
             self.assertEqual(workspace, require_existing(workspace))
+
+    def test_sealed_ancestor_raises_harness_error_naming_the_seal(self):
+        root = pathlib.Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR")))
+        sealed = root / "sealed"
+        workspace = sealed / "home" / "cwd"
+        workspace.mkdir(parents=True)
+        try:
+            os.chmod(sealed, 0o000)
+            os.chmod(root, 0o500)
+            with self.assertRaises(HarnessError) as ctx:
+                require_existing(workspace)
+            message = str(ctx.exception)
+            self.assertIn(str(sealed), message)
+            self.assertIn("chmod 700", message)
+        finally:
+            os.chmod(root, 0o700)
+            os.chmod(sealed, 0o700)
+            shutil.rmtree(root)
 
 
 if __name__ == "__main__":

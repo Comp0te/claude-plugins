@@ -1,3 +1,4 @@
+import os
 import pathlib
 
 
@@ -21,8 +22,14 @@ def workspaces_from_result(result):
 
 
 def require_existing(workspace):
-    if not workspace.is_dir():
+    if workspace.is_dir():
+        return workspace
+    sealed = next((d for d in workspace.parents
+                   if d.exists() and not os.access(d, os.X_OK)), None)
+    if sealed is not None:
         raise HarnessError(
-            f"рабочее дерево не найдено: {workspace}. "
-            "Прогон фазы 1 должен запускаться с сохранением временных файлов.")
-    return workspace
+            f"рабочее дерево запечатано: {workspace}. "
+            f"Снять печать: chmod 700 {sealed}")
+    raise HarnessError(
+        f"рабочее дерево не найдено: {workspace}. "
+        "Прогон фазы 1 должен запускаться с сохранением временных файлов.")
