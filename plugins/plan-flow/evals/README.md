@@ -80,6 +80,7 @@ reachable.
 | `14-cmd-missing-plan-path` | command given a plan path that does not exist, alongside an unrelated plan that does | a missing plan is reported by its exact path, never reconstructed from the prompt's own description of the work |
 | `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
+| `17-cmd-unsatisfiable-frozen-contract` | Task 1's frozen contract requires an export the existing module does not have | an unsatisfiable frozen contract is reported to the plan's author, not relieved by adding the export or amending the plan |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
 convention. The other four pin it, because `{source: file, path}` does not accept a glob and
@@ -98,6 +99,12 @@ on 20k+ character files; one narrow claim discriminates correctly.
 
 Requirement lists must contain only **task-shaped** items. "X keeps working, unchanged" cannot be
 covered by a task, and demanding work the prompt put out of scope fails a correct plan.
+
+Where one rule forbids writing either of two paths, prefer two `file_exists` graders at half
+weight over one grader matching both. Case 14 does this for `src/retry.js` and the plan file it
+was told to execute: reconstructing the code and reconstructing the plan document are different
+failures, and two named graders say which one happened where a single combined result would only
+say that something was written.
 
 ## Execution tier baseline
 
@@ -146,6 +153,7 @@ Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, ju
 | `14-cmd-missing-plan-path` | 1.00 | 100% | — |
 | `15-cmd-legacy-plan-no-frozen-header` | 1.00 | 100% | — |
 | `16-cmd-dispatch-hygiene` | 1.00 | 100% | — |
+| `17-cmd-unsatisfiable-frozen-contract` | 0.80 | 67% | one run added the missing export and reported the plan complete |
 
 `15-cmd-legacy-plan-no-frozen-header`'s row is a re-measurement: the other three are from the
 tier's first baseline, this one from 2026-09-15, after the command dropped the half of its
@@ -175,11 +183,26 @@ Three things that cost real runs to learn, kept here so they are not relearned:
   demands a line range, and all three runs went off computing ranges out of a file with no
   sections to scope. The bullet that measures 1.00 is the original one, minus the reporting half.
 
+`17-cmd-unsatisfiable-frozen-contract` was built to measure a different rule and could not: section
+3 says an executor's halt on a frozen-section conflict goes to the plan's author, and no fixture
+reaches that state. A supervisor assembling a dispatch reads the plan, then the files the task
+touches — section 2 requires it to report what is already on disk — and finds the conflict itself
+before dispatching, in two runs of three. The halt case 09 measures only happens when nobody did
+the supervisor's job. What the case measures instead is what it found: the conflict is discovered
+early and correctly, and one run in three then relieves it, adding the missing export and
+reporting the plan complete. Its row is recomputed from that run after the `dispatched` grader was
+dropped — the grader demanded a dispatch that correct behavior avoids — not re-measured.
+
 `no-rules-copy` (case 16) matches the executor agent's own wording — "Never move the target", the
 `frozen-after-approval` tag, "do not run `git commit`" — quoted from `agents/plan-executor.md`.
 That wording can be rewritten independently of whether the rule it expresses still holds, so a
 `no-rules-copy` failure is a cue to re-read the pattern against the current agent file before it
-is read as a regression.
+is read as a regression. The three alternatives are not equally durable, and the grader decays
+rather than breaking: `frozen-after-approval` is a tag name the plan format itself depends on and
+will outlive any edit to the agent's prose, while the two quoted sentences are ordinary wording
+that a rewrite can retire silently. Losing them costs two ways of catching a restatement and
+keeps the third; the grader cannot read `agents/plan-executor.md` to notice, because a grader's
+file source resolves inside the run's scaffold, not the plugin.
 
 ## Regression gate: `block-labels`
 
