@@ -29,7 +29,7 @@ graders:
   - type: tool_used
     name: no-header-copy
     tool: Agent
-    input_match: 'ORDINAL-SEVEN'
+    input_match: 'ORDINAL-SEVEN|KESTREL-FOUR|LANTERN-TWO'
     min: 0
     max: 0
   - type: tool_used

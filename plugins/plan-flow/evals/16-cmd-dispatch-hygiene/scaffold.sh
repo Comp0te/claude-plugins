@@ -33,8 +33,9 @@ test('renders rows with no special characters', () => {
 })
 SCAFFOLD_EOF
 
-# The planted sentinel (in the frozen Global Constraints block below) must stay unique
-# in this fixture, or the no-header-copy grader stops discriminating.
+# Each planted sentinel (one per frozen line below) must stay unique in this fixture, or
+# the no-header-copy grader stops discriminating. Each names the thing its line constrains,
+# so a faithful paraphrase carries it and not only a copy-paste does.
 cat > docs/plans/2026-09-13-csv-quoting.md <<'SCAFFOLD_EOF'
 # CSV Quoting Implementation Plan
 
@@ -83,9 +84,11 @@ fields containing a comma, an embedded quote, or a newline.
 serialisation path. Field order follows the __SENTINEL__ convention already used by the
 exporter.
 
-**Ask First:** Any change to the delimiter or the line-ending convention.
+**Ask First:** Any change to the delimiter, or to the __SENTINEL2__ line-ending rule the
+exporter's consumers read.
 
-**Never:** Never add a package dependency to satisfy this task's check.
+**Never:** Never add a package dependency to satisfy this task's check; the __SENTINEL3__
+policy is Node built-ins only.
 
 </frozen-after-approval>
 
@@ -200,8 +203,12 @@ SCAFFOLD_EOF
 # Split so the sentinel itself isn't a literal substring of this script — scaffold.sh
 # ships alongside the fixture it writes, and the eval's own uniqueness check greps both.
 sentinel="ORDINAL""-SEVEN"
+sentinel2="KESTREL""-FOUR"
+sentinel3="LANTERN""-TWO"
 plan_body=$(cat docs/plans/2026-09-13-csv-quoting.md)
-printf '%s\n' "${plan_body//__SENTINEL__/$sentinel}" > docs/plans/2026-09-13-csv-quoting.md
+plan_body="${plan_body//__SENTINEL__/$sentinel}"
+plan_body="${plan_body//__SENTINEL2__/$sentinel2}"
+printf '%s\n' "${plan_body//__SENTINEL3__/$sentinel3}" > docs/plans/2026-09-13-csv-quoting.md
 
 git init -q
 git config user.email eval@example.com

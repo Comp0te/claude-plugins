@@ -204,9 +204,14 @@ consistently as a regression.
   independent tasks, or section 5's commit — the last is excluded on purpose (D4): `tool_used`
   counts a run's Bash calls without attributing them to the supervisor or the executor, so a
   green `git commit` grader cannot show *who* committed.
-- **A dispatch that paraphrases instead of quoting.** `no-header-copy` and `no-rules-copy` match
-  the fixture's exact sentinel text; a dispatch that restates the plan's header or rules in its
-  own words passes both graders while still failing the rule they stand in for.
+- **A dispatch that paraphrases the executor's rules.** `no-rules-copy` matches wording quoted
+  from `agents/plan-executor.md`, so a dispatch that restates those rules in its own words passes
+  it while still failing the rule it stands in for. `no-header-copy` is narrower than it looks
+  only in the same direction: its three sentinels each name the thing their frozen line
+  constrains, so conveying that constraint carries the token, and what escapes is a restatement
+  vague enough to have dropped all three. Neither can be closed with a judge — an `llm` grader's
+  `focus` accepts `last_message`, `files`, `mock_calls` and `{source: file, path}`, and none of
+  them expose an `Agent` call's input.
 - **Whether the executor reads only its own slice.** Rule 1 tells it to read its task's range and
   not the rest of the plan; no grader can see what it read, only what it produced, so a case
   cannot distinguish scoped reading from a lucky guess.
