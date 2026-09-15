@@ -282,16 +282,35 @@ file source resolves inside the run's scaffold, not the plugin.
 
 ## End-to-end tier baseline
 
-**Not yet measured.** No author-approved run of `run_e2e.py` has completed for this tier — a
-live run costs money and tens of minutes, and needs a go-ahead before the first one. The row
-below is the shape the entry takes once one has: score, pass rate, phase1 and phase2 cost, and
-the date, read straight from an actual run's `e2e-result.json`. Nothing here is estimated or
-carried over from the execution or command tier's numbers; an invented baseline is worse than an
-absent one; a number in this row means a real run happened.
+Measured 2026-09-15. Phase 1 ran once, for two runs; phases 2 and 3 were then replayed over
+its recorded result with `--phase1-json`, so the plans below were written once and executed
+three separate times:
 
 | case | score | pass% | phase1 cost | phase2 cost | date | the miss |
 | --- | --- | --- | --- | --- | --- | --- |
-| `e2e-01-ledger-report` | — | — | — | — | — | not run yet |
+| `e2e-01-ledger-report` | 1.000 | 100% | $1.09 | $5.71 | 2026-09-15 | none in these two runs — read the caveats below before trusting the number |
+
+A perfect score on a first recorded baseline is the least trustworthy number this table can
+carry, and this one has a documented reason to distrust it. Phase 1 was not re-run to produce
+it — the same two plans have now gone through phase 2 three separate times. The first time
+scored 13/15 and a total failure; the second, 15/15 twice; this recorded run, the third, 15/15
+twice again. The plan was identical in all three; only the executor session differed. Two clean
+runs on top of one attempt that wasn't is not evidence the plan travels reliably, it's a second
+coin landing the same way — and the runs that did land there disagree with each other on how:
+23 turns against 5, and 19 fixture tests the executor wrote for itself against 37, neither
+of which counts toward score.
+
+Before any of those three attempts, the very first live run never reached phase 2 at all. It
+ran against the spec before it was widened to cover the `--format` and `migrate` rows, and the
+work read as small enough that phase 1 answered in prose and never called the planning skill —
+no plan file, nothing for phase 2 to execute. Widening the spec fixed that, and also more than
+doubled phase 2's cost per run, from roughly $1.49 to roughly $3.59; this baseline's two runs
+cost $2.33 and $3.38.
+
+A score above zero also starts higher than it looks. Three of the fifteen acceptance rows — the
+malformed-line checks for `report` and `migrate`, and the unknown-`--format` check — only ask
+for a non-zero exit and a stderr message, which an unrecognized command already produces before
+anything is implemented. 3/15 is the floor this case starts at, not a fifth of the work done.
 
 ## Regression gate: `block-labels`
 
@@ -345,10 +364,17 @@ consistently as a regression.
   also writes its I/O & Edge-Case Matrix, and only the hidden acceptance suite counts toward
   score — a matrix that quietly narrows the spec scores the same as one that covers it in full.
   The agent effectively sets its own bar.
-- **A score above zero meaning anything got built.** One acceptance test — the malformed-line row
-  — also passes against a fixture where `report` was never implemented: an unrecognized command
-  already exits non-zero with a stderr message and empty stdout, which is exactly what that test
-  checks for. A score of 1/8 reads as "nothing was built," not "one thing works."
+- **A score above zero meaning anything got built.** Three of the fifteen acceptance rows — the
+  malformed-line checks for `report` and `migrate`, and the unknown-`--format` check — also pass
+  against a fixture where nothing was implemented: an unrecognized command already exits
+  non-zero with a stderr message and empty stdout, which is exactly what those checks want.
+  3/15 is the floor this case starts at, not a fifth of the work done.
+- **How much of a score is plan quality versus execution luck.** Phase 1 is expensive enough that
+  a baseline reuses its plans rather than regenerating them, so the tier's score also carries
+  whatever phase 2 does with an identical plan on a given day. The two plans behind this
+  baseline have now been handed to phase 2 three times: 13/15 and a total failure, then 15/15
+  twice, then the 15/15 twice recorded above. A row that shows two clean runs cannot tell that
+  apart from a plan that travels reliably.
 - **Whether phase 2 actually halted.** Halt detection matches phrasing lifted from
   `agents/plan-executor.md` and `commands/execute-plan.md`; it has never been checked against a
   transcript of a real halt, so a `"halted"` status is a string match, not a confirmed one.
