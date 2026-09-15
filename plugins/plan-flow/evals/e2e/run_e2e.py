@@ -167,7 +167,12 @@ def _reads_as_halt(text):
     return any(marker in lowered for marker in _HALT_MARKERS)
 
 
-def run_phase2(workspace, plan_path, plugin_dir, timeout):
+# Of the CLI's error subtypes (SDK bundle), only these two mean the agent ran and spent
+# real turns/cost against its own ceiling; the rest reflect no completed agent work.
+_EXHAUSTED_SUBTYPES = ("error_max_turns", "error_max_budget_usd")
+
+
+def run_phase2(workspace, plan_path, plugin_dir, timeout, raw_response_path):
     cmd = ["claude", "-p", "--plugin-dir", str(plugin_dir),
            "--allowedTools", "Bash", "Write", "Edit", "Agent", "Read",
            "--permission-mode", "acceptEdits", "--output-format", "json",
@@ -176,7 +181,37 @@ def run_phase2(workspace, plan_path, plugin_dir, timeout):
         done = subprocess.run(cmd, cwd=workspace, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "cost_usd": None, "turns": None, "text": ""}
-    payload = json.loads(done.stdout or "{}")
+
+    try:
+        payload = json.loads(done.stdout) if done.stdout else None
+    except json.JSONDecodeError:
+        payload = None
+
+    # Kept beside the report, outside its frozen shape — otherwise a strange phase 2 leaves
+    # nothing to inspect afterwards.
+    raw_response_path.write_text(json.dumps(
+        {"returncode": done.returncode, "stdout": done.stdout, "stderr": done.stderr},
+        indent=2, ensure_ascii=False) + "\n")
+
+    if done.returncode != 0 or not isinstance(payload, dict):
+        raise HarnessError(
+            f"фаза 2 не поднялась в {workspace}: код {done.returncode}, "
+            f"сырой ответ сохранён в {raw_response_path}")
+
+    subtype = payload.get("subtype")
+    if subtype in _EXHAUSTED_SUBTYPES:
+        # No `result` text on this variant — the run hit its own ceiling mid-turn, it did
+        # not report back like a completed one. Test score is computed the same as `timeout`.
+        return {"status": "exhausted", "cost_usd": payload.get("total_cost_usd"),
+                "turns": payload.get("num_turns"), "text": ""}
+
+    # `result` text only exists under subtype "success"; any other subtype means phase 2
+    # never produced a completion — not that it produced an empty one.
+    if subtype != "success":
+        raise HarnessError(
+            f"фаза 2 не поднялась в {workspace}: код {done.returncode}, "
+            f"сырой ответ сохранён в {raw_response_path}")
+
     text = payload.get("result", "")
     status = "halted" if _reads_as_halt(text) else "ok"
     return {"status": status, "cost_usd": payload.get("total_cost_usd"),
@@ -186,11 +221,13 @@ def run_phase2(workspace, plan_path, plugin_dir, timeout):
 def run_single(dest, sealed_source, acceptance_dir, plugin_dir):
     plan_path = find_plan(dest)
     if plan_path is None:
-        return {"workspace": str(dest), "plan_path": None,
-                "phase2": {"status": "skipped"}, "score": 0.0}, sealed_source, False
+        return ({"workspace": str(dest), "plan_path": None,
+                 "phase2": {"status": "skipped"}, "score": 0.0},
+                sealed_source, False, None)
 
     relative_plan = plan_path.relative_to(dest)
-    phase2 = run_phase2(dest, relative_plan, plugin_dir, PHASE2_TIMEOUT_SECONDS)
+    raw_response_path = dest.parent / f"{dest.name}.phase2-response.json"
+    phase2 = run_phase2(dest, relative_plan, plugin_dir, PHASE2_TIMEOUT_SECONDS, raw_response_path)
 
     shutil.copytree(acceptance_dir, dest / "acceptance", dirs_exist_ok=True)
     acceptance_tests = run_node_tap(dest, "acceptance/*.test.js")
@@ -210,14 +247,17 @@ def run_single(dest, sealed_source, acceptance_dir, plugin_dir):
     fx_passed, fx_failed, _ = score_tests(fixture_tests)
     run_score = passed / total if total else 0.0
 
-    return {
+    record = {
         "workspace": str(dest),
         "plan_path": str(relative_plan),
         "phase2": {"status": phase2["status"], "cost_usd": phase2["cost_usd"], "turns": phase2["turns"]},
         "acceptance": {"passed": passed, "failed": failed, "total": total, "tests": acceptance_tests},
         "fixture_tests": {"passed": fx_passed, "failed": fx_failed},
         "score": run_score,
-    }, sealed_source, fixture_suite_missing
+    }
+    # A timeout never reaches the write in run_phase2 — nothing to point to.
+    written_raw_path = raw_response_path if phase2["status"] != "timeout" else None
+    return record, sealed_source, fixture_suite_missing, written_raw_path
 
 
 def compute_report(case, started_at, runs, phase1_cost_usd):
@@ -238,9 +278,11 @@ def compute_report(case, started_at, runs, phase1_cost_usd):
     }
 
 
-def render_summary(report, sealed_sources, fixture_suite_missing=None):
+def render_summary(report, sealed_sources, fixture_suite_missing=None, phase2_raw_paths=None):
     if fixture_suite_missing is None:
         fixture_suite_missing = [False] * len(report["runs"])
+    if phase2_raw_paths is None:
+        phase2_raw_paths = [None] * len(report["runs"])
     lines = [
         f"# {report['case']}",
         "",
@@ -253,8 +295,8 @@ def render_summary(report, sealed_sources, fixture_suite_missing=None):
         "## Runs",
         "",
     ]
-    for i, (run, sealed_source, suite_missing) in enumerate(
-            zip(report["runs"], sealed_sources, fixture_suite_missing), start=1):
+    for i, (run, sealed_source, suite_missing, raw_path) in enumerate(
+            zip(report["runs"], sealed_sources, fixture_suite_missing, phase2_raw_paths), start=1):
         status = run["phase2"]["status"]
         note = ""
         acceptance = run.get("acceptance")
@@ -267,16 +309,17 @@ def render_summary(report, sealed_sources, fixture_suite_missing=None):
             f"{i}. plan: {run['plan_path'] or 'none'} — phase2: {status} — score: {run['score']:.3f}{note}\n"
             f"   sealed: {sealed_source}\n"
             f"   copy: {run['workspace']}"
+            + (f"\n   phase2 raw: {raw_path}" if raw_path is not None else "")
         )
     return "\n".join(lines) + "\n"
 
 
-def write_report(out_dir, report, sealed_sources, fixture_suite_missing=None):
+def write_report(out_dir, report, sealed_sources, fixture_suite_missing=None, phase2_raw_paths=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     result_path = out_dir / "e2e-result.json"
     result_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     summary_path = out_dir / "summary.md"
-    summary_path.write_text(render_summary(report, sealed_sources, fixture_suite_missing))
+    summary_path.write_text(render_summary(report, sealed_sources, fixture_suite_missing, phase2_raw_paths))
     return result_path, summary_path
 
 
@@ -302,16 +345,19 @@ def run_case(args):
     runs = []
     sealed_sources = []
     fixture_suite_missing = []
+    phase2_raw_paths = []
     for i, sealed_workspace in enumerate(sealed_workspaces, start=1):
         dest = out_dir / f"ws-{i}"
         copy_workspace(sealed_workspace, dest)
-        run_record, sealed_source, suite_missing = run_single(dest, sealed_workspace, acceptance_dir, PLUGIN_DIR)
+        run_record, sealed_source, suite_missing, raw_path = run_single(
+            dest, sealed_workspace, acceptance_dir, PLUGIN_DIR)
         runs.append(run_record)
         sealed_sources.append(sealed_source)
         fixture_suite_missing.append(suite_missing)
+        phase2_raw_paths.append(raw_path)
 
     report = compute_report(args.case, started_at, runs, phase1_cost_usd)
-    write_report(out_dir, report, sealed_sources, fixture_suite_missing)
+    write_report(out_dir, report, sealed_sources, fixture_suite_missing, phase2_raw_paths)
     return report
 
 

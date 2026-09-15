@@ -257,27 +257,90 @@ class RunPhase1(unittest.TestCase):
 
 class RunPhase2(unittest.TestCase):
     def test_timeout_yields_timeout_status(self):
-        with mock.patch("run_e2e.subprocess.run",
-                         side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=1)):
-            result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"), timeout=1)
-        self.assertEqual("timeout", result["status"])
-        self.assertIsNone(result["cost_usd"])
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run",
+                             side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=1)):
+                result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                                     timeout=1, raw_response_path=raw_path)
+            self.assertEqual("timeout", result["status"])
+            self.assertIsNone(result["cost_usd"])
+            self.assertFalse(raw_path.exists())  # nothing ran; nothing to write
 
     def test_normal_completion_yields_ok_status(self):
-        payload = json.dumps({"result": "Done. All tasks executed.", "total_cost_usd": 3.5, "num_turns": 12})
+        payload = json.dumps({"subtype": "success", "result": "Done. All tasks executed.",
+                               "total_cost_usd": 3.5, "num_turns": 12})
         fake = subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=payload, stderr="")
-        with mock.patch("run_e2e.subprocess.run", return_value=fake):
-            result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"), timeout=10)
-        self.assertEqual({"status": "ok", "cost_usd": 3.5, "turns": 12, "text": "Done. All tasks executed."},
-                          result)
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                                     timeout=10, raw_response_path=raw_path)
+            self.assertEqual({"status": "ok", "cost_usd": 3.5, "turns": 12, "text": "Done. All tasks executed."},
+                              result)
+            self.assertEqual(payload, json.loads(raw_path.read_text())["stdout"])
 
     def test_stop_report_yields_halted_status(self):
         text = "The executor halts on a frozen-section conflict and brings it to the plan's author."
-        payload = json.dumps({"result": text, "total_cost_usd": 1.0, "num_turns": 4})
+        payload = json.dumps({"subtype": "success", "result": text, "total_cost_usd": 1.0, "num_turns": 4})
         fake = subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=payload, stderr="")
-        with mock.patch("run_e2e.subprocess.run", return_value=fake):
-            result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"), timeout=10)
-        self.assertEqual("halted", result["status"])
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                                     timeout=10, raw_response_path=raw_path)
+            self.assertEqual("halted", result["status"])
+
+    def test_turn_ceiling_subtype_yields_exhausted_status(self):
+        payload = json.dumps({"subtype": "error_max_turns", "is_error": True,
+                               "total_cost_usd": 2.1, "num_turns": 40,
+                               "errors": ["Reached maximum number of turns (40)"]})
+        fake = subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=payload, stderr="")
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                                     timeout=10, raw_response_path=raw_path)
+            self.assertEqual({"status": "exhausted", "cost_usd": 2.1, "turns": 40, "text": ""}, result)
+            self.assertEqual(payload, json.loads(raw_path.read_text())["stdout"])
+
+    def test_budget_ceiling_subtype_yields_exhausted_status(self):
+        payload = json.dumps({"subtype": "error_max_budget_usd", "is_error": True,
+                               "total_cost_usd": 5.0, "num_turns": 9, "errors": ["budget exceeded"]})
+        fake = subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=payload, stderr="")
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                result = run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                                     timeout=10, raw_response_path=raw_path)
+            self.assertEqual("exhausted", result["status"])
+            self.assertEqual(5.0, result["cost_usd"])
+
+    def test_error_subtype_that_never_produced_a_result_raises_harness_error(self):
+        """The defect behind run 2 of e2e-2026-09-15T16-55-51-969Z: cost $0, one turn, no
+        `result` text — the CLI's own `error_during_execution` subtype, previously read as `ok`
+        because nothing checked `returncode`, `subtype`, or `is_error` at all."""
+        payload = json.dumps({"subtype": "error_during_execution", "is_error": True,
+                               "total_cost_usd": 0, "num_turns": 1, "errors": ["boom"]})
+        fake = subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=payload, stderr="")
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                with self.assertRaises(HarnessError):
+                    run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                               timeout=10, raw_response_path=raw_path)
+            # Raised, but the raw response still landed for debugging.
+            self.assertEqual(payload, json.loads(raw_path.read_text())["stdout"])
+
+    def test_nonzero_exit_with_unparseable_stdout_raises_harness_error(self):
+        fake = subprocess.CompletedProcess(args=["claude"], returncode=1, stdout="", stderr="segfault")
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = pathlib.Path(tmp) / "phase2-response.json"
+            with mock.patch("run_e2e.subprocess.run", return_value=fake):
+                with self.assertRaises(HarnessError):
+                    run_phase2(pathlib.Path("/tmp/ws"), "docs/plans/x.md", pathlib.Path("/plugin"),
+                               timeout=10, raw_response_path=raw_path)
+            self.assertEqual("segfault", json.loads(raw_path.read_text())["stderr"])
 
 
 class ComputeReportMatrix(unittest.TestCase):
@@ -338,6 +401,19 @@ class WriteReport(unittest.TestCase):
              "score": 1.0},
         ], phase1_cost_usd=None)
         self.assertIn("regression", render_summary(report, ["/sealed"]))
+
+    def test_names_the_raw_phase2_response_path_when_one_was_written(self):
+        report = compute_report("case", "now", [
+            {"workspace": "/out/ws-1", "plan_path": "p.md",
+             "phase2": {"status": "ok", "cost_usd": 1.0, "turns": 1},
+             "acceptance": {"passed": 8, "failed": 0, "total": 8, "tests": []},
+             "fixture_tests": {"passed": 1, "failed": 0},
+             "score": 1.0},
+        ], phase1_cost_usd=None)
+        summary = render_summary(report, ["/sealed"], [False], [pathlib.Path("/out/ws-1.phase2-response.json")])
+        self.assertIn("/out/ws-1.phase2-response.json", summary)
+        self.assertNotIn("phase2 raw", render_summary(report, ["/sealed"], [False], [None]))
+        self.assertNotIn("phase2 raw", json.dumps(report))  # contract unchanged
 
     def test_notes_regression_when_fixture_suite_is_missing_even_though_it_scores_0_of_0(self):
         # A deleted test/*.test.js reads identically to a genuinely empty one at the JSON
@@ -418,7 +494,9 @@ test('parses a well-formed journal into rows', () => {
 
 
 def _write_ledger_fixture(workspace):
-    """Draft `report` (no --from/--to) so acceptance goes 7/8, not a trivial 8/8 or 0/8."""
+    """Draft `report` only (no --from/--to, no --format, no `migrate`), so acceptance goes
+    8/15 against the real suite — not the 3/15 an unimplemented fixture gets for free from
+    its error-path tests, and not a trivial 15/15."""
     (workspace / "bin").mkdir(parents=True, exist_ok=True)
     (workspace / "src").mkdir(parents=True, exist_ok=True)
     (workspace / "test").mkdir(parents=True, exist_ok=True)
@@ -465,15 +543,61 @@ class Phase1JsonRerunIntegration(unittest.TestCase):
             shutil.rmtree(root)
 
         run = report["runs"][0]
-        self.assertEqual(8, run["acceptance"]["total"])
-        self.assertEqual(1, run["acceptance"]["failed"])
-        self.assertEqual(0.875, run["score"])
-        self.assertEqual(0.875, report["score"])
+        self.assertEqual(15, run["acceptance"]["total"])
+        self.assertEqual(7, run["acceptance"]["failed"])
+        self.assertEqual(8 / 15, run["score"])
+        self.assertEqual(8 / 15, report["score"])
         self.assertEqual(0.5, report["phase1_cost_usd"])
 
         result_json = json.loads((out_dir / "e2e-result.json").read_text())
-        self.assertEqual(0.875, result_json["score"])
+        self.assertEqual(8 / 15, result_json["score"])
         self.assertTrue((out_dir / "summary.md").exists())
+        shutil.rmtree(out_dir)
+
+    def test_phase2_that_never_ran_raises_harness_error_end_to_end(self):
+        """Guards the run 2 defect (e2e-2026-09-15T16-55-51-969Z) end to end: an
+        `error_during_execution` phase 2 result must abort the case instead of scoring as
+        `ok`, and must still leave a raw response file behind to debug from."""
+        root = pathlib.Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR")))
+        sealed = root / "sealed"
+        workspace = sealed / "home" / "cwd"
+        (workspace / "docs" / "plans").mkdir(parents=True)
+        (workspace / "docs" / "plans" / "2026-09-15-report.md").write_text("# report plan\n")
+        _write_ledger_fixture(workspace)
+        trace_dir = root / "out"
+        trace_dir.mkdir()
+        (trace_dir / "trace.jsonl").write_text("")
+        os.chmod(sealed, 0o000)
+
+        out_dir = pathlib.Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR")))
+        phase1_json = root / "phase1.json"
+        phase1_json.write_text(json.dumps({
+            "cases": [{"name": "e2e-01-ledger-report",
+                       "arms": {"with": [{"tracePath": str(trace_dir / "trace.jsonl"), "costUsd": 0.5}]}}],
+        }))
+        args = types.SimpleNamespace(case="e2e-01-ledger-report", runs=1,
+                                      phase1_json=str(phase1_json), out=str(out_dir))
+        never_ran = subprocess.CompletedProcess(
+            args=["claude"], returncode=0,
+            stdout=json.dumps({"subtype": "error_during_execution", "is_error": True,
+                                "total_cost_usd": 0, "num_turns": 1, "errors": ["boom"]}),
+            stderr="")
+
+        try:
+            with mock.patch("run_e2e.run_phase1", side_effect=AssertionError), \
+                 mock.patch("run_e2e.subprocess.run", return_value=never_ran):
+                with self.assertRaises(HarnessError):
+                    run_case(args)
+        finally:
+            if sealed.exists():
+                os.chmod(sealed, 0o700)
+            shutil.rmtree(root)
+
+        raw_path = out_dir / "ws-1.phase2-response.json"
+        self.assertTrue(raw_path.exists())
+        raw_stdout = json.loads(json.loads(raw_path.read_text())["stdout"])
+        self.assertEqual("error_during_execution", raw_stdout["subtype"])
+        self.assertFalse((out_dir / "e2e-result.json").exists())  # aborted before the report was written
         shutil.rmtree(out_dir)
 
     def test_deleted_fixture_suite_is_flagged_in_summary_but_not_in_the_json_contract(self):
