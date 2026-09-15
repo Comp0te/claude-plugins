@@ -153,14 +153,16 @@ Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, ju
 | `14-cmd-missing-plan-path` | 1.00 | 100% | — |
 | `15-cmd-legacy-plan-no-frozen-header` | 1.00 | 100% | — |
 | `16-cmd-dispatch-hygiene` | 1.00 | 100% | — |
-| `17-cmd-unsatisfiable-frozen-contract` | 0.80 | 67% | one run let the export be added and filed the conflict as a deviation note |
+| `17-cmd-unsatisfiable-frozen-contract` | 1.00 | 100% | — over 24 runs, after section 2 gained the rule below; 0.95 / 91.7% over 24 without it |
 
-`15-cmd-legacy-plan-no-frozen-header`'s row is a re-measurement: the other three are from the
-tier's first baseline, this one from 2026-09-15, after the command dropped the half of its
-legacy rule that asked the supervisor to tell the user the plan predates the format. That half
-held in one run of three — the runs that finish the work report what was built and let the
-notice go — and it was cut rather than propped up with more prose. Its grader, `says-legacy`,
-went with it, which is also what makes this case cheap: two `tool_used` graders, no judge.
+Two rows are re-measurements from 2026-09-15; the other three stand from the tier's first
+baseline. `17-cmd-unsatisfiable-frozen-contract`'s is over 24 runs rather than three, for the
+reason its own section below gives, and `15-cmd-legacy-plan-no-frozen-header`'s is from after
+the command dropped the half of its legacy rule that asked the supervisor to tell the user the
+plan predates the format. That half held in one run of three — the runs that finish the work
+report what was built and let the notice go — and it was cut rather than propped up with more
+prose. Its grader, `says-legacy`, went with it, which is also what makes this case cheap: two
+`tool_used` graders, no judge.
 
 Three things that cost real runs to learn, kept here so they are not relearned:
 
@@ -183,19 +185,55 @@ Three things that cost real runs to learn, kept here so they are not relearned:
   demands a line range, and all three runs went off computing ranges out of a file with no
   sections to scope. The bullet that measures 1.00 is the original one, minus the reporting half.
 
-`17-cmd-unsatisfiable-frozen-contract` was built to measure a different rule and could not: section
-3 says an executor's halt on a frozen-section conflict goes to the plan's author, and no fixture
-reaches that state. A supervisor assembling a dispatch reads the plan, then the files the task
-touches — section 2 requires it to report what is already on disk — and finds the conflict itself
-before dispatching, in two runs of three. The halt case 09 measures only happens when nobody did
-the supervisor's job. What the case measures instead is what it found: the conflict is discovered
-early and correctly, and one run in three then relieves it rather than escalating. That run is
-worth reading before the row is dismissed as a near-miss: it did not overlook the conflict. It let
-the executor add the missing export, declared both tasks done and committed, and filed the
-contract's unsatisfiability underneath as a deviation the author "should know about" — a frozen
-conflict demoted to a footnote, which scores as success and reads as success. Two independent
-sets of three runs each produced one such run, so six runs back the rate — enough to call it
-recurring, not enough to call it one in three.
+`17-cmd-unsatisfiable-frozen-contract` was built to measure section 3's escalation of an executor's
+halt, and measures something earlier. A supervisor assembling a dispatch reads the plan, then the
+files the task touches — section 2 requires it to report what is already on disk — and usually finds
+the conflict itself, before dispatching. Thirty-nine runs against the command as it stood split four
+ways:
+
+- **Stops before dispatching** (32 runs). Names the conflict, lays out the resolutions it can see,
+  dispatches nothing and writes nothing.
+- **Dispatches neutrally, the executor halts, the supervisor escalates** (2 runs). The halt path is
+  reachable after all, and section 3's rule does fire when it is reached.
+- **Blocks Task 1, executes Task 2** (1 run). Task 2 does not depend on the conflict, so the reply
+  reports it committed and Task 1 blocked — correct, and both graders read it that way.
+- **Authorizes the relief in the dispatch itself** (4 runs). The failure, and it is the supervisor's
+  rather than the executor's.
+
+The fourth mode never overlooks the conflict; it rules it out of scope, and all four runs reason
+the same way. The frozen contract is satisfiable once the export exists, and what has to
+change to make it exist is the Code Map's "do not modify" note, which is outside the frozen block:
+"it is not binding — the frozen contract's import requirement takes precedence … This is not a
+frozen-block conflict, just a stale non-frozen note; no need to escalate for this specific point."
+Another put it as "I'll flag this as an environment fact for the executor rather than treating it as
+a frozen-section conflict." The executor then builds exactly what its dispatch authorized, so "never
+move the target" never engages — that rule is not defeated here, it is never reached. The run ends
+with both tasks committed and the contract's unsatisfiability filed underneath as a note the author
+"should know about": a frozen conflict demoted to a footnote, which scores as success and reads as
+success.
+
+Section 3's rule could not catch this, because it fires on the executor halting and no executor
+halts once its dispatch has settled the question. Section 2 now carries its own, naming both moves
+these runs make — that the frozen text itself is not what gets edited, and that the change routes
+through a non-frozen note. Measured across that edit, 24 runs a side, same command:
+
+| | score | pass | failures | cost |
+| --- | --- | --- | --- | --- |
+| without the rule | 0.950 | 91.7% | 2 | $4.62 |
+| with it | **1.000** | **100%** | 0 | $3.13 |
+
+All 24 runs with the rule stopped before dispatching — no `Agent` call, no file written — where the
+two failures without it dispatched twice each and wrote five files. Case 16 re-run against the same
+edit held at 1.00, so the bullet does not cost the tier its dispatch hygiene, and the after-arm is
+cheaper because nothing gets built.
+
+**Read the size as unproven.** Two of 24 against zero of 24 is Fisher p ≈ 0.49, and p ≈ 0.29 pooling
+every run without the rule (4 failures in 39); at that base rate a clean 24-run arm comes up by luck
+roughly one time in ten. The direction is right and nothing regressed, but this sample
+cannot separate the rule from variance — 40 runs a side would, at about twice the cost. The earlier
+"one run in three" figure came from two sets of three and did not survive: a nine-run re-measurement
+scored 1.00 on the unchanged command, which is how the rate came down to roughly one in ten and why
+three runs cannot gate this case.
 
 `no-rules-copy` (case 16) matches the executor agent's own wording — "Never move the target", the
 `frozen-after-approval` tag, "do not run `git commit`" — quoted from `agents/plan-executor.md`.

@@ -52,6 +52,12 @@ A dispatch carries exactly four things, and nothing else:
 the frozen header itself and already carries its own contract; a dispatch that repeats either is
 how a dispatch ends up contradicting them by drifting out of sync with the source it copied from.
 
+**A frozen contract the code cannot satisfy is not yours to dispatch.** Checking what is already
+on disk is what surfaces this, before the executor ever runs. Writing what the contract names — a
+missing export, an absent module — relieves the conflict as surely as editing the frozen text
+would, and routing it through a stale Code Map note or into the dispatch does not make it someone
+else's call. Stop and bring it to the plan's author.
+
 ## 3. Handle what comes back
 
 - **The returned diff has a defect:** send a fresh dispatch naming the defect precisely. Fix it
