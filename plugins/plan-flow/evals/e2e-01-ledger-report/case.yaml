@@ -1,0 +1,42 @@
+schema_version: "1.1"
+name: e2e-01-ledger-report
+tags: [e2e]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    В этом репозитории есть маленький CLI над журналом транзакций (`bin/ledger.js`,
+    команды `add` и `total`, журнал в JSONL). Нужна третья команда — `report`.
+
+    Поведение:
+
+    - `node bin/ledger.js report --file <path>` печатает по строке на категорию:
+      `<категория> <сумма в центах>`, категории отсортированы по имени по возрастанию.
+    - `--from YYYY-MM-DD` и `--to YYYY-MM-DD` ограничивают диапазон дат, обе границы
+      включительно; любую можно не указывать.
+    - `--category NAME` оставляет одну категорию.
+    - Пустой журнал, пустой диапазон и неизвестная категория — пустой вывод и код 0.
+    - Категория, суммы которой гасят друг друга, печатается со значением `0`.
+    - Битая строка в журнале — сообщение в stderr и ненулевой код возврата, пустой stdout.
+    - Суммы целые, в центах. Дат вне ISO-формата в журнале не бывает.
+
+    Напиши план реализации. Код пока не пиши.
+
+    Тесты: `node --test test/*.test.js`.
+  max_turns: 45
+  timeout_seconds: 900
+  model: sonnet
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 2
+graders:
+  - type: regex
+    name: plan-location
+    target: files
+    pattern: 'docs/plans/2\d{3}-\d{2}-\d{2}-[a-z0-9-]+(/plan)?\.md'
+    match: contains
+    weight: 1
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
