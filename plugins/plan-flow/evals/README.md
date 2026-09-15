@@ -61,6 +61,39 @@ them fires — a case where the agent was never allowed to dispatch or write can
 chose not to; a passing negative grader only means something when the tool it counts was actually
 reachable.
 
+### End-to-end tier
+
+```bash
+python3 plugins/plan-flow/evals/e2e/run_e2e.py --case e2e-01-ledger-report --runs 2
+```
+
+Not a `claude plugin eval` invocation — this tier's own orchestrator, since it stitches together
+work no single eval case does. Three phases, through disk, no shared process:
+
+1. **Phase 1** is an ordinary eval case (`--tag e2e --ablation none --scaffold --keep-temp`) whose
+   prompt is a feature spec; the expected output is a plan under `docs/plans/`, written into a
+   workspace the runner is told to keep rather than discard.
+2. **Phase 2** locates that kept workspace — an undocumented temp-directory layout, decoded in one
+   function so a CLI upgrade only breaks it in one place — copies it, and runs `claude -p
+   /plan-flow:execute-plan <plan>` directly and non-interactively, cwd'd into the copy. It is not
+   a second eval case: wrapping one temp-directory layout this orchestrator doesn't own is enough
+   coupling to undocumented behavior without adding a second.
+3. **Phase 3** copies the case's hidden `acceptance/*.test.js` into that same tree — never earlier,
+   and never through the scaffold or git — and runs them with
+   `node --test --test-reporter=tap acceptance/*.test.js`, not the workspace's own `package.json`
+   `test` script: by phase 3 that file belongs to whatever phase 2's agent wrote, and it may have
+   rewritten or deleted it.
+
+The score counts **only** the hidden acceptance suite. `score` is the mean, across runs, of the
+fraction of acceptance tests green in that run; `pass_rate` is the fraction of runs where every
+acceptance test is green. Fixture tests under `test/*.test.js` run too but never enter either
+number — a red fixture next to a green acceptance suite is logged as a regression note, not a
+point off the score.
+
+Workspaces are never deleted. Both the tree phase 1 kept and phase 3's copy of it are printed —
+per run in `summary.md`, and as `workspace` in `e2e-result.json` — so a case that scores red gets
+inspected at the path the report names, not rerun blind.
+
 ## The cases
 
 | case | shape | what it measures |
@@ -81,6 +114,7 @@ reachable.
 | `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 | `17-cmd-unsatisfiable-frozen-contract` | Task 1's frozen contract requires an export the existing module does not have | an unsatisfiable frozen contract is reported to the plan's author, not relieved by adding the export or amending the plan |
+| `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
 convention. The other four pin it, because `{source: file, path}` does not accept a glob and
@@ -246,6 +280,19 @@ that a rewrite can retire silently. Losing them costs two ways of catching a res
 keeps the third; the grader cannot read `agents/plan-executor.md` to notice, because a grader's
 file source resolves inside the run's scaffold, not the plugin.
 
+## End-to-end tier baseline
+
+**Not yet measured.** No author-approved run of `run_e2e.py` has completed for this tier — a
+live run costs money and tens of minutes, and needs a go-ahead before the first one. The row
+below is the shape the entry takes once one has: score, pass rate, phase1 and phase2 cost, and
+the date, read straight from an actual run's `e2e-result.json`. Nothing here is estimated or
+carried over from the execution or command tier's numbers; an invented baseline is worse than an
+absent one; a number in this row means a real run happened.
+
+| case | score | pass% | phase1 cost | phase2 cost | date | the miss |
+| --- | --- | --- | --- | --- | --- | --- |
+| `e2e-01-ledger-report` | — | — | — | — | — | not run yet |
+
 ## Regression gate: `block-labels`
 
 `block-labels` used to fail in every plan-producing case: 0 of 88 fences labelled across the five
@@ -288,3 +335,20 @@ consistently as a regression.
   a plan with zero `reference` markers because every block is correctly binding scores the same
   as a plan that just missed the labels. This is a limitation of the grader, not evidence of a
   defect.
+- **Whether the end-to-end tier's own executor reads only its own slice.** Same limit as above,
+  applied to phase 2: nothing watches what `claude -p /plan-flow:execute-plan` read, only what it
+  produced, so a plan handed over whole reads the same as one scoped correctly by luck.
+- **No without-arm for this tier.** Phase 1 runs with `--ablation none`; without the skill loaded
+  there is no plan for phase 2 to execute, so there is nothing to hand it in the without-arm's
+  place.
+- **Whether the plan's own I/O matrix is honest.** The same agent that writes the plan in phase 1
+  also writes its I/O & Edge-Case Matrix, and only the hidden acceptance suite counts toward
+  score — a matrix that quietly narrows the spec scores the same as one that covers it in full.
+  The agent effectively sets its own bar.
+- **A score above zero meaning anything got built.** One acceptance test — the malformed-line row
+  — also passes against a fixture where `report` was never implemented: an unrecognized command
+  already exits non-zero with a stderr message and empty stdout, which is exactly what that test
+  checks for. A score of 1/8 reads as "nothing was built," not "one thing works."
+- **Whether phase 2 actually halted.** Halt detection matches phrasing lifted from
+  `agents/plan-executor.md` and `commands/execute-plan.md`; it has never been checked against a
+  transcript of a real halt, so a `"halted"` status is a string match, not a confirmed one.
