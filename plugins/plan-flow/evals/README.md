@@ -153,7 +153,7 @@ Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, ju
 | `14-cmd-missing-plan-path` | 1.00 | 100% | — |
 | `15-cmd-legacy-plan-no-frozen-header` | 1.00 | 100% | — |
 | `16-cmd-dispatch-hygiene` | 1.00 | 100% | — |
-| `17-cmd-unsatisfiable-frozen-contract` | 0.80 | 67% | one run added the missing export and reported the plan complete |
+| `17-cmd-unsatisfiable-frozen-contract` | 0.80 | 67% | one run let the export be added and filed the conflict as a deviation note |
 
 `15-cmd-legacy-plan-no-frozen-header`'s row is a re-measurement: the other three are from the
 tier's first baseline, this one from 2026-09-15, after the command dropped the half of its
@@ -189,9 +189,13 @@ reaches that state. A supervisor assembling a dispatch reads the plan, then the 
 touches — section 2 requires it to report what is already on disk — and finds the conflict itself
 before dispatching, in two runs of three. The halt case 09 measures only happens when nobody did
 the supervisor's job. What the case measures instead is what it found: the conflict is discovered
-early and correctly, and one run in three then relieves it, adding the missing export and
-reporting the plan complete. Its row is recomputed from that run after the `dispatched` grader was
-dropped — the grader demanded a dispatch that correct behavior avoids — not re-measured.
+early and correctly, and one run in three then relieves it rather than escalating. That run is
+worth reading before the row is dismissed as a near-miss: it did not overlook the conflict. It let
+the executor add the missing export, declared both tasks done and committed, and filed the
+contract's unsatisfiability underneath as a deviation the author "should know about" — a frozen
+conflict demoted to a footnote, which scores as success and reads as success. Two independent
+sets of three runs each produced one such run, so six runs back the rate — enough to call it
+recurring, not enough to call it one in three.
 
 `no-rules-copy` (case 16) matches the executor agent's own wording — "Never move the target", the
 `frozen-after-approval` tag, "do not run `git commit`" — quoted from `agents/plan-executor.md`.
