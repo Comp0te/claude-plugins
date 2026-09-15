@@ -130,14 +130,29 @@ def copy_workspace(workspace, dest):
 
 
 def run_phase1(case, runs, plugin_dir, out_json):
+    # Exit code reflects the case's own graders, not harness health — a red grader
+    # must not abort the run; `_raise_on_run_start_failures` is the real gate.
     cmd = ["claude", "plugin", "eval", ".", "--case", case, "--tag", "e2e",
            "--ablation", "none", "--scaffold", "--allow-tools", "Write", "Edit",
            "--runs", str(runs), "--keep-temp", "--no-publish", "--json", str(out_json)]
+    subprocess.run(cmd, cwd=plugin_dir)
     try:
-        subprocess.run(cmd, cwd=plugin_dir, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise HarnessError(f"фаза 1 не поднялась: {exc}") from exc
-    return json.loads(out_json.read_text())
+        result = json.loads(out_json.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HarnessError(f"фаза 1 не поднялась для кейса {case!r}: нет отчёта в {out_json}") from exc
+    _raise_on_run_start_failures(case, result)
+    return result
+
+
+def _raise_on_run_start_failures(case, result):
+    """Raises only when a run never started (non-null `error`, per the runner's own
+    report) — grader verdicts on a run that did start are a scored result, not this."""
+    cases = result.get("cases") or [{}]
+    runs = (cases[0].get("arms") or {}).get("with") or []
+    errors = [run["error"] for run in runs if run.get("error")]
+    if errors:
+        raise HarnessError(
+            f"фаза 1: прогон(ы) кейса {case!r} не запустились: {'; '.join(errors)}")
 
 
 def phase1_total_cost(result):

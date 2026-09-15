@@ -4,7 +4,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from run_e2e import (
     HarnessError, NoTestFiles, require_existing, workspaces_from_result,
     find_plan, parse_tap, tap_result_or_raise, run_node_tap, copy_workspace,
-    run_phase2, score_tests, compute_report, render_summary, write_report,
+    run_phase1, run_phase2, score_tests, compute_report, render_summary, write_report,
     run_case, main,
 )
 
@@ -218,6 +218,41 @@ class CopyWorkspace(unittest.TestCase):
             dest = pathlib.Path(tmp) / "copy"
             copy_workspace(workspace, dest)
             self.assertEqual("hi", (dest / "marker.txt").read_text())
+
+
+def _phase1_report(errors):
+    return {"cases": [{"name": "e2e-01-ledger-report", "arms": {"with": [
+        {"error": err, "tracePath": "" if err else f"/private/tmp/e-{i}/out/trace.jsonl"}
+        for i, err in enumerate(errors)
+    ]}}]}
+
+
+class RunPhase1(unittest.TestCase):
+    """Red graders score a completed run; only a run that never started aborts."""
+
+    def test_red_graders_on_completed_runs_do_not_raise(self):
+        # Mirrors phase1.json from the 2026-09-15 baseline: both runs finished
+        # with error=null but failed plan-location/skill-fired (CLI exit 1).
+        with tempfile.TemporaryDirectory() as tmp:
+            out_json = pathlib.Path(tmp) / "phase1.json"
+            out_json.write_text(json.dumps(_phase1_report([None, None])))
+            with mock.patch("run_e2e.subprocess.run",
+                             return_value=subprocess.CompletedProcess(args=["claude"], returncode=1)):
+                result = run_phase1("e2e-01-ledger-report", 2, pathlib.Path(tmp), out_json)
+        self.assertEqual(2, len(result["cases"][0]["arms"]["with"]))
+
+    def test_run_that_could_not_start_raises_naming_the_case(self):
+        # Mirrors the sandbox EPERM probe: error is set, tracePath is empty.
+        with tempfile.TemporaryDirectory() as tmp:
+            out_json = pathlib.Path(tmp) / "phase1.json"
+            out_json.write_text(json.dumps(
+                _phase1_report(["run could not start (EPERM) — see the debug log"])))
+            with mock.patch("run_e2e.subprocess.run",
+                             return_value=subprocess.CompletedProcess(args=["claude"], returncode=1)):
+                with self.assertRaises(HarnessError) as ctx:
+                    run_phase1("e2e-01-ledger-report", 1, pathlib.Path(tmp), out_json)
+        self.assertIn("e2e-01-ledger-report", str(ctx.exception))
+        self.assertIn("EPERM", str(ctx.exception))
 
 
 class RunPhase2(unittest.TestCase):
