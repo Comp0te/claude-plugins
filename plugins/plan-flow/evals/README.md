@@ -407,6 +407,16 @@ the comment and does not produce the name that was supposed to replace it, leavi
 comment would have been. That is the clause to reword first, and this row is the instrument for
 telling whether a rewording helped. Do not chase it to green by weakening the grader.
 
+**One rewording has already been tried against it and reverted.** Adding "deleting the comment
+and leaving the name is not the fix" to the clause — naming the exact move the runs make — moved
+`18` not at all: 0.75 again, `renamed-not-annotated` failing 3 of 3, on the full tier re-measured
+across the edit at $7.57. `27-cmt-neg-exception-respected` came back 0.87 in the same run against
+1.00 before it, which looked like a possible regression and was not: the ablation below scores
+that case 0.87 in *both* arms, so the dip is the case's own variance. A clause that measures
+neutral is words that have not earned their place, in a section whose own rule is that over
+budget means cut — so the sentence went back to what it was. Whatever is retried here, do not
+retry that.
+
 `21-cmt-rationale-once` failed the same way for the opposite reason, and that one *was* the
 case's fault. Its `rationale-on-the-owner` grader wanted the reason recorded on `MAX_BATCH`, but
 the prompt only asked for `upload` to be batched — demanding work the prompt put out of scope,
@@ -420,37 +430,59 @@ the score table.
 
 ## What the rule text is worth: the hook-delivery ablation
 
-Generated with `evals/make-ablation.py`, measured 2026-09-16, three runs an arm, judge `opus`,
-$4.40. The variants carry no `append_system_prompt`, so the with-arm gets the rule through the
-session-start fallback and the without-arm gets nothing:
+Generated with `evals/make-ablation.py`, measured 2026-09-16, all ten cases, three runs an arm,
+judge `opus`. The variants carry no `append_system_prompt`, so the with-arm gets the rule through
+the session-start fallback and the without-arm gets nothing:
 
 | case | with | without | Δ |
 | --- | --- | --- | --- |
+| `18-cmt-why-not-what` | 0.75 | 0.75 | +0.00 |
+| `19-cmt-no-scenario-narration` | 1.00 | 1.00 | +0.00 |
+| `20-cmt-public-private` | 1.00 | 1.00 | +0.00 |
+| `21-cmt-rationale-once` | 1.00 | 1.00 | +0.00 |
 | `22-cmt-no-process-artifacts` | 1.00 | 1.00 | +0.00 |
 | `23-cmt-not-for-the-reviewer` | 1.00 | 1.00 | +0.00 |
 | `24-cmt-never-split` | 1.00 | 1.00 | +0.00 |
 | `25-cmt-budget-outranks-neighbour` | 1.00 | 0.67 | **+0.33** |
+| `26-cmt-neg-keep-the-why` | 1.00 | 1.00 | +0.00 |
+| `27-cmt-neg-exception-respected` | 0.87 | 0.87 | +0.00 |
 
-**Three of the four clauses are inert on sonnet.** Without ever being told, the model already
-keeps finding IDs out of comments, already declines to narrate what the code used to do, already
-does not split one thought across two blocks. Writing those rules down changed nothing a grader
-can see, which is not an argument for deleting them — a rule that costs nothing and holds the
-line on a worse day is cheap — but it is an argument against spending more words on them.
+**One clause out of the section has a measurable effect. Mean Δ +0.033.** Untold, the model
+already keeps finding IDs out of comments, already declines to narrate what the code used to do,
+already does not split one thought across two blocks, already leaves a legitimate why-comment
+alone, already puts a rationale on the symbol that owns it. Writing those down changed nothing a
+grader can see. That is not an argument for deleting them — a rule that costs nothing and holds
+the line on a worse day is cheap — but it is a strong argument against spending more words on
+them, and against reading a green tier score as the rule doing work.
 
 **The clause that earns its place is the one that contradicts the model's default.** In a file
 whose every neighbour carries a twelve-line comment block, the without-arm matched the local
-style in two runs of three. The with-arm wrote two lines every time. That is exactly the sentence
-"the budget outranks the file you are editing: a neighbour with a twelve-line block is not a
-precedent" — the only clause here telling the model to do something it would not otherwise do,
-and the only one with a measured effect.
+style in two runs of three; the with-arm wrote two lines every time. That is the sentence "the
+budget outranks the file you are editing: a neighbour with a twelve-line block is not a
+precedent" — the only clause telling the model to do something it would not otherwise do, and the
+only one that moved a number. Style-matching is the default it has to beat; the rest of the
+section is already the default.
 
-**Read the size as unproven, again.** Two failures of three, on one case, with n=3 an arm. The
-direction matches the mechanism and nothing regressed, but this cannot separate the clause from
-variance; the command tier's own note on Fisher exact applies unchanged. What it does establish
-is the shape — that the section's value is concentrated, not spread.
+**`18-cmt-why-not-what` fails identically in both arms.** Not a weak clause — an inert one. Its
+0.75 is what the model does with or without being told, which is why the rewording recorded in
+the tier baseline above moved it by exactly zero. Anything aimed at it has to beat a default, the
+way the budget clause does.
 
-This ablation was also the run that produced the `check-run.py` gotcha above: its first attempt
-reported the same four cases at 1.00/1.00/0.60/0.50 and was entirely the session limit.
+**`27-cmt-neg-exception-respected` scores 0.87 in both arms**, so the 0.87 it showed during the
+rewording run was its own variance and not the edit's doing. `exception-not-cut` failing one run
+in three regardless of whether the rule is present is a property of the case; it wants a look
+before its row is read as a finding either way.
+
+**Read the size as unproven.** Two failures of three, on one case, n=3 an arm. The direction
+matches the mechanism and nothing regressed, but this cannot separate the clause from variance;
+the command tier's note on Fisher exact applies unchanged. What ten cases establish that four
+could not is the *shape* — the section's value is concentrated in one sentence, not spread.
+
+Two operational notes, both paid for. The first attempt reported four cases at
+1.00/1.00/0.60/0.50 and was entirely the session limit, which is what `check-run.py` above exists
+for. The second was killed by the OS for memory at `-j 2` — the concurrency this README calls the
+safer one — after completing three cases; the remainder finished at `-j 1`. Run this tier
+serially, and validate whatever comes back.
 
 ## End-to-end tier baseline
 
