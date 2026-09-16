@@ -34,6 +34,15 @@ def prose(line, mark):
     return bool(body) and not PRAGMA.match(body)
 
 
+def block_prose(line, opening=False, closing=False):
+    body = line.strip()
+    if closing and "*/" in body:
+        body = body[:body.rindex("*/")]
+    if opening:
+        body = body.lstrip("/")
+    return bool(body.lstrip("*").strip())
+
+
 def runs(text, ext):
     """(budget, prose lines, opening line) for every own-line comment run in `text`."""
     mark, lines, i, out = marker(ext), text.splitlines(), 0, []
@@ -41,11 +50,15 @@ def runs(text, ext):
         stripped = lines[i].strip()
         if ext in SLASH and stripped.startswith("/*"):
             budget, first, n = (DOC if stripped.startswith("/**") else INLINE), stripped, 0
-            if "*/" not in stripped[2:]:
+            closed = "*/" in stripped[2:]
+            n += 1 if block_prose(stripped, opening=True, closing=closed) else 0
+            if not closed:
                 i += 1
                 while i < len(lines) and "*/" not in lines[i]:
-                    n += 1 if lines[i].strip().lstrip("*").strip() else 0
+                    n += 1 if block_prose(lines[i]) else 0
                     i += 1
+                if i < len(lines):
+                    n += 1 if block_prose(lines[i], closing=True) else 0
             out.append((budget, n, first))
         elif mark and stripped.startswith(mark):
             first, n = stripped, 0
