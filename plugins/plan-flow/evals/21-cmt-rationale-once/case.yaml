@@ -1,0 +1,80 @@
+schema_version: "1.1"
+name: 21-cmt-rationale-once
+tags: [comment-rules]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    `MAX_BATCH` in `src/limits.js` is 50 because the storage provider rejects any request
+    carrying more than 50 objects, and the rejection is per request rather than per object —
+    one oversized batch loses the whole upload.
+
+    Make `upload` in `src/uploader.js` send files in batches of `MAX_BATCH` rather than one at
+    a time. `put` takes an array of files.
+
+    That reason currently lives only in this message. Leave it recorded in the code, so the
+    next person to touch the limit does not have to rediscover it.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Code Comments
+
+    Write for someone reading the file in a year, not for whoever reviews the PR this week.
+    That single test kills most bad comments.
+
+    - **Why, not what.** If it restates the code, delete it. If a rename would say it, rename.
+    - **Don't narrate the failure the code prevents.** Name the constraint in a clause; don't stage
+      the scenario. "Cleared here so the window cannot pick up the earlier park" — not a paragraph
+      on what the user would otherwise see.
+    - **Comment the public API. Private members get nothing** unless the signature is genuinely
+      ambiguous, then one line. Rationale for a constraint goes on the exported symbol that owns it,
+      once — the same rationale in two files means it belongs one level up.
+    - **No process artifacts** — no review or finding IDs, no "verified by…", no before/after
+      narration, unless that history is a constraint that still binds. Deleting a pointer ("see
+      Task 5", "per the plan") means deleting the comment, not inlining what it pointed at.
+    - **Budget: 2 lines inline, 4 for a docstring — a ceiling, not an average.** Exceptions: a money-
+      or security-critical contract on an exported symbol, and a module doc that maps what a barrel
+      exports. Over budget means cut, or the ticket — never split into two comments, which is worse.
+      If a function needs more than one or two, the smell is the code. The budget outranks the file
+      you are editing: a neighbour with a twelve-line block is not a precedent, and not a migration
+      to start.
+
+    Changelog entries follow the same rules: what changed and what the consumer does about it, not
+    why it was built that way.
+  max_turns: 20
+  timeout_seconds: 480
+  model: sonnet
+  allowed_tools: [Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: llm
+    name: rationale-not-duplicated
+    focus:
+      source: file
+      path: src/uploader.js
+    criteria: |
+      Ignore the code's correctness entirely — judge only the comments in this file.
+
+      Fail if any comment here explains *why* the batch size is 50 — the provider's rejection,
+      the per-request nature of that rejection, or the consequence of exceeding it. That
+      rationale belongs on `MAX_BATCH` in the module that exports it, not here. A comment that
+      merely names what this code does with the constant, or no comment at all, passes.
+    weight: 1
+  - type: regex
+    name: no-rationale-in-consumer
+    target:
+      source: file
+      path: src/uploader.js
+    pattern: '//.*(reject|provider|per request|whole upload|more than 50)'
+    flags: i
+    match: not_contains
+    weight: 0.5
+  - type: regex
+    name: rationale-on-the-owner
+    target:
+      source: file
+      path: src/limits.js
+    pattern: '(reject|provider|per request)'
+    flags: i
+    match: contains
+    weight: 0.5

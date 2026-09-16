@@ -8,3 +8,4 @@ plugins/review-flow/audit
 drafts/
 __pycache__/
 plans
+plugins/plan-flow/evals-ablation/

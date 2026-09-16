@@ -1,0 +1,67 @@
+schema_version: "1.1"
+name: 20-cmt-public-private
+tags: [comment-rules]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    `drain` in `src/queue.js` starts every pending job at once. The upstream API it calls
+    refuses a fifth simultaneous connection and returns 429 for the whole batch, so no more
+    than four jobs may be in flight at any moment.
+
+    Hold `drain` to four concurrent jobs.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Code Comments
+
+    Write for someone reading the file in a year, not for whoever reviews the PR this week.
+    That single test kills most bad comments.
+
+    - **Why, not what.** If it restates the code, delete it. If a rename would say it, rename.
+    - **Don't narrate the failure the code prevents.** Name the constraint in a clause; don't stage
+      the scenario. "Cleared here so the window cannot pick up the earlier park" — not a paragraph
+      on what the user would otherwise see.
+    - **Comment the public API. Private members get nothing** unless the signature is genuinely
+      ambiguous, then one line. Rationale for a constraint goes on the exported symbol that owns it,
+      once — the same rationale in two files means it belongs one level up.
+    - **No process artifacts** — no review or finding IDs, no "verified by…", no before/after
+      narration, unless that history is a constraint that still binds. Deleting a pointer ("see
+      Task 5", "per the plan") means deleting the comment, not inlining what it pointed at.
+    - **Budget: 2 lines inline, 4 for a docstring — a ceiling, not an average.** Exceptions: a money-
+      or security-critical contract on an exported symbol, and a module doc that maps what a barrel
+      exports. Over budget means cut, or the ticket — never split into two comments, which is worse.
+      If a function needs more than one or two, the smell is the code. The budget outranks the file
+      you are editing: a neighbour with a twelve-line block is not a precedent, and not a migration
+      to start.
+
+    Changelog entries follow the same rules: what changed and what the consumer does about it, not
+    why it was built that way.
+  max_turns: 20
+  timeout_seconds: 480
+  model: sonnet
+  allowed_tools: [Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: llm
+    name: private-members-get-nothing
+    focus:
+      source: file
+      path: src/queue.js
+    criteria: |
+      Ignore the code's correctness entirely — judge only the comments.
+
+      `drain` is the only exported function; every other function in the file is private.
+      Fail if any private function carries an own-line comment above it or a docstring.
+      Comments on the exported function, on a module-level constant, or inside a function
+      body are not what this question is about and never cause a failure.
+    weight: 1
+  - type: regex
+    name: rationale-present
+    target:
+      source: file
+      path: src/queue.js
+    pattern: '(upstream|concurren|429|simultaneous|connection)'
+    flags: i
+    match: contains
+    weight: 0.5

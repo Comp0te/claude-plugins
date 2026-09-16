@@ -52,6 +52,19 @@ version as soon as the repository is edited.
 It reports; it never blocks. A plugin that disables itself over a missing config line fails
 hardest on a fresh machine, mid-task.
 
+It also falls back. Reporting alone left a real hole: an install whose import line was never
+added got no agreements anywhere, and the gap was invisible because the component that would
+have caught it — the eval suite — could not see the rules either, in any arm. So when the
+integrity check finds the import missing or dangling, the hook appends
+`references/working-agreements.md` verbatim behind the warning — verbatim for the reason the
+section below gives, conditional so a working import is never paid for twice, and still only a
+fallback, since a dispatched worker reads the file through the import and not through a
+SessionStart payload.
+
+Not when the import is merely stale. That one is still delivering, and the condition is whether
+the rules arrive at all, not whether they are current: injecting a second copy that differs from
+the one already loaded trades old text for a contradiction.
+
 ## Why the rules moved byte-identical
 
 An earlier draft paraphrased these sections to fit the hook's word budget and **lost seven

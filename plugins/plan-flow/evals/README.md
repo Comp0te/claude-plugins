@@ -5,7 +5,44 @@ case twice — with the plugin loaded and without it — and reporting the score
 
 ## Running it
 
-The suite has three tiers, selected by tag, each with its own operator grant.
+The suite has five tiers. One is free and runs in a second; the other four are selected by tag
+and each carries its own operator grant.
+
+### Free tier: unit tests
+
+```bash
+python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
+python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_*.py'
+```
+
+Stdlib `unittest`, no dependencies, no model calls. `hooks/test_comment_budget.py` covers the
+comment-budget hook — the plugin's only deterministic enforcement — across its three marker
+families, both ceilings, the four tool shapes it reads, the pragma table and the off switch.
+`evals/test_comment_rules.py` covers the `comment-rules` tier's own integrity: that each case's
+embedded copy of the rule still matches `references/working-agreements.md`, that no grader points
+at a file its scaffold never creates, and that every "this comment survived" grader's pattern was
+in the fixture to begin with.
+
+Run these before any paid tier. They catch, for free, two of the three failures that the command
+tier's own notes record having cost real runs to find.
+
+### Validate a result before reading it
+
+```bash
+python3 plugins/plan-flow/evals/check-run.py <result.json>
+```
+
+**Read no score table until this exits 0.** A run the harness could not finish still lands in the
+JSON carrying a score, and an `llm` grader that never executed is recorded as *failed* — so a
+usage limit, a timeout or a crashed child produces a table that looks exactly like a finding.
+This happened here on 2026-09-16: a 24-run ablation came back with two cases scoring 0.60 and
+0.50 identically in both arms, which read as a clean null result and was in fact the session
+limit, `judgeCostUsd` at zero across fourteen runs. The same cases re-run clean scored 1.00.
+
+Two further edges it covers, both silent: `--case` accepts `*` and `?` but no character classes,
+and a filter matching nothing still **exits 0** with an empty result — which is not a pass.
+
+Pass `--json <path>` on every paid run so there is something to validate.
 
 ### Plan-writing tier
 
@@ -61,6 +98,33 @@ them fires — a case where the agent was never allowed to dispatch or write can
 chose not to; a passing negative grader only means something when the tool it counts was actually
 reachable.
 
+### Comment-rules tier
+
+```bash
+claude plugin eval . --tag comment-rules --ablation none --scaffold \
+  --allow-tools Write Edit --judge-model opus --no-publish
+```
+
+Ten cases measuring the Code Comments section of `references/working-agreements.md` against a
+main agent doing ordinary one-file work — no plan fixture, no executor dispatch.
+
+`--ablation none`, because a without-arm would measure nothing: the rule is not in the plugin's
+session-start injection, so it reaches both arms identically or not at all. Each case carries the
+section in `append_system_prompt` instead, synced from the source file by
+`evals/sync-comment-rule.py` and checked by `evals/test_comment_rules.py`. **Edit the rule and you
+must re-run `python3 evals/sync-comment-rule.py --write`, then re-measure** — the free tier fails
+until you do, which is the point.
+
+No `Bash` in the grant. These cases grade comments; a green test run would only buy turns, and
+correctness is the plan tiers' job. The scaffolds also skip `git init`, which keeps
+`hooks/session-start.py` quiet — its operating-rules injection would otherwise push a one-file
+task toward a written plan and measure that instead.
+
+The hook is live in these runs, and it only knows about the budget. For the eight cases that
+measure something other than line count it is inert, so those measure the rule text cleanly. The
+budget-adjacent ones (`24`, `25`) measure rule and hook together; `12-exec-comment-budget` remains
+the hook's own case.
+
 ### End-to-end tier
 
 ```bash
@@ -94,6 +158,23 @@ Workspaces are never deleted. Both the tree phase 1 kept and phase 3's copy of i
 per run in `summary.md`, and as `workspace` in `e2e-result.json` — so a case that scores red gets
 inspected at the path the report names, not rerun blind.
 
+## Every baseline below predates the session-start fallback
+
+On 2026-09-16 `hooks/session-start.py` gained a fallback: when the working-agreements import is
+missing — which it always is inside an eval sandbox — it injects the agreements verbatim. Before
+that, no arm of any tier had them in context. After it, every with-arm does.
+
+So each recorded table below was measured against an agent that had not read the working
+agreements. Their numbers are still the best evidence available for those tiers, and they are no
+longer a like-for-like baseline for a run made today — a with-arm that now carries scope control,
+the verification rules and the comment budget is not the arm that produced them. Re-run a tier
+before reading its Δ as current, and replace its table when you do.
+
+Two tiers do not need that caveat. `comment-rules` was measured after the change. The **command
+tier was re-measured across it** on 2026-09-16 and held at 1.00 on all five cases, 15 of 15 runs
+valid — which is the evidence that the fallback did not disturb a tier that never asked for it.
+Plan-writing, execution and end-to-end remain unmeasured since.
+
 ## The cases
 
 | case | shape | what it measures |
@@ -114,6 +195,16 @@ inspected at the path the report names, not rerun blind.
 | `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 | `17-cmd-unsatisfiable-frozen-contract` | Task 1's frozen contract requires an export the existing module does not have | an unsatisfiable frozen contract is reported to the plan's author, not relieved by adding the export or amending the plan |
+| `18-cmt-why-not-what` | a parameter named `d` that means days, and work that has to touch it | a comment that would restate the code is a rename instead |
+| `19-cmt-no-scenario-narration` | clearing state a later call must not pick up | the constraint named in a clause, not the scenario staged |
+| `20-cmt-public-private` | one export, three unambiguous private helpers | private members get nothing; the rationale lands on the export |
+| `21-cmt-rationale-once` | a constant with a reason, and a consumer in a second file | the reason lives on the exported symbol that owns it, once |
+| `22-cmt-no-process-artifacts` | prompt supplies a finding ID and a plan step | neither reaches the file; the comment names the constraint |
+| `23-cmt-not-for-the-reviewer` | a return contract changes from `null` to a throw | no comment that only makes sense to someone holding the diff |
+| `24-cmt-never-split` | a rationale long enough to bust the budget honestly | over budget is cut or ticketed, never split across two runs |
+| `25-cmt-budget-outranks-neighbour` | a file whose every neighbour carries a twelve-line block | the new comment is two lines and the neighbours are left alone |
+| `26-cmt-neg-keep-the-why` | **should not fire** | a legitimate why-comment survives an unrelated edit to its file |
+| `27-cmt-neg-exception-respected` | **should not fire** | a money-critical contract on an export is a listed exception, not something to cut |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
@@ -133,6 +224,16 @@ on 20k+ character files; one narrow claim discriminates correctly.
 
 Requirement lists must contain only **task-shaped** items. "X keeps working, unchanged" cannot be
 covered by a task, and demanding work the prompt put out of scope fails a correct plan.
+
+The `comment-rules` tier inverts the weights: its `llm` grader is the primary at weight 1 and the
+`regex` graders are secondary at 0.5, because here the pattern is not lifted from a template — it
+is a list of tells (`previously`, `used to`, `R-412`) that catch the common phrasing of a
+violation while the judge catches the rest. Each judge gets exactly one claim, and every one of
+them opens by telling the judge to ignore whether the code works. Without that line a judge
+grades the implementation, which no grader in this tier is asking about.
+
+Two of its cases carry no judge at all. `26-cmt-neg-keep-the-why` asks only whether two sentences
+survived, which is a regex question, and a case that can be answered for free should be.
 
 Where one rule forbids writing either of two paths, prefer two `file_exists` graders at half
 weight over one grader matching both. Case 14 does this for `src/retry.js` and the plan file it
@@ -280,6 +381,77 @@ that a rewrite can retire silently. Losing them costs two ways of catching a res
 keeps the third; the grader cannot read `agents/plan-executor.md` to notice, because a grader's
 file source resolves inside the run's scaffold, not the plugin.
 
+## Comment-rules tier baseline
+
+Measured 2026-09-16, `--ablation none`, three runs a case, judge `opus`, $2.52 for the tier:
+
+| case | score | pass% | the miss |
+| --- | --- | --- | --- |
+| `18-cmt-why-not-what` | 0.75 | 0% | `renamed-not-annotated` failed 3 of 3 — see below |
+| `19-cmt-no-scenario-narration` | 1.00 | 100% | — |
+| `20-cmt-public-private` | 1.00 | 100% | — |
+| `21-cmt-rationale-once` | 1.00 | 100% | — re-measured after the prompt fix below; 0.75 / 0% before it |
+| `22-cmt-no-process-artifacts` | 1.00 | 100% | — |
+| `23-cmt-not-for-the-reviewer` | 1.00 | 100% | — |
+| `24-cmt-never-split` | 1.00 | 100% | — |
+| `25-cmt-budget-outranks-neighbour` | 1.00 | 100% | — |
+| `26-cmt-neg-keep-the-why` | 1.00 | 100% | — |
+| `27-cmt-neg-exception-respected` | 1.00 | 100% | — |
+
+**`18-cmt-why-not-what` is the tier's one real finding, and it is about the rule rather than the
+case.** All three runs produced the same file: the parameter stayed named `d`, and no comment was
+written anywhere. So `no-restating` passes on a file with no comments to restate anything, while
+the clause's second half — "if a rename would say it, rename" — never fires. The rule suppresses
+the comment and does not produce the name that was supposed to replace it, leaving
+`if (promo && d < promo.windowDays)` in a file that is now less legible than one with a bad
+comment would have been. That is the clause to reword first, and this row is the instrument for
+telling whether a rewording helped. Do not chase it to green by weakening the grader.
+
+`21-cmt-rationale-once` failed the same way for the opposite reason, and that one *was* the
+case's fault. Its `rationale-on-the-owner` grader wanted the reason recorded on `MAX_BATCH`, but
+the prompt only asked for `upload` to be batched — demanding work the prompt put out of scope,
+which the grader-design note above already warns against. The prompt now asks for the reason to
+survive in the code without saying where, which is the part under test; all three runs then put
+two lines on the exported constant and nothing in the consumer.
+
+Both diagnoses came from `--keep-temp` workspaces. A red row in this tier means read the file
+before touching the grader — the two rows above needed opposite fixes and looked identical in
+the score table.
+
+## What the rule text is worth: the hook-delivery ablation
+
+Generated with `evals/make-ablation.py`, measured 2026-09-16, three runs an arm, judge `opus`,
+$4.40. The variants carry no `append_system_prompt`, so the with-arm gets the rule through the
+session-start fallback and the without-arm gets nothing:
+
+| case | with | without | Δ |
+| --- | --- | --- | --- |
+| `22-cmt-no-process-artifacts` | 1.00 | 1.00 | +0.00 |
+| `23-cmt-not-for-the-reviewer` | 1.00 | 1.00 | +0.00 |
+| `24-cmt-never-split` | 1.00 | 1.00 | +0.00 |
+| `25-cmt-budget-outranks-neighbour` | 1.00 | 0.67 | **+0.33** |
+
+**Three of the four clauses are inert on sonnet.** Without ever being told, the model already
+keeps finding IDs out of comments, already declines to narrate what the code used to do, already
+does not split one thought across two blocks. Writing those rules down changed nothing a grader
+can see, which is not an argument for deleting them — a rule that costs nothing and holds the
+line on a worse day is cheap — but it is an argument against spending more words on them.
+
+**The clause that earns its place is the one that contradicts the model's default.** In a file
+whose every neighbour carries a twelve-line comment block, the without-arm matched the local
+style in two runs of three. The with-arm wrote two lines every time. That is exactly the sentence
+"the budget outranks the file you are editing: a neighbour with a twelve-line block is not a
+precedent" — the only clause here telling the model to do something it would not otherwise do,
+and the only one with a measured effect.
+
+**Read the size as unproven, again.** Two failures of three, on one case, with n=3 an arm. The
+direction matches the mechanism and nothing regressed, but this cannot separate the clause from
+variance; the command tier's own note on Fisher exact applies unchanged. What it does establish
+is the shape — that the section's value is concentrated, not spread.
+
+This ablation was also the run that produced the `check-run.py` gotcha above: its first attempt
+reported the same four cases at 1.00/1.00/0.60/0.50 and was entirely the session limit.
+
 ## End-to-end tier baseline
 
 Measured 2026-09-15. Phase 1 ran once, for two runs; phases 2 and 3 were then replayed over
@@ -346,10 +518,25 @@ consistently as a regression.
 - **Whether the executor reads only its own slice.** Rule 1 tells it to read its task's range and
   not the rest of the plan; no grader can see what it read, only what it produced, so a case
   cannot distinguish scoped reading from a lucky guess.
-- **The comment-budget case measuring the hook, not the rule.** The working agreements reach a
-  dispatched worker through the user-level memory import in both arms; the plugin's
-  `PostToolUse` hook fires only in the with-arm. The case's Δ is therefore the hook's nudge, not
-  the rule's presence.
+- **Which of two things `12-exec-comment-budget` is measuring.** Its with-arm now carries both
+  the rule and the hook — the rule since `hooks/session-start.py` gained its fallback, the hook
+  as before — and its without-arm carries neither, so the Δ is the pair and cannot be split. To
+  separate them the case would need a third arm with `PLAN_FLOW_COMMENT_BUDGET=off`, and a case's
+  `env` only accepts `EVAL_`-prefixed names, which that variable is not.
+- **The rule arriving the way it really arrives.** The `comment-rules` tier delivers the section
+  through `append_system_prompt`, and since the session-start fallback the same text also arrives
+  as a `SessionStart` payload — so in this tier the rule is now present twice, in two positions,
+  neither of which is the `@`-import a configured machine uses. A tier score is evidence about
+  the wording, not about the delivery. Dropping `append_system_prompt` and letting the fallback
+  carry it alone is the obvious simplification, and the measurement for it is in
+  `evals-ablation/`; do not make that change on the strength of the wording alone.
+- **A comment in a file no grader names.** `focus` and `target` take one fixed path and no glob,
+  so every comment-rules grader is pinned to a file the scaffold created. A violation the agent
+  writes into a file it invented is invisible.
+- **Whether case 25's judge counted the right block.** `new-comment-in-budget` asks the judge to
+  ignore two long pre-existing comment blocks and grade only the one on the new function. A judge
+  that misidentifies which block is new fails the case for a reason that has nothing to do with
+  the rule; read the file before reading the verdict.
 - **A plan whose code is genuinely all binding.** `block-labels` matches for a labelled fence, so
   a plan with zero `reference` markers because every block is correctly binding scores the same
   as a plan that just missed the labels. This is a limitation of the grader, not evidence of a

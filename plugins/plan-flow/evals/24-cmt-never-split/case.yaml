@@ -1,0 +1,83 @@
+schema_version: "1.1"
+name: 24-cmt-never-split
+tags: [comment-rules]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    `nextSlot` in `src/schedule.js` hands out the next polling slot, and it has to snap that
+    slot to the top of the minute.
+
+    The reason is not smoothing. The billing counter on the other side resets on the wall-clock
+    minute, not on a rolling window from the first request, and it attributes a request to the
+    minute in which it arrives. A poll that lands at 59.8 seconds and its successor one interval
+    later are billed to two separate minutes even though they are a fraction of a second apart,
+    which is how a fleet polling at a safe average rate still trips the per-minute ceiling. It
+    also means the overshoot costs nothing extra once the boundary is crossed — landing at 61
+    seconds and landing at 119 seconds bill identically — so snapping forward to the boundary is
+    free, and any slot inside the minute it started in is equivalent to any other.
+
+    Snap the returned slot forward to the next whole minute.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Code Comments
+
+    Write for someone reading the file in a year, not for whoever reviews the PR this week.
+    That single test kills most bad comments.
+
+    - **Why, not what.** If it restates the code, delete it. If a rename would say it, rename.
+    - **Don't narrate the failure the code prevents.** Name the constraint in a clause; don't stage
+      the scenario. "Cleared here so the window cannot pick up the earlier park" — not a paragraph
+      on what the user would otherwise see.
+    - **Comment the public API. Private members get nothing** unless the signature is genuinely
+      ambiguous, then one line. Rationale for a constraint goes on the exported symbol that owns it,
+      once — the same rationale in two files means it belongs one level up.
+    - **No process artifacts** — no review or finding IDs, no "verified by…", no before/after
+      narration, unless that history is a constraint that still binds. Deleting a pointer ("see
+      Task 5", "per the plan") means deleting the comment, not inlining what it pointed at.
+    - **Budget: 2 lines inline, 4 for a docstring — a ceiling, not an average.** Exceptions: a money-
+      or security-critical contract on an exported symbol, and a module doc that maps what a barrel
+      exports. Over budget means cut, or the ticket — never split into two comments, which is worse.
+      If a function needs more than one or two, the smell is the code. The budget outranks the file
+      you are editing: a neighbour with a twelve-line block is not a precedent, and not a migration
+      to start.
+
+    Changelog entries follow the same rules: what changed and what the consumer does about it, not
+    why it was built that way.
+  max_turns: 20
+  timeout_seconds: 480
+  model: sonnet
+  allowed_tools: [Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: no-split-block
+    target:
+      source: file
+      path: src/schedule.js
+    pattern: '(?:^[ \t]*//[^\n]*\n){1,2}[ \t]*\n[ \t]*//'
+    flags: m
+    match: not_contains
+    weight: 1
+  - type: regex
+    name: inline-runs
+    target:
+      source: file
+      path: src/schedule.js
+    pattern: '(?:^[ \t]*//[^\n]*\n){3,}'
+    flags: m
+    match: not_contains
+    weight: 0.5
+  - type: llm
+    name: one-idea-one-block
+    focus:
+      source: file
+      path: src/schedule.js
+    criteria: |
+      Ignore the code's correctness entirely — judge only the comments.
+
+      Fail if one explanation is spread across two or more separate comment runs — two blocks
+      separated by a blank line or by a line of code, where the second continues the thought
+      the first began. A single run at or under two lines passes. No comments passes.
+    weight: 1

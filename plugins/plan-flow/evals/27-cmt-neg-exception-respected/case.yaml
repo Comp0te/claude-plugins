@@ -1,0 +1,76 @@
+schema_version: "1.1"
+name: 27-cmt-neg-exception-respected
+tags: [comment-rules]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    `settle` in `src/settlement.js` assumes one currency.
+
+    Add a `currency` parameter and return it on the result object, so a caller can tell a
+    settlement in minor units of one currency from another. Reject a batch whose currency is
+    not one of `USD`, `EUR`, `GBP`.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Code Comments
+
+    Write for someone reading the file in a year, not for whoever reviews the PR this week.
+    That single test kills most bad comments.
+
+    - **Why, not what.** If it restates the code, delete it. If a rename would say it, rename.
+    - **Don't narrate the failure the code prevents.** Name the constraint in a clause; don't stage
+      the scenario. "Cleared here so the window cannot pick up the earlier park" — not a paragraph
+      on what the user would otherwise see.
+    - **Comment the public API. Private members get nothing** unless the signature is genuinely
+      ambiguous, then one line. Rationale for a constraint goes on the exported symbol that owns it,
+      once — the same rationale in two files means it belongs one level up.
+    - **No process artifacts** — no review or finding IDs, no "verified by…", no before/after
+      narration, unless that history is a constraint that still binds. Deleting a pointer ("see
+      Task 5", "per the plan") means deleting the comment, not inlining what it pointed at.
+    - **Budget: 2 lines inline, 4 for a docstring — a ceiling, not an average.** Exceptions: a money-
+      or security-critical contract on an exported symbol, and a module doc that maps what a barrel
+      exports. Over budget means cut, or the ticket — never split into two comments, which is worse.
+      If a function needs more than one or two, the smell is the code. The budget outranks the file
+      you are editing: a neighbour with a twelve-line block is not a precedent, and not a migration
+      to start.
+
+    Changelog entries follow the same rules: what changed and what the consumer does about it, not
+    why it was built that way.
+  max_turns: 20
+  timeout_seconds: 480
+  model: sonnet
+  allowed_tools: [Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: contract-survives-rounding
+    target:
+      source: file
+      path: src/settlement.js
+    pattern: 'sum of the rounded\s+\*?\s*charges and not the rounding of the summed charges'
+    match: contains
+    weight: 1
+  - type: regex
+    name: contract-survives-fees
+    target:
+      source: file
+      path: src/settlement.js
+    pattern: 'deducted after the total is fixed'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: exception-not-cut
+    focus:
+      source: file
+      path: src/settlement.js
+    criteria: |
+      Ignore the code's correctness entirely — judge only the docstring on the exported
+      `settle`.
+
+      That docstring states a money-critical rounding contract that an external clearing house
+      audits against. Pass if it is still present and still states, in full: that each charge
+      rounds as it enters the batch rather than at the end, the consequence of doing it the
+      other way, and that fees are deducted after the total is fixed. Fail if any of those
+      three was shortened away, summarised into a single line, or moved out of the file.
+    weight: 1

@@ -20,8 +20,23 @@ scoped to one task at a time.
 | `writing-implementation-plans` skill | `skills/writing-implementation-plans/SKILL.md` | Turns a spec, a ticket, or an agreed approach into a written implementation plan with a frozen intent, tiered constraints, an annotated code map, and a tested edge-case matrix. | Description match — loads when the conversation is turning multi-step work into a plan before code is touched. |
 | `plan-executor` agent | `agents/plan-executor.md` | Implements one scoped task (or step) of an already-approved plan: reads that task's frozen contract, writes the code, runs the project's checks, and reports back a diff summary. | Dispatch — given the plan path, a task's line range, and which steps are in scope. |
 | `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/plan-flow:execute-plan <path-to-plan.md>`. |
-| Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import described below is missing or stale. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
+| Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import described below is missing, dangling or stale. When that import is delivering nothing at all, also injects the agreements verbatim, so an unconfigured install still has them in the main conversation. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
 | Comment-budget hook | `hooks/comment-budget.py` (registered in `hooks/hooks.json`) | Counts the comment block just written against the budget in the working agreements (2 prose lines inline, 4 in a docstring) and says so when it is over. Reads only what the edit added, so existing comments are never flagged. Silence it with `PLAN_FLOW_COMMENT_BUDGET=off`. | `PostToolUse`, matching `Edit`, `Write`, and `MultiEdit`. |
+
+## Tests
+
+```bash
+python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
+python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_*.py'
+```
+
+Stdlib only, no dependencies, about a second. The first covers the comment-budget hook; the
+second covers the eval suite's own integrity, including whether the copy of the Code Comments
+rule embedded in the `comment-rules` cases still matches `references/working-agreements.md`.
+Edit that rule and the second command fails until you run
+`python3 plugins/plan-flow/evals/sync-comment-rule.py --write` and re-measure the tier.
+
+The model-graded tiers, what they cost and what they cannot see are in `evals/README.md`.
 
 ## Where plans live
 
@@ -34,6 +49,18 @@ preference overrides it.
 The hook injects only what has to be true before any skill or agent loads — it is paid on every
 session, in every repository, so it stays small. Everything else — the rest of this plugin's
 operating rules — arrives a different way, described next.
+
+There is one exception, and it is the case where "described next" has not happened. If the import
+below is missing or points at nothing, the agreements are reaching the session from nowhere, so
+the hook appends them verbatim after the warning. That costs context only for an install that
+would otherwise have none, and it is verbatim because the one attempt to paraphrase these
+sections into a hook's budget lost seven rules.
+
+A **stale** import gets the warning alone. It is still delivering, and a second copy that differs
+from the one already loaded is a worse failure than text that is merely old.
+
+The fallback is not a substitute: it covers the main conversation, while a dispatched worker
+reads the agreements only through the import. The warning stays until the line is added.
 
 ## The one-line import this plugin cannot add for you
 
