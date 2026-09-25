@@ -22,12 +22,14 @@ claude plugin install ui-verifier-mobile
 
 Two things must already be on the machine the agent runs on:
 
-- **The `agent-device` CLI**, version `0.20.0` or newer. The agent resolves it itself and stops
-  with an install command if it's missing — it never installs or upgrades it autonomously.
+- **The `agent-device` CLI**, version `0.21.15` or newer. Only the current CLI is supported: the
+  driver quirks are measured against it, and older versions are not. The agent resolves the CLI
+  itself and stops with an install command if it's missing or older — it never installs or
+  upgrades it autonomously.
 - **The `agent-device` skill**, which the agent declares in its frontmatter and uses to resolve
   the binary and route into the CLI's version-matched help. This plugin does not ship it; it is a
   separate skill (e.g. under `~/.claude/skills/agent-device`). Without it the agent still runs,
-  but it loses the version floor and the `help` routing it leans on.
+  but it loses the `help` routing it leans on.
 
 ## Project-specific facts
 

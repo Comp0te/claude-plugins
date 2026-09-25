@@ -42,7 +42,9 @@ the session active — so you record and then run the checklist in one session. 
 - **The destination guard must be a selector wait on a labeled or id-bearing landmark.** Its
   identity is captured while armed and re-verified at replay time, so a reshuffled screen with the
   same label elsewhere fails closed instead of false-passing. A duration wait, `wait stable`,
-  `wait @ref`, or a selector wait on an unlabeled element **is not a guard** and buys you nothing.
+  `wait absent`, `wait @ref`, or a selector wait on an unlabeled element **is not a guard** and buys
+  you nothing. A guard that finds the label but not the recorded identity fails with
+  `wait_landmark_identity_mismatch` — that is route drift, not an app defect.
 - **Prefer a stable landmark over a localized string.** If only a translated label is available,
   the script is bound to the language it was recorded in — say so in the script's name.
 - **Record only the route to the screen, never the checklist itself.** Much of the interaction in
@@ -86,6 +88,8 @@ cases need opposite responses:
   step 1, press the correct control via a blessed `@ref` from the divergence's `screen.refs`, then
   `replay --from <n+1> --plan-digest <sha256>`. End with `close --save-script`, which writes
   `<stem>.healed.ad` by default. **Review the healed diff before promoting it over the original.**
+  Read-only commands you run to find the repair target stay out of the healed script unless you
+  pass `--record` on them.
 - `caution` means a blind re-press may repeat the mistake; `manual` means no safe automated repair
   could be proven. Re-record the route from scratch in both cases.
 

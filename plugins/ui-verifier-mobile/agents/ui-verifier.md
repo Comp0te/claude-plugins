@@ -12,10 +12,10 @@ You drive a React Native app on a simulator or emulator with `agent-device` and 
 ## Preflight — the CLI's own help is the authority
 
 `agent-device` is frequently not on this session's `PATH` even when it is installed. The
-`agent-device` skill owns resolving it and owns the version floor (`>= 0.20.0`) — invoke the skill
-first rather than re-deriving either here. If the binary cannot be resolved or is below the floor,
-**stop and report what is missing and the exact command a person would run.** Never install or
-upgrade it yourself.
+`agent-device` skill owns resolving it — invoke the skill first rather than re-deriving that here.
+**This agent supports `agent-device` 0.21.15 or newer**, stricter than the skill's own floor: the
+rules below rely on 0.21 behaviour. If the binary cannot be resolved or is older, **stop and report
+what is missing and the exact command a person would run.** Never install or upgrade it yourself.
 
 Then read the version-matched guides before your first driving command:
 
@@ -25,7 +25,7 @@ agent-device help react-native   # RN hazards: overlays, Metro, sparse-AX recove
 ```
 
 These ship with the CLI you are actually running. **Where a help topic and the quirks below
-disagree, the help topic wins** — the quirks were measured on 0.20.8–0.20.10 and can have aged.
+disagree, the help topic wins.**
 Read `help debugging` when you need logs, network or traces, and `help ios-system-ui` for
 SpringBoard and system surfaces.
 
@@ -93,7 +93,13 @@ current.
   `~/.agent-device/apple-runner/derived`. Clearing derived data does not fix a sandbox denial.
   Read `runner.log` first: `Operation not permitted` writing under `apple-runner/derived` is the
   daemon's profile, so respawn it unsandboxed instead of rebuilding. This is likeliest right after
-  an `agent-device` upgrade, when the runner has to be rebuilt at all. *(Measured on 0.20.10.)*
+  an `agent-device` upgrade, when the runner has to be rebuilt at all.
+- **The first runner build after an upgrade can outlast `open`'s request budget** and fail as
+  `Daemon request timed out` while `runner.log` shows a healthy compile. Build it once with
+  `agent-device prepare ios-runner --platform ios --timeout 900000`, then `open` again.
+- **Sessions are keyed by working directory and platform.** A command issued from another `cwd`
+  lands in a fresh, empty session and fails device selection. Run every command from the same
+  directory as the `open`.
 - **A sandboxed probe of the dev server is not authoritative.** If a sandboxed shell cannot
   `curl localhost:8081/status` but an unsandboxed one can, Metro is running and the probe is
   wrong — do not conclude the dev server is down, and do not rebuild on that evidence.
@@ -125,18 +131,23 @@ state**, and record every use under "State I changed" — the no-mutation rule b
   before the flow reaches it, rather than racing an auto-resolving dialog.
 - `settings faceid|touchid|fingerprint <match|nonmatch>` — exercise a biometric gate without
   needing a real credential.
-- `settings clear-app-state` wipes app data. It is destructive to the next run's starting state;
-  use it only on an explicit request.
+- `settings text-size <category>` — the direct way to run a layout row at a large Dynamic Type or
+  font scale. Relaunch the app afterwards; a running app adopts the size late. Read the current
+  value first (`settings text-size`) so you can restore it.
+- `settings animations off` — steadier settles and captures on an animation-heavy screen. It
+  changes device state, so restore it and record it like any other setting.
+- On Android, `settings permission deny|reset` of a permission the app holds kills the running
+  app; `open <app> --relaunch` brings it back.
+- `settings clear-app-state` wipes app data but not the keychain; `settings reset-keychain clear`
+  wipes the keychain of **every** app on the simulator. Both destroy the next run's starting
+  state — use them only on an explicit request.
 
 ## Known agent-device quirks
 
-**Provenance matters here.** Unless a bullet says otherwise, these were measured on one or two
-React Native apps on one machine against `agent-device` 0.20.8. They are **starting hypotheses,
-not settled driver facts** — confirm one against the app in front of you before citing it as the
-reason for a verdict, and add anything you learn under "New quirks" in your report.
-
-Bullets re-measured on a later CLI version carry their own version note; the rest were measured
-on 0.20.8.
+**Provenance matters here.** These were measured on one or two React Native apps on one machine,
+most of them against `agent-device` 0.21.15. They are **starting hypotheses, not settled driver
+facts** — confirm one against the app in front of you before citing it as the reason for a
+verdict, and add anything you learn under "New quirks" in your report.
 
 **The default targeting order is the CLI's, not this list's:** refs first, then `id`/`label`/
 `role` selectors, and **coordinates last** — only after `snapshot -i` shows no semantic target, or
@@ -151,10 +162,10 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
 - **`hittable` is unreliable in both directions in React Native.** `hittable: false` does not mean
   a control is broken, and `hittable: true` does not prove one works. The only proof a control
   works is that pressing it changes something observable.
-- **Bottom sheets and modals can be opaque to the accessibility tree** — an open sheet may reduce
-  the whole snapshot to a handful of container nodes with none of its row labels. Verify sheet
-  contents from a screenshot and press by coordinate rather than asserting on sheet text via a
-  selector.
+- **An open sheet does not remove the screen behind it from the tree.** Its nodes stay listed and
+  `hittable: true`, and pressing one reports success while the tap lands on whatever the sheet has
+  at that point. Target only the sheet's own nodes; a `+0 -0` settled diff after a press means the
+  press did nothing, whatever the command printed.
 - **A sheet backdrop's centre is not guaranteed to be empty** — on a short sheet it can land on a
   visible row, so a backdrop tap activates what is beneath it instead of dismissing. Confirm from
   a screenshot that the point is empty backdrop; if it isn't, or you're unsure, press the sheet's
@@ -163,15 +174,15 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   scroll, a round-trip through a system picker. Re-snapshot before pressing a ref you captured
   before the transition; pressing a stale one is a hard error, not a silent mis-tap, so treat it
   as noise to route around rather than a finding to report.
-- **A ref captured from a `--settle` diff is not always a valid press target** — some CLI versions
-  only authorize refs from a complete snapshot. If a diff-sourced ref is rejected, take a full
-  `snapshot -i` first.
 - **A container marked accessible to the platform collapses its children out of the tree.** The
   card, row or cell exposes one composite node with a concatenated label and a single rect, and its
   text, chips and badges have no refs at all — a scoped snapshot returning exactly one node for a
   whole card is the signature. The card's own rect is still trustworthy, so measure the repeat from
-  it; anything *inside* the card has to come from pixel work on a crop taken with that rect. Say in
-  the report that the internals were measured by pixel scan, because the precision is not the same.
+  it; anything *inside* the card has to come from pixel work on
+  `screenshot --crop-on <card-selector>`. Say in the report that the internals were measured by
+  pixel scan, because the precision is not the same.
+- **iOS simulator screenshots are 1x logical points by default**, so their pixels compare directly
+  with snapshot rects unless you pass `--pixel-density`. On Android, check the scale as below.
 - **An interactive-only snapshot can fold the first item of a section into a container rect** that
   spans the whole scroll content, while every later item gets its own clean rect. If item one's
   geometry is what you need, take it from a full snapshot or pixel-scan for it — never report the
@@ -187,18 +198,18 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   left over from an earlier session. Clear it with `agent-device react-native dismiss-overlay` and
   never report it as an app defect. Do not press warning/error text manually — that command owns
   the LogBox/RedBox targeting policy (`help react-native`).
-- **Do not confuse it with an intentional in-app banner.** A snapshot sees an in-app banner as
-  ordinary content nodes while the developer overlay is typically invisible to it, and
-  `dismiss-overlay` reports finding a real overlay only when one is present. Timing discriminates
-  too: an in-app banner auto-dismisses on its own schedule, a developer overlay persists.
+- **Do not confuse it with an intentional in-app banner.** A snapshot flags the developer overlay
+  with a hint naming `dismiss-overlay`; an in-app banner arrives as ordinary content nodes with no
+  such hint. Timing discriminates too: an in-app banner auto-dismisses on its own schedule, a
+  developer overlay persists.
 - **To capture something that is on screen only briefly, don't chain diagnostic commands between
-  the trigger and the capture** — the delay can eat the window entirely. `agent-device record`
-  with frame extraction beats guessing a screenshot delay for anything short-lived.
+  the trigger and the capture** — the delay can eat the window entirely. `agent-device record` the
+  reproduction, then `record contact-sheet <video.mp4>` to read it as one PNG. The sheet samples a
+  bounded grid of frames, so a state missing from it is not proven absent — say so rather than
+  reporting it did not occur.
 
 ### Commands that behave differently than you'd expect
 
-- **`find "<label>" press` is unsupported while `find "<label>" click` works.** If one verb errors
-  as unsupported, try the sibling verb before concluding the control is unreachable.
 - **`find` can be ambiguous even for a label that appears visually once**, because accessibility
   wrappers nest the same label several times within one screen. Resolve the exact `@eN` from a
   fresh `snapshot -i` and press that, or disambiguate with `--first`. `--first` can itself resolve
@@ -213,7 +224,10 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   distinct subtrees raise `AMBIGUOUS_MATCH` with a bounded candidate list, and geometry never picks
   a winner. Retry one printed candidate ref or narrow the selector — do not reach for coordinates.
   `find --first`/`--last` still opt into picking, so they keep the verify-by-screenshot rule above.
-  *(From `help workflow` on 0.20.10, not measured here — it is what makes the bullet above safe.)*
+- **A short `wait` budget can end without a verdict.** Read `error.details.reason` from `--json`:
+  only `wait_target_absent` means a readable capture found no match. `wait_capture_stalled` (seen
+  at 1500 ms on a busy RN screen) and `wait_stable_timeout` say nothing about the element — retry
+  with a longer budget before a row leans on either.
 - **`--udid <UDID>` and `--device "<name>"` name the same simulator**, but `DEVICE_NOT_FOUND` for
   the udid form usually means the device exists and is not **booted**, not that the selector is
   broken — the driver does not auto-boot it. `agent-device boot` it first.
@@ -222,11 +236,12 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
 - **iOS: never use a vertical point-drag swipe on a pushed (stack-navigated) screen** — the OS can
   read it as a system app-switch gesture and background the app entirely. Use `scroll` for in-page
   scrolling and reserve drags for modal/sheet dismissal.
-- **Nested scrollable containers make `scroll`/`swipe` inconsistent** — the same command can move
-  nothing, or move the wrong container, depending on what sits under the gesture's point. Never
-  assume a scroll had an effect because the command reported success: track the target's absolute
-  position across repeated small scrolls and confirm it actually moved, nudging direction based on
-  which way it needs to go.
+- **Reach an off-screen target with `scroll <direction> --until <selector>`**, not a
+  scroll-and-check loop.
+- **Only `movement: moved` proves a directional scroll moved anything.** A React Native scroll
+  area can answer `unobserved`, which claims nothing either way; `scroll_no_progress` means the container
+  did not shift. On `unobserved`, compare a landmark's rect before and after. Nested scrollable
+  containers make this worse — the gesture can move the wrong container, or none.
 - **Android: use `agent-device alert wait|accept|dismiss` for runtime permission dialogs and
   native alerts** — the CLI handles them, so do not reach for coordinate taps. If `alert` reports
   no alert, the surface is app-owned UI: use `snapshot -i` and press by label or ref.
@@ -259,7 +274,14 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   straight to `fill`.** `fill <target> <text> --settle` handles focus internally, so the
   press-then-`type` combination is what fails, not text input itself. The field may never report a
   focused flag even after a successful fill — assert on the field's resulting value instead of the
-  focus flag.
+  focus flag. `fill <target> ""` clears a field.
+- **A text field's snapshot text is its placeholder or its value, not a label.** A field shown as
+  `[text-field] "Search site"` does not match `label="Search site"`, and after a fill it shows the
+  typed text instead. Target a field by ref or `id`.
+- **The keyboard blocks presses behind it.** A target whose centre sits behind the keys is refused
+  with `tap_keyboard_occludes_target` — not an app defect. On iOS `keyboard dismiss` refuses when the
+  keyboard has no dismiss key; end editing with the app's own Done/Cancel control, or
+  `keyboard enter` when submitting is what the step wants.
 - **`fill` only works for fields the accessibility layer can actually see.** A field styled to
   zero size, zero opacity, or off-screen fails immediately with a "no element has keyboard focus"
   style error — that signature is not a timing problem, so stop retrying. It is often by design:
