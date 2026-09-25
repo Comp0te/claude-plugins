@@ -77,31 +77,17 @@ First check whether a worktree is needed at all. Compare `gh pr view $ARGUMENTS 
 **Compute the per-file map of hunk ranges and added lines here, in one shell call, and write it to a file.** Step 6 needs it to anchor every finding, and today that is the flow's serial tail: the last reviewer reports, an `anchor-resolver` then re-fetches and re-parses the whole diff from scratch, and only once it returns can the authored set be emitted to the writer. The map itself depends on nothing but the diff you already fetched in step 1 — none of it needs the findings — so building it at the front costs nothing and takes a full agent round-trip off the end.
 
 ```bash
-gh pr diff <N> | awk '
-/^diff --git/ { inhdr=1; next }
-inhdr && /^--- /    { next }
-inhdr && /^\+\+\+ / { f=$2; sub(/^b\//,"",f);
-                      if (f=="/dev/null") { file=""; inhdr=0; next }
-                      file=f; order[++k]=file; inhdr=0; next }
-/^@@/ { inhdr=0; match($0, /\+[0-9]+(,[0-9]+)?/); h=substr($0,RSTART+1,RLENGTH-1);
-        split(h, b, ","); nl=b[1]+0; len=(b[2]==""?1:b[2]+0);
-        hunks[file]=hunks[file] " " nl "-" (nl+len-1); cur=nl; next }
-/^\+/ { adds[file]=adds[file] " " cur; cur++; next }
-/^-/  { next }
-/^ /  { cur++; next }
-END { for (j=1;j<=k;j++) { f=order[j]; print f; print "  H:" hunks[f]; print "  A:" adds[f] } }' \
+gh pr diff <N> | awk -f "${CLAUDE_PLUGIN_ROOT}/scripts/hunk-map.awk" \
   > .claude/reviews/pr-<N>-hunks-<full-40-char-head-sha>.txt
 ```
 
-**Keep the `inhdr` guard exactly as written, and identical to the copy in `anchor-resolver`.** `+++ ` and `--- ` are file headers only between `diff --git` and that file's first `@@`; after it they are ordinary content. An *added* line whose text begins with `++ ` arrives as `+++ …`, and an ungated rule reads it as a new file — the real file then loses **every added line from that point on** (the ones above it survive, which is what makes the damage easy to miss), so each finding on them resolves as unchanged context rather than added, and a phantom file enters the map carrying the following lines' numbers. Both failures are silent and both put a comment on the wrong line. On ordinary pull-request diffs guarded and unguarded output are byte-identical, so the guard costs nothing.
+**Run the script; never re-type the filter inline.** It is pinned by fixtures covering the ways a hand-written filter fails silently, including under the `awk` macOS ships. If the path does not resolve, say so and skip the map — step 6 then falls back to `anchor-resolver`.
 
 **The map goes in `.claude/reviews/`, never the scratchpad, and this is the whole reason it is worth building here.** `/pr-publish` runs as a separate invocation in a separate session, so a scratchpad path it is told to look in is never the one this command wrote to — the map is unreachable by construction and the publishing step pays for a fresh `anchor-resolver` on every pull request. Handed a scratchpad path, that step either reports no hunk map and rebuilds it on its serial tail, or improvises a wildcard across other sessions' scratchpads and happens to find one — two behaviours, neither of them the one written here. `.claude/reviews/` is the directory both commands already agree on, it survives the session, and it is found from the PR number alone.
 
 Run the same git-exclusion check step 6 uses **before this write**, not after: if `git check-ignore -q .claude/reviews/` fails, append `.claude/reviews/` to `.git/info/exclude`. One shell call, in the same breath as the map build. A map that lands as a tracked change is a map that shows up in the PR you are reviewing.
 
-**Three things about this filter are load-bearing, and each one fails silently — producing an empty file rather than an error anyone notices.** The filename comes from the `+++ b/<path>` line, not from `diff --git`, whose `$2` is the literal `--git`. `/^\+\+\+ /` and `/^--- /` must be matched *before* the bare `/^\+/` and `/^-/` rules, or every file header is counted as an added line. And there is no two-argument `split` anywhere: on the `awk` macOS ships (`/usr/bin/awk`, one-true-awk) that is a parse error, and the whole script exits 2 with an empty file on stdout's other end.
-
-**Verify it before relying on it**, in the same breath: the number of unindented lines in the map must equal `gh pr view <N> --json files -q '.files | length'`. One `wc`, and it separates a real extract from a silent parse failure — which otherwise surfaces at step 6 as every finding coming back `file-absent`.
+**Verify it before relying on it**, in the same breath: the number of unindented lines in the map must equal `gh pr view <N> --json files -q '.files | length'`, less the deleted and binary files and pure renames the map omits by design. One `wc`, and it separates a real extract from a silent parse failure — which otherwise surfaces at step 6 as every finding coming back `file-absent`.
 
 **Never `--patch`** — it returns one patch per commit, so a file touched by several commits appears repeatedly with contradicting line numbers, and every anchor built from it is wrong in a way nothing downstream catches. Confirm you got the combined form: the count of `diff --git` lines must equal `gh pr view <N> --json files -q '.files | length'`.
 
@@ -340,7 +326,7 @@ Where a requirement resolved in step 1, anchor severity to it: a finding that co
 
    **Resolve the anchors against the map step 2 already built**, at `.claude/reviews/pr-<N>-hunks-<full-40-char-head-sha>.txt`. Check the SHA in the filename against the head you are reviewing first; on a mismatch, or if the file is absent, rebuild it with the same command rather than trusting it. Then classify each cited line against that file: `added` where the line is in the `A:` list, `context` where it falls in an `H:` range but not the `A:` list, `outside-hunk` where the file is present but the line is in no range, `file-absent` where the path does not appear. The anchor is the first cited line classified `added` or `context`; a finding with no such line cannot be anchored, and saying so plainly beats offering a nearby line as a substitute.
 
-   This is a lookup against a few hundred bytes of ranges, not a reading task — it is cheap enough to do here, and doing it here is what keeps a whole agent round-trip off the flow's serial tail, where nothing else is running and every second is wall clock. **Dispatch a single `anchor-resolver` only where the map is unusable** — the build failed in step 2, the SHA does not match and cannot be rebuilt, or the citations are numerous and irregular enough that you would rather not hand-check them. Give it the PR number, an **inline list of `id → file:line` citations** covering Critical, High and Medium (after step 5, the whole set), and the path of the map file if one exists, so it does not re-fetch the diff.
+   This is a lookup against a few hundred bytes of ranges, not a reading task — it is cheap enough to do here, and doing it here is what keeps a whole agent round-trip off the flow's serial tail, where nothing else is running and every second is wall clock. **Dispatch a single `anchor-resolver` only where the map is unusable** — the build failed in step 2, the SHA does not match and cannot be rebuilt, or the citations are numerous and irregular enough that you would rather not hand-check them. Give it the PR number, an **inline list of `id → file:line` citations** covering Critical, High and Medium (after step 5, the whole set), the absolute path of `${CLAUDE_PLUGIN_ROOT}/scripts/hunk-map.awk`, and the path of the map file if one exists, so it does not re-fetch the diff.
 
 **If you do dispatch it, pass the citations inline and forbid it to read any findings file, verbatim: *resolve only the citations in this message; do not read `.claude/reviews/` or any findings file on disk.*** At this point in the flow the file for this round does not exist yet — the writer has not run. What may well exist is the file from an *earlier* round at a different head, and a resolver that falls back to reading one resolves the previous round's citations against the current diff. Every anchor it returns is then wrong, computed confidently, and travels straight into the publishing step as the starting point for its most severe finding. This is also why the resolver's `DISAGREES` line is empty here rather than meaningful: it compares against a recorded `anchor:` field, and there is none to compare against on a first pass. Read the `UNANCHORABLE` and `SHARED ANCHORS` lines instead.
 

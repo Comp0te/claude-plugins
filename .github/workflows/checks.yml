@@ -18,3 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check-structure.py
+
+  hunk-map:
+    name: review-flow hunk-map matches its fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # original-awk is the one-true-awk macOS ships as /usr/bin/awk
+      - run: sudo apt-get update && sudo apt-get install -y original-awk gawk mawk
+      - run: python3 scripts/check-hunk-map.py

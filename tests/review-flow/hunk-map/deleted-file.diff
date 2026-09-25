@@ -1,0 +1,16 @@
+diff --git a/dead.txt b/dead.txt
+deleted file mode 100644
+index 93138ec..0000000
+--- a/dead.txt
++++ /dev/null
+@@ -1,2 +0,0 @@
+-keep
+-gone
+diff --git a/new.txt b/new.txt
+new file mode 100644
+index 0000000..95c3c22
+--- /dev/null
++++ b/new.txt
+@@ -0,0 +1,2 @@
++fresh 1
++fresh 2
