@@ -21,7 +21,7 @@ claude plugin install ui-verifier-web
 
 Two things must already be on the machine the agent runs on:
 
-- **The `agent-browser` CLI**, version `0.34.0` or newer — the version whose session and tab-binding
+- **The `agent-browser` CLI**, version `0.38.0` or newer — the version whose snapshot-delta and ref
   semantics the agent's driver facts assume. The agent resolves it itself — through a
   login shell, since a sandboxed `PATH` routinely misses it — and stops with an install command if
   it's missing. It never installs or upgrades it autonomously.
