@@ -1,0 +1,14 @@
+{
+  "agent": "review-flow:silent-failure-hunter",
+  "fixture_from": "01-swallowed-catch",
+  "variants": ["defect"],
+  "expected": {
+    "any_of": [
+      {"file": "src/store/notes.ts", "lines": [9, 18]},
+      {"file": "src/screens/Editor.ts", "lines": [12, 12]}
+    ],
+    "keywords": ["swallow", "silent", "suppress", "hidden", "ignored", "discard", "empty catch", "lost"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}
