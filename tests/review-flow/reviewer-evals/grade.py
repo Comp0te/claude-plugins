@@ -16,9 +16,16 @@ CITE_RE = re.compile(
 )
 HEADING_RE = re.compile(r"^#{1,6}\s")
 RULE_RE = re.compile(r"^(-{3,}|\*{3,}|_{3,})\s*$")
-BOLD_LABEL_RE = re.compile(r"^\*\*[^*\n]+\*\*:?\s*$")
+BOLD_LABEL_RE = re.compile(r"^\*\*([^*\n]+)\*\*:?\s*$")
 NUM_ITEM_RE = re.compile(r"^1\.\s")
 BULLET_RE = re.compile(r"^[-*]\s")
+
+# A standalone bold line boundaries a section unless its label is a finding's own
+# field (e.g. "**Issue Description**:"); a real section label ("**Cleared**") still ends the record.
+KNOWN_FIELD_LABELS = {
+    "location", "scope", "issue description", "hidden errors",
+    "why it matters", "evidence", "recommendation", "example",
+}
 
 
 @dataclass(frozen=True)
@@ -71,7 +78,12 @@ def _extract_citations(text, known_files):
 
 
 def _is_block_boundary(line):
-    return bool(HEADING_RE.match(line) or RULE_RE.match(line) or BOLD_LABEL_RE.match(line))
+    if HEADING_RE.match(line) or RULE_RE.match(line):
+        return True
+    m = BOLD_LABEL_RE.match(line)
+    if not m:
+        return False
+    return m.group(1).strip("` ").lower() not in KNOWN_FIELD_LABELS
 
 
 def _split_blocks(lines):
@@ -136,8 +148,12 @@ def parse_findings(text: str, known_files: list[str]) -> tuple[list[Finding], bo
     for block in _split_blocks(lines):
         findings.extend(_segment_block(block, known_files))
 
-    if not SCOPE_RE.search(text) and UNPARSED_HINT_RE.search(text):
-        return [], True
+    if not SCOPE_RE.search(text):
+        # No scope anywhere, but a hint phrase or a fixture citation means it wrote
+        # finding records the parser can't score, not that it found nothing.
+        if UNPARSED_HINT_RE.search(text) or _extract_citations(text, known_files):
+            return [], True
+        return [], False
     return findings, False
 
 

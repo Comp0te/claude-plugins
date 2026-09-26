@@ -427,6 +427,15 @@ class RunPyTest(unittest.TestCase):
         self.assertIn(hidden.name, result.stderr)
         self.assertFalse((tmp / "out").exists())
 
+    def test_write_summary_skips_hidden_directories_in_out_dir(self):
+        # Mirrors `.claude/` that the harness leaves inside a results directory.
+        out_dir = self._build_mixed_summary()
+        (out_dir / ".claude").mkdir()
+
+        result = run_cli(["--regrade", str(out_dir), "--claude", "/no/such/claude-binary"])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue((out_dir / "summary.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,71 @@
+## Finding
+
+**Location**: `src/store/notes.ts:12-17` (new in this diff), which changes the observable behavior of `src/screens/Editor.ts:8-16` (unchanged in this diff)
+
+**`scope`**: `introduced`
+
+**Issue Description**:
+
+Before this change (`git show eeefb94:src/store/notes.ts`), `saveNote` had no try/catch — it let `put()`'s rejection propagate up to `Editor.onSave`, whose own `catch (err)` block turned that into a visible `toast('Save failed')`. So a failed upload was already surfaced to the user, just generically.
+
+This diff inserts a `try { await put(...) } catch { return; }` inside `saveNote` itself. Now when `put` rejects, `saveNote` resolves normally (the `catch` swallows the rejection and returns `undefined`), so `Editor.onSave`'s `await saveNote(note)` never throws. Execution falls through to:
+
+```ts
+console.log(`Saved at ${formatDate(new Date())}`);
+toast('Saved');
+```
+
+The user is shown **"Saved"** and the console logs a success timestamp, even though the PUT to the server failed and only a local draft exists. This isn't merely a silent failure — it's an active false-success signal that used to be a correct failure signal before this diff.
+
+The PR description claims "a failed upload is picked up by the next sync." I checked for that sync path:
+
+```
+grep -rn "listDraftIds|readDraft" (excluding node_modules) →
+src/store/draftCache.ts:15  (definition)
+src/store/draftCache.ts:30  (definition)
+tests/draftCache.test.ts    (test-only usages)
+```
+
+`listDraftIds` and `readDraft` are exported but never called from any production code path (`Editor.ts`, `notes.ts`, `api/client.ts`). There is no sync/retry job anywhere in the diff or the repo. So the claim that "there is nothing to report to the user" because "the next sync" will handle it does not hold against the actual code — no sync exists. The note is written to `localStorage` and then orphaned unless a user manually reloads and some future, currently-nonexistent code reads it back.
+
+**Hidden Errors** (all swallowed by the bare `catch` in `saveNote`, none logged):
+- `ApiError` (4xx/5xx from the server, e.g. validation failure, auth expiry, 500) — thrown explicitly by `client.ts:15`
+- Network failures from `fetch` itself (offline, DNS failure, TLS/certificate errors, connection reset)
+- Any `AbortError` if the fetch is ever wired to an `AbortController` later
+- Any other exception thrown inside `put` (e.g. a future change to request construction)
+
+**Why it matters**: The user believes their edit is saved on the server ("Saved" toast + success log) when it is not. If they close the tab, switch devices, or the browser later clears `localStorage` (private browsing, storage eviction, "clear site data"), the edit is lost with no prior warning that it was ever at risk — because the app told them it succeeded. Six months from now, a support engineer looking at logs will see `Saved at <timestamp>` and have zero evidence that an upload ever failed, since the error is caught before any log statement runs. There's also no code path that ever reads `listDraftIds`/`readDraft`, so the "recovers on next sync" story in the PR description is not backed by anything in this codebase — the cached draft can persist indefinitely with no route back to the server and no user-visible indication that it's stuck.
+
+**`evidence`**: `grounded`: read `src/store/notes.ts`, `src/screens/Editor.ts`, `src/store/draftCache.ts`, `src/api/client.ts` at HEAD; read `src/store/notes.ts` and `src/screens/Editor.ts` at base commit `eeefb94` via `git show` to establish the pre-diff behavior (error propagated → toast('Save failed')); ran `grep -rn "listDraftIds|readDraft"` across the tree to confirm no non-test call sites exist.
+
+**Recommendation**:
+- Don't swallow the upload error in `saveNote`. Either let it propagate (so `Editor.onSave`'s existing catch fires and the user sees a real failure state), or — if "silently queue for offline sync" is genuinely the intended UX — say so explicitly to the user with a distinct message (e.g. `toast('Saved locally — will sync when you're back online')`) instead of the misleading `'Saved'`, and log the swallowed error for diagnostics.
+- Distinguish the two states in `Editor.onSave` so success and offline-queued are never conflated:
+
+```ts
+// notes.ts
+export async function saveNote(note: Note): Promise<"synced" | "queued"> {
+  writeDraft(note.id, note.text);
+  try {
+    await put(`/notes/${note.id}`, { text: note.text });
+  } catch (err) {
+    console.error(`saveNote: upload failed for note ${note.id}, kept in local draft cache`, err);
+    return "queued";
+  }
+  clearDraft(note.id);
+  return "synced";
+}
+
+// Editor.ts
+export async function onSave(note: Note): Promise<void> {
+  try {
+    const result = await saveNote(note);
+    console.log(`Saved at ${formatDate(new Date())} (${result})`);
+    toast(result === "synced" ? "Saved" : "Saved offline — will sync later");
+  } catch (err) {
+    console.error("onSave: unexpected failure", err);
+    toast('Save failed');
+  }
+}
+```
+- Separately (not strictly an error-handling defect but directly relevant to the PR's own justification): either implement the sync job that consumes `listDraftIds`/`readDraft`, or don't cite "picked up by the next sync" as the reason it's safe to swallow the error, since no such mechanism exists in this change.

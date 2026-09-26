@@ -1,0 +1,45 @@
+## Part 1 — Removed and replaced code
+
+**Chunk: `src/api/users.ts` — admin-role guard removed**
+
+```
+-  if (!actor.roles.includes("admin")) {
+-    throw new ForbiddenError(`${actor.id} lacks admin role`);
+-  }
+```
+
+- **Lost.** `deleteUser`/`deleteUsers` is the only place in the tree that ever checked `actor.roles`. I grepped the whole source tree for `roles.includes`, `isAdmin`, `authorize`, and `middleware` and found nothing — there is no other authorization layer (`src/routes/users.ts` calls straight through to `deleteUsers` with no check of its own). `ForbiddenError` is still exported from `src/errors.ts:1` but is never thrown anywhere in the current tree (`grep -rn "ForbiddenError"` → only the definition and the now-dead old import). The net effect: `handleDeleteUsers` now deletes any id for any actor regardless of role, where it previously required `"admin"`.
+  - `file:line`: `src/api/users.ts:10-17` (new `deleteUsers`), compare `src/api/users.ts` at `HEAD~1:9-11` (removed guard).
+
+**Chunk: `tests/users.test.ts` — non-admin rejection test removed and replaced**
+
+```
+-  it("rejects a non-admin actor", async () => {
+-    ...rejects.toThrow("lacks admin role");
+-  });
+-  it("deletes for an admin actor", async () => { ... });
++  it("deletes every id in the batch", async () => {
++    await expect(
++      deleteUsers({ id: "u1", roles: ["member"] }, ["1", "2"])
++    ).resolves.toBeUndefined();
++  });
+```
+
+- **Lost (weakened test), and it directly demonstrates finding 1.** The new "deletes every id in the batch" test passes an actor with `roles: ["member"]` (explicitly non-admin) into `deleteUsers` and asserts it *resolves*. This is the test suite actively certifying the bypass rather than merely omitting coverage for it — the one test that used to guard the authorization contract now guards its absence. No test in `tests/users.test.ts` (the only test file in the repo — confirmed via `find . -name "*.test.ts"`) exercises a rejection based on role.
+  - `file:line`: `tests/users.test.ts:4-9`.
+
+**Chunk: `src/api/users.ts` — `Actor.roles` field**
+
+- **Newly-dead code, consequence of the above.** `Actor.roles` (`src/api/users.ts:7`) is still declared and still populated by every call site/test, but nothing in the tree reads `.roles` anymore (`grep -n "\.roles"` across the repo returns zero hits). It's inert data carried through the API purely because the field wasn't deleted along with its only consumer.
+
+## Cleared
+
+- **`getUser`/`NotFoundError` guard** (`if (!existing) throw new NotFoundError...`) — re-established, now running per-id inside the loop at `src/api/users.ts:12-15`, still covered by `tests/users.test.ts:11-15` ("rejects an id that does not exist"). Behavior preserved.
+- **`deleteUserRecord` call** — re-established at `src/api/users.ts:16`, unchanged semantics, still exercised by the batch test.
+- **Signature change `id: string` → `ids: string[]`** — fully propagated: `src/routes/users.ts` (`DeleteUsersRequest.params.ids`), and the only caller I could find, `tests/users.test.ts`, was updated consistently. No orphaned callers of the old `deleteUser(actor, id)` shape remain (`git grep -n "deleteUser\b"` outside `deleteUsers`/`deleteUserRecord` returns nothing).
+
+## Part 2 — Comments and docs
+
+This codebase carries essentially no prose comments or docstrings (`src/errors.ts`, `src/store/db.ts`, `src/api/users.ts`, `src/routes/users.ts`, `src/util/audit.ts` — all read in full, none contain a `//` or `/** */` comment). There is nothing for a stale-comment or narrowed-exhaustiveness-claim finding to attach to; I checked every file touched by or adjacent to the diff and found no surviving comment whose claim is falsified by this change. Reporting this null result per the brief rather than omitting Part 2.
+
+One near-miss worth flagging as *not* a finding: the new `src/util/audit.ts` has no comment claiming atomicity or ordering guarantees, so the fact that `deleteUsers`'s loop can partially delete records before throwing `NotFoundError` on a later id (leaving earlier ids deleted with no `recordDeletion` call, since the throw happens before the audit write) is a real behavior — but it's new code, not something the diff removed a description of, so it falls outside this review's remit (Part 1 covers removals; Part 2 covers comments). I did not report it as a formal finding for that reason, but flag it here since it's adjacent to the audit/rollback semantics a reviewer might otherwise assume from `recordDeletion`'s name.

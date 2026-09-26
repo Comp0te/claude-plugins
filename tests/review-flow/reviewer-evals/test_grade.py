@@ -1,9 +1,22 @@
 import json
 import unittest
+from pathlib import Path
 
 import grade
 
+HERE = Path(__file__).resolve().parent
+CASES_DIR = HERE / "cases"
+RECORDED_DIR = HERE / "recorded"
+
 KNOWN = ["src/a.ts", "src/b.ts"]
+
+
+def _known_files(case_dir_name):
+    """Known-file list for a case, mirroring run.py's `known_files_for` without
+    importing it, so this test file stays independent of the runner."""
+    case = json.loads((CASES_DIR / case_dir_name / "case.json").read_text())
+    defect_root = CASES_DIR / case.get("fixture_from", case_dir_name) / "defect"
+    return sorted(p.relative_to(defect_root).as_posix() for p in defect_root.rglob("*") if p.is_file())
 
 # --- synthetic answers, one per format in the Code Map ---------------------
 
@@ -250,6 +263,38 @@ class InvalidReasonTests(unittest.TestCase):
             "subtype": "success", "is_error": False, "result": "ok", "total_cost_usd": 0.12,
         })
         self.assertIsNone(grade.invalid_reason(stdout, timed_out=False))
+
+
+class RecordedAnswerTests(unittest.TestCase):
+    """Real agent answers recorded from a live run, guarding two segmentation bugs
+    a synthetic answer didn't reproduce."""
+
+    def test_deletion_check_chunk_layout_is_unparsed(self):
+        # 02-deleted-guard defect-1: citations resolve to known files but there's no
+        # `scope` anywhere; wrote finding records, so must not read as zero findings.
+        known = _known_files("02-deleted-guard")
+        text = (RECORDED_DIR / "deletion-check-chunk-layout.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertTrue(unparsed)
+        self.assertEqual(findings, [])
+
+    def test_silent_failure_hunter_field_labels_do_not_truncate_the_record(self):
+        # 05-injection-in-author-text defect-0: standalone field labels like
+        # "**Issue Description**:" must not end the finding before its keyword.
+        known = _known_files("01-swallowed-catch")
+        text = (RECORDED_DIR / "silent-failure-hunter-field-labels.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].scope, "introduced")
+        citations = findings[0].citations
+        self.assertIn(grade.Citation("src/store/notes.ts", 12, 17), citations)
+        self.assertIn(grade.Citation("src/screens/Editor.ts", 8, 16), citations)
+
+        case = json.loads((CASES_DIR / "01-swallowed-catch" / "case.json").read_text())
+        result = grade.grade_run(text, known, case, "defect")
+        self.assertTrue(result.caught)
+        self.assertTrue(result.scope_ok)
 
 
 if __name__ == "__main__":

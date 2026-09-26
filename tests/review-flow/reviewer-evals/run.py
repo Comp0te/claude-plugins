@@ -285,7 +285,9 @@ def _row_order(case_names: list[str], cases: dict, children: dict) -> list[tuple
 def write_summary(out_dir: Path) -> bool:
     """Rewrites `summary.md` from every raw/meta pair under `out_dir`. Returns whether
     any run was invalid (the exit-code signal)."""
-    case_names = sorted(p.name for p in out_dir.iterdir() if p.is_dir())
+    case_names = sorted(
+        p.name for p in out_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
+    )
 
     lines = ["# Reviewer eval summary", ""]
     if not case_names:
