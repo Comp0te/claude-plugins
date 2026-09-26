@@ -10,5 +10,24 @@
     "keywords": ["discriminat", "union", "illegal", "invalid state", "optional", "status", "representable"],
     "scope": "introduced"
   },
-  "allowed": []
+  "allowed": [
+    {
+      "file": "src/request/runRequest.ts",
+      "lines": [9, 9],
+      "keywords": ["return type", "wider", "idle", "loading", "never produce"],
+      "reason": "runRequest's declared return type admits RequestState's idle/loading members, but the function only ever resolves to success or error"
+    },
+    {
+      "file": "src/request/log.ts",
+      "lines": [1, 14],
+      "keywords": ["mutable", "mutate", "reference", "entries", "copy"],
+      "reason": "getRequestLog() spreads the array but returns the same stored entry objects by reference, so a caller can mutate logged history"
+    },
+    {
+      "file": "tests/runRequest.test.ts",
+      "lines": [1, 25],
+      "keywords": ["timeout", "test", "never exercise"],
+      "reason": "no test exercises the timeout path (the race against REQUEST_TIMEOUT_MS / TimeoutError)"
+    }
+  ]
 }
