@@ -1,0 +1,14 @@
+{
+  "agent": "review-flow:type-design-analyzer",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/request/types.ts", "lines": [1, 5]},
+      {"file": "src/request/runRequest.ts", "lines": [17, 21]},
+      {"file": "src/request/consumer.ts", "lines": [7, 10]}
+    ],
+    "keywords": ["discriminat", "union", "illegal", "invalid state", "optional", "status", "representable"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}

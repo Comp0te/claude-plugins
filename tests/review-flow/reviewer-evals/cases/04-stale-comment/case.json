@@ -1,0 +1,12 @@
+{
+  "agent": "review-flow:deletion-check",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/net/withRetry.ts", "lines": [1, 5]}
+    ],
+    "keywords": ["comment", "docblock", "doc", "stale", "outdated", "describes", "3 times", "500"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}
