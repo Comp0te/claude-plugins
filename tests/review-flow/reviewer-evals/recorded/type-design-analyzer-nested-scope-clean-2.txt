@@ -1,0 +1,68 @@
+I reviewed this by reading only. The gate slot says **none**, so I ran no type-check or tests, and every piece of evidence below is `grounded`. I read `src/request/{types,runRequest,consumer,log}.ts`, `src/errors/base.ts` and `tests/runRequest.test.ts` at HEAD, plus `types.ts` and `runRequest.ts` at HEAD~1. For usage claims I ran `git grep` for each exported name at both commits.
+
+## Type: `RequestState<T>` (src/request/types.ts)
+
+### Invariants Identified
+- `data` exists only when `status === "success"`, and `error` exists only when `status === "error"`. You can't have both, and you can't have neither while settled.
+- `idle` and `loading` carry no payload.
+
+### The four axes
+- **Encapsulation**: Clean for a plain data union. Nothing hidden needs protecting.
+- **Invariant Expression**: Good. The old "`data` and `error` both set" and "`loading: true` with `data`" states are no longer representable. One gap: `runRequest`'s return type claims all four variants, but it can only produce two.
+- **Invariant Usefulness**: It prevents a real bug. The old consumer checked `state.error` and then `state.data`, so a `LegacyRequestState` with both set would silently take the error path.
+- **Invariant Enforcement**: Enforced at compile time by narrowing. Fields aren't `readonly`, but a caller can't reassign `status` to a variant with a different shape without a type error, so the risk is small.
+
+### Strengths
+- It replaces three independent nullable fields with a discriminated union, which is the right move.
+- `consumer.ts` now narrows before reading `.error` and `.data`. The old `state.error.message` access depended on a truthiness check of a nullable field.
+
+### Concerns
+
+**1.** `src/request/runRequest.ts:9`
+- **Scope:** introduced
+- **Issue:** `runRequest` is declared to return `Promise<RequestState<T>>`. Its only three `return` statements (lines 16, 20, 23) produce `success` or `error`, so `idle` and `loading` are declared but can't happen.
+- **Why it matters:** Every consumer has to write a branch that can never run. `consumer.ts:10` returns `"unknown"` for idle/loading, and that fallback is unreachable today. If `runRequest` later did return `loading` by mistake, the fallback would silently hide it instead of causing a compile error.
+- **Evidence:** grounded: `src/request/runRequest.ts`, `src/request/consumer.ts`
+
+**2.** `src/request/log.ts:12-13`
+- **Scope:** introduced
+- **Issue:** `getRequestLog()` copies the array but not the entries in it. `RequestLogEntry` fields are mutable, so a caller can do `getRequestLog()[0].outcome = "error"` and change the module-level log.
+- **Why it matters:** Any caller can rewrite past history in the log. The spread copy suggests the log is protected when it isn't.
+- **Evidence:** grounded: `src/request/log.ts`. I constructed the mutating expression from its declarations.
+
+**3.** `src/request/log.ts:2,8`
+- **Scope:** introduced
+- **Issue:** `"success" | "error"` is written out twice. It isn't derived from `RequestState["status"]`.
+- **Why it matters:** If a new settled variant (e.g. `"cancelled"`) is added to `RequestState`, the log type won't change with it. `runRequest` would then have to either misreport the outcome or fail to compile in an unrelated place.
+- **Evidence:** grounded: `src/request/log.ts`, `src/request/types.ts`
+
+**4.** `src/request/types.ts:7`
+- **Scope:** introduced
+- **Issue:** `idleState` has no callers. `git grep idleState` at HEAD finds only its definition. Its predecessor `initialState` was used at HEAD~1 `runRequest.ts:9`.
+- **Why it matters:** It's a dead export. It makes the idle/loading variants look like they're in use when nothing in the tree produces them.
+- **Evidence:** grounded: `git grep` at HEAD and HEAD~1
+
+**5.** `src/request/runRequest.ts:11-13`
+- **Scope:** pre-existing
+- **Issue:** The timeout `setTimeout` is never cleared when the fetcher wins the race.
+- **Why it matters:** Every successful request keeps a 5-second timer alive, and it rejects a promise that nothing observes anymore. That keeps test processes and short-lived scripts running longer than needed. The same code was at HEAD~1 lines 13-15.
+- **Evidence:** grounded: `runRequest.ts` at HEAD and HEAD~1
+
+**6.** `src/request/runRequest.ts:23`
+- **Scope:** pre-existing
+- **Issue:** Every non-timeout failure is wrapped as `new ApiFetchError(String(err))`. That throws away the original error object and its stack. For an `Error`, the message becomes `"Error: network down"`.
+- **Why it matters:** `consumer.ts` shows `failed: Error: network down`, the original error type is lost, and so is any `cause`.
+- **Evidence:** grounded: `runRequest.ts` at HEAD and HEAD~1
+
+**7.** `tests/runRequest.test.ts:10-15`
+- **Scope:** introduced
+- **Issue:** The error test only checks `status`. It never checks the error's class or message. `log.ts` has no tests at all.
+- **Why it matters:** A regression that returned the wrong error type, or logged the wrong outcome, would still pass.
+- **Evidence:** grounded: `tests/runRequest.test.ts`. I ran `git grep` for `getRequestLog`/`clearRequestLog` and found no hits outside `log.ts`.
+
+### Recommended Improvements
+- **Narrow the return type.** Add `export type SettledRequestState<T> = Extract<RequestState<T>, { status: "success" | "error" }>` and make `runRequest` return `Promise<SettledRequestState<T>>`. `consumer.ts` can then end with `return state.data.name` and drop the unreachable `"unknown"`.
+- **Tie the log to the state type.** Use `outcome: SettledRequestState<unknown>["status"]`, mark entries `readonly`, and have `getRequestLog` return `ReadonlyArray<Readonly<RequestLogEntry>>`, or map to fresh objects. Also log once after the `if` in the `catch` block instead of in each branch.
+- **Delete `idleState`** until something needs idle/loading. Optionally make the union's fields `readonly`.
+- **Pre-existing fixes:** clear the timer in a `finally`, and pass `{ cause: err }` or keep `err` when it's already an `Error`.
+- **Tests:** in the error test, assert `state.error` is an `ApiFetchError`. Add one log test that uses `clearRequestLog` in `beforeEach`.

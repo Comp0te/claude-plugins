@@ -1,0 +1,35 @@
+## Part 1 — Removed and replaced code
+
+**Chunk: admin-role guard removed from `deleteUser`/`deleteUsers` (src/api/users.ts)**
+- **Re-established** at `src/routes/users.ts:8-11` (`requireAdmin`) and called at `src/routes/users.ts:15`, before the only production call to `deleteUsers` at `src/routes/users.ts:16`.
+- Verified this is the sole production caller: `grep` for `deleteUsers` across the tree returns only its definition (`src/api/users.ts:10`), its import/call in `src/routes/users.ts:1,16`, and its two call sites in `tests/users.test.ts:7,13`. No other file imports `deleteUsers` or `deleteUser`.
+- Caveat (see finding below): the guarantee moved from being enforced *inside* the reusable API function to being enforced only by its one current caller.
+
+**Chunk: `deleteUser(actor, id)` → `deleteUsers(actor, ids)` loop (src/api/users.ts:10-19)**
+- The single-item validate-then-delete pattern was replaced with a loop that validates-then-deletes each id individually with no rollback and no per-item audit checkpoint. See finding below (partial-batch behavior).
+
+**Chunk: `DeleteUserRequest`/`handleDeleteUser` → `DeleteUsersRequest`/`handleDeleteUsers` (src/routes/users.ts)**
+- Rename plus signature widening (`id: string` → `ids: string[]`). No other file references the old names (`grep` for `DeleteUserRequest`/`handleDeleteUser` returns nothing outside the diff). **Genuinely retired.**
+
+**Chunk: test "rejects a non-admin actor" removed (tests/users.test.ts)**
+- Not re-established anywhere. `find tests -type f` shows the only test file in the repo is `tests/users.test.ts`; there is no test file for `src/routes/users.ts` or for `requireAdmin`/`handleDeleteUsers`.
+- **Lost** — see finding below.
+
+### Findings
+
+- **{src/api/users.ts:10-19, scope: introduced, issue: authorization is no longer part of the reusable API function's own contract, evidence: grounded: read src/api/users.ts, src/routes/users.ts; grep confirmed src/routes/users.ts:16 is the only production caller of deleteUsers}** — Previously `deleteUser` enforced the admin check itself, so any caller got the protection "for free." After the change, `deleteUsers` performs no authorization check at all; the check lives solely in `requireAdmin`, called by the one existing route handler. This is currently safe only because `handleDeleteUsers` is the sole caller today. Any future direct caller of `deleteUsers` (a script, a batch job, another route) silently bypasses authorization unless it remembers to call `requireAdmin` itself — the invariant that used to be structurally guaranteed is now just a convention. This is a narrowed contract on a function whose name and signature ("do a privileged bulk delete") still implies it's safe to call generally.
+
+- **{tests/users.test.ts (deleted lines, formerly ~5-9), scope: introduced, issue: authorization-rejection test dropped and not replaced, evidence: grounded: `find tests -type f` shows only tests/users.test.ts exists in the repo; no routes test file present}** — The test asserting a non-admin actor is rejected (`"rejects a non-admin actor"`) was deleted. The behavior it guarded moved to `requireAdmin` in `src/routes/users.ts:8-11`, but no test exercises `requireAdmin` or `handleDeleteUsers` with a non-admin actor. The authorization guard is now completely unguarded by any test in the tree.
+
+- **{src/api/users.ts:11-18, scope: introduced, issue: partial batch failure leaves deletions applied but unaudited, evidence: grounded: read src/api/users.ts, src/util/audit.ts}** — For `ids = [a, b, c]` where `c` doesn't exist: `deleteUserRecord` is called for `a` and `b` (real state mutation via `src/store/db.ts:16-18`), then the loop throws `NotFoundError` on `c` and `recordDeletion` (line 18) is never reached. The result is that two users are actually deleted with zero audit trail of it — the one piece of new functionality this change adds (`recordDeletion`) is exactly what gets skipped on the partial-failure path. Since `recordDeletion` is new, this isn't a "regression" against prior behavior, but it is a defect in the replaced code: the batched implementation has no atomicity and no partial-audit recording, so a mid-batch failure produces real side effects with no record of what happened.
+
+### Cleared
+- Admin-role guard: re-established at `src/routes/users.ts:8-11,15` (see above).
+- `DeleteUserRequest`/`handleDeleteUser` names: retired, no remaining references (grep-verified).
+- Import of `ForbiddenError` moved from `src/api/users.ts` to `src/routes/users.ts:2` — straight relocation, not a loss.
+
+## Part 2 — Comments and docs
+
+None of the touched files (`src/api/users.ts`, `src/routes/users.ts`, `src/errors.ts`, `src/util/audit.ts`, `tests/users.test.ts`) contain any comments or docstrings, before or after the change — confirmed by reading each file in full. No README or other `.md` doc references any of the renamed/removed identifiers (`deleteUser`, `DeleteUserRequest`, `handleDeleteUser`) — `Glob **/*.md` returned no files at all in this tree. There is nothing for Part 2 to invalidate here; this section is genuinely empty rather than skipped.
+
+One adjacent observation, not a comment issue but worth flagging for completeness: `handleListUsers` (new, `src/routes/users.ts:20-22`) is a stub returning `{status: 200}` without calling the pre-existing `listUsers()` export in `src/store/db.ts:20-22`. That export remains unused before and after this diff (pre-existing, out of scope for this change).

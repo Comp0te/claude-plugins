@@ -266,8 +266,8 @@ class InvalidReasonTests(unittest.TestCase):
 
 
 class RecordedAnswerTests(unittest.TestCase):
-    """Real agent answers recorded from a live run, guarding two segmentation bugs
-    a synthetic answer didn't reproduce."""
+    """Real agent answers recorded from a live run, guarding segmentation bugs a
+    synthetic answer didn't reproduce."""
 
     def test_deletion_check_chunk_layout_is_unparsed(self):
         # 02-deleted-guard defect-1: citations resolve to known files but there's no
@@ -295,6 +295,152 @@ class RecordedAnswerTests(unittest.TestCase):
         result = grade.grade_run(text, known, case, "defect")
         self.assertTrue(result.caught)
         self.assertTrue(result.scope_ok)
+
+    def test_type_design_analyzer_numbered_heading_keeps_each_records_own_citations(self):
+        # 03-illegal-state-type defect-1: each numbered concern's own citation and
+        # indented detail bullets stay with it, not with the concern that follows.
+        known = _known_files("03-illegal-state-type")
+        text = (RECORDED_DIR / "type-design-analyzer-numbered-heading-scope.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 6)
+        self.assertTrue(all(f.scope == "introduced" for f in findings))
+        self.assertEqual(
+            findings[0].citations,
+            (
+                grade.Citation("src/request/runRequest.ts", 20, 20),
+                grade.Citation("src/request/consumer.ts", 8, 8),
+                grade.Citation("src/request/runRequest.ts", 18, 21),
+                grade.Citation("src/request/consumer.ts", 7, 8),
+            ),
+        )
+        self.assertEqual(
+            findings[1].citations,
+            (grade.Citation("src/request/types.ts", 1, 5),),
+        )
+
+        case = json.loads((CASES_DIR / "03-illegal-state-type" / "case.json").read_text())
+        result = grade.grade_run(text, known, case, "defect")
+        self.assertTrue(result.caught)
+        self.assertTrue(result.scope_ok)
+        self.assertEqual(result.false_positives, 0)
+
+    def test_type_design_analyzer_nested_scope_clean_0_keeps_each_records_own_issue(self):
+        # 03-illegal-state-type clean-0: plain "N." numbering, scope on an indented
+        # sub-bullet below it, not on the numbered line itself.
+        known = _known_files("03-illegal-state-type")
+        text = (RECORDED_DIR / "type-design-analyzer-nested-scope-clean-0.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        expected = [
+            ("introduced", (grade.Citation("src/request/runRequest.ts", 9, 9),
+                             grade.Citation("src/request/consumer.ts", 7, 10)),
+             "so it is dead code"),
+            ("introduced", (grade.Citation("src/request/consumer.ts", 10, 10),),
+             "replaces an exhaustive check"),
+            ("introduced", (grade.Citation("src/request/types.ts", 2, 3),),
+             "nothing calls `idleState`"),
+            ("introduced", (grade.Citation("src/request/log.ts", 1, 4),),
+             "rewrites the stored entry"),
+            ("introduced", (grade.Citation("src/request/log.ts", 2, 2),),
+             "outcome literals are copied by hand"),
+            ("pre-existing", (), "timeout timer is never cleared"),
+            ("pre-existing", (), "drops the original error's stack and cause"),
+        ]
+        self.assertEqual(len(findings), len(expected))
+        for finding, (scope, citations, issue_sentence) in zip(findings, expected):
+            self.assertEqual(finding.scope, scope)
+            self.assertEqual(finding.citations, citations)
+            self.assertIn(issue_sentence, finding.text)
+
+    def test_type_design_analyzer_nested_scope_clean_1_keeps_each_records_own_issue(self):
+        # 03-illegal-state-type clean-1: bold "**N.**" numbering, and its sub-bullets
+        # (scope/issue/why it matters/evidence) sit flush at column 0, not indented.
+        known = _known_files("03-illegal-state-type")
+        text = (RECORDED_DIR / "type-design-analyzer-nested-scope-clean-1.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        expected = [
+            ("introduced", (grade.Citation("src/request/runRequest.ts", 9, 9),),
+             "can't come out of it"),
+            ("introduced", (grade.Citation("src/request/log.ts", 1, 4),),
+             "only copies one level deep"),
+            ("introduced", (grade.Citation("src/request/log.ts", 2, 2),),
+             "spelled out twice here"),
+            ("introduced", (grade.Citation("src/request/types.ts", 7, 7),),
+             "no callers"),
+            ("pre-existing", (grade.Citation("src/request/runRequest.ts", 11, 13),),
+             "never cleared after a successful race"),
+        ]
+        self.assertEqual(len(findings), len(expected))
+        for finding, (scope, citations, issue_sentence) in zip(findings, expected):
+            self.assertEqual(finding.scope, scope)
+            self.assertEqual(finding.citations, citations)
+            self.assertIn(issue_sentence, finding.text)
+
+    def test_type_design_analyzer_nested_scope_clean_2_keeps_each_records_own_issue(self):
+        # 03-illegal-state-type clean-2: "**Scope:**"-style labels (colon inside the
+        # bold). Guards the three cross-record mis-pairings this layout produced before the fix.
+        known = _known_files("03-illegal-state-type")
+        text = (RECORDED_DIR / "type-design-analyzer-nested-scope-clean-2.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        expected = [
+            ("introduced", (grade.Citation("src/request/runRequest.ts", 9, 9),),
+             "idle` and `loading` are declared but can't happen"),
+            ("introduced", (grade.Citation("src/request/log.ts", 12, 13),),
+             "change the module-level log"),
+            ("introduced", (grade.Citation("src/request/log.ts", 2, 2),),
+             "written out twice"),
+            ("introduced", (grade.Citation("src/request/types.ts", 7, 7),),
+             "It's a dead export"),
+            ("pre-existing", (grade.Citation("src/request/runRequest.ts", 11, 13),),
+             "never cleared when the fetcher wins the race"),
+            ("pre-existing", (grade.Citation("src/request/runRequest.ts", 23, 23),),
+             "wrapped as `new ApiFetchError(String(err))`"),
+            ("introduced", (grade.Citation("tests/runRequest.test.ts", 10, 15),),
+             "never checks the error's class or message"),
+        ]
+        self.assertEqual(len(findings), len(expected))
+        for finding, (scope, citations, issue_sentence) in zip(findings, expected):
+            self.assertEqual(finding.scope, scope)
+            self.assertEqual(finding.citations, citations)
+            self.assertIn(issue_sentence, finding.text)
+
+        # The three mis-pairings the defect report named are gone.
+        return_type_finding = findings[0]
+        self.assertNotIn("written out twice", return_type_finding.text)
+        idle_state_finding = findings[3]
+        timer_finding = findings[4]
+        self.assertNotIn("never cleared when the fetcher wins the race", idle_state_finding.text)
+        self.assertNotIn("dead export", timer_finding.text)
+
+        case = json.loads((CASES_DIR / "03-illegal-state-type" / "case.json").read_text())
+        result = grade.grade_run(text, known, case, "clean")
+        self.assertIsNone(result.caught)
+        self.assertEqual(result.false_positives, 1)  # only the ApiFetchError concern
+
+    def test_deletion_check_bracketed_findings_clean_variant_matches_known_dispute(self):
+        # 02-deleted-guard clean-2: braced inline fields under `### Findings`, distinct
+        # from the recorded chunk style; carries the known-accepted deleteUsers dispute.
+        known = _known_files("02-deleted-guard")
+        text = (RECORDED_DIR / "deletion-check-bracketed-findings-clean.txt").read_text()
+        findings, unparsed = grade.parse_findings(text, known)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 3)
+        self.assertTrue(all(f.scope == "introduced" for f in findings))
+        self.assertEqual(
+            findings[0].citations,
+            (
+                grade.Citation("src/api/users.ts", 10, 19),
+                grade.Citation("src/routes/users.ts", 16, 16),
+            ),
+        )
+
+        case = json.loads((CASES_DIR / "02-deleted-guard" / "case.json").read_text())
+        result = grade.grade_run(text, known, case, "clean")
+        self.assertIsNone(result.caught)
+        self.assertEqual(result.false_positives, 3)
 
 
 if __name__ == "__main__":

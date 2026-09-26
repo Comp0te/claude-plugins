@@ -1,0 +1,69 @@
+I couldn't run anything for this review (the executable slot is **none**), so every finding below comes from reading the code. I read the diff, all six tracked files at HEAD, and `consumer.ts` at HEAD~1, and grepped the whole tree for each changed symbol.
+
+Replacing the old three-flag state with a union keyed on `status` is a real improvement. The main problem is that `runRequest` now declares a return type wider than anything it can produce, so callers have to handle states that never happen.
+
+## Type: `RequestState<T>` (src/request/types.ts)
+
+### Invariants Identified
+- Exactly one lifecycle state at a time: idle, loading, success or error.
+- `data` exists only when `status === "success"`, and `error` only when `status === "error"`.
+- A success can't also carry an error, and an error can't also carry data.
+
+### The four axes
+- **Encapsulation**: Clean. It's a plain data union, and the compiler checks object literals against each variant.
+- **Invariant Expression**: Clean. The rule "data only on success, error only on error" is now built into the type instead of being a convention across three nullable fields.
+- **Invariant Usefulness**: It prevents a real bug. Under `LegacyRequestState` you could build `{loading: true, data: x, error: e}`. Also, the old consumer's `state.data ? … : "unknown"` quietly treated a falsy success value the same as "no data".
+- **Invariant Enforcement**: Clean for the type itself. The weak point is how `runRequest` uses it (Concern 1).
+
+### Strengths
+- `consumer.ts` now narrows on `status` rather than checking fields for truthiness, so `state.data` and `state.error` can't be read on the wrong variant.
+- The union deletes the old `loading: true` then `loading: false` mutation inside `runRequest`. Nobody outside could ever see that flag anyway.
+
+### Concerns
+
+**1.** `src/request/runRequest.ts:9`
+- **scope**: introduced
+- **issue**: `runRequest` returns `Promise<RequestState<T>>`, but every return in its body is `{status:"success"}` or `{status:"error"}` (lines 16, 20 and 23). `idle` and `loading` can't come out of it. So in `consumer.ts:10` the `: "unknown"` branch can never run, yet the type forces callers to write it.
+- **why it matters**: If a future edit really does return a non-settled state, callers will quietly show "unknown" instead of getting a compile error. The "handle every case" check that a union is supposed to give you is lost on the one function that produces these states.
+- **evidence**: grounded: src/request/runRequest.ts, src/request/consumer.ts
+
+**2.** `src/request/log.ts:1-4, 12-14`
+- **scope**: introduced (new file)
+- **issue**: `RequestLogEntry` has mutable fields, and `getRequestLog()` returns `[...entries]`. That copies the array but not the entry objects inside it. So `getRequestLog()[0].outcome = "error"` rewrites the module's private log. The spread suggests a defensive copy but only copies one level deep.
+- **why it matters**: Any caller can falsify the recorded history of outcomes, even though the module was clearly written so that only `logOutcome` and `clearRequestLog` change it.
+- **evidence**: grounded: src/request/log.ts
+
+**3.** `src/request/log.ts:2, 8`
+- **scope**: introduced
+- **issue**: The `"success" | "error"` outcome type is spelled out twice here instead of being derived from `RequestState`. In `runRequest.ts` (lines 15, 19, 22), `logOutcome` is called by hand in each of the three return paths, with a literal that repeats the `status` being returned.
+- **why it matters**: If a new settled status is added, or someone adds a fourth return path, the log and the returned state can drift apart without any compile error.
+- **evidence**: grounded: src/request/log.ts, src/request/runRequest.ts
+
+**4.** `src/request/types.ts:7`
+- **scope**: introduced
+- **issue**: `idleState` has no callers. Grepping the tree finds only its definition. No code anywhere in the tree builds the `loading` variant either.
+- **why it matters**: Half of the union is dead weight in this repo today, which is what makes Concern 1 possible. That may be fine if a UI layer outside this repo uses those states; I can't see one.
+- **evidence**: grounded: grep for `idleState|RequestState` across the tree (hits only in types.ts and runRequest.ts)
+
+**5.** `src/request/runRequest.ts:11-13`
+- **scope**: pre-existing (HEAD~1 has the same `setTimeout` with no `clearTimeout`)
+- **issue**: The timeout timer is never cleared after a successful race. This isn't a type-design issue; I'm noting it for completeness.
+- **why it matters**: Each call keeps a 5-second timer alive after it has settled.
+- **evidence**: grounded: src/request/runRequest.ts, `git show HEAD~1:src/request/consumer.ts` plus the diff context
+
+### Recommended Improvements
+1. Narrow the return type:
+   ```ts
+   export type SettledRequestState<T> = Extract<RequestState<T>, { status: "success" | "error" }>;
+   export async function runRequest<T>(…): Promise<SettledRequestState<T>>
+   ```
+   Then `consumer.ts` can end with `return state.data.name;`, with no unreachable `"unknown"` branch.
+2. In `log.ts`:
+   - Make the fields `readonly outcome` and `readonly at`.
+   - Change `getRequestLog` to return `ReadonlyArray<Readonly<RequestLogEntry>>`, or map each entry to a copy.
+   - Type `outcome` as `SettledRequestState<unknown>["status"]` so it stays in step with the union.
+3. In `runRequest`, build the result first and log it once, e.g. `const result = …; logOutcome(result.status); return result;`, instead of three hand-written calls.
+4. If nothing outside this repo uses `idleState` and the `idle`/`loading` variants, drop them until something needs them. The smaller type is the better one here.
+5. Optionally, type the error variant that `runRequest` returns as `ApiFetchError | TimeoutError`. Callers could then tell a timeout from a fetch failure without `instanceof` guessing. This is pre-existing; the old type was `Error | null`.
+
+The tests now go through the narrowed `status` correctly. The error-path test only checks `status`, not which error class comes back, but that's a coverage gap rather than a type flaw.

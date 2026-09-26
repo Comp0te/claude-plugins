@@ -1,0 +1,83 @@
+I found one real bug: the old type prevented it, and the new `RequestState<T>` allows it. When a request times out, `runRequest` returns an error state that carries no error object. `loadProfile` then assumes one is there with `state.error!` and throws a `TypeError` instead of returning `"failed: request timed out"`. The gate was not run and no directory was available for running checks, so every finding below comes from reading the code and is marked `grounded`. The crash is described as a probe rather than run. I found call sites with `git ls-files` plus a grep for `RequestState|idleState|initialState|runRequest|logOutcome|getRequestLog|clearRequestLog`.
+
+## Type: `RequestState<T>` (src/request/types.ts)
+
+### Invariants Identified
+- `status === "success"` ⇒ `data` is present.
+- `status === "error"` ⇒ `error` is present, so callers can report why it failed.
+- `status` of `"idle"` or `"loading"` ⇒ neither `data` nor `error` is present.
+- `data` and `error` are never both present.
+
+### The four axes
+- **Encapsulation**: The type is a plain object alias, so any literal like `{ status: "success" }` or `{ status: "idle", data: x, error: e }` type-checks.
+- **Invariant Expression**: None of the four invariants above are in the type. `status` is a string union next to two independent optional fields, so the link between status and fields exists only by convention. That is exactly why `consumer.ts` needs `!`.
+- **Invariant Usefulness**: The "error ⇒ error present" invariant would have stopped the timeout crash below. It costs nothing to express.
+- **Invariant Enforcement**: Nothing enforces them. `runRequest.ts:20` builds an invalid instance itself: `return { status: "error" };`.
+
+### Strengths
+- Replacing the `loading` boolean plus two nullable fields with a single `status` is the right direction.
+- `runRequest` never returns `idle` or `loading`, so the explicit status reads more clearly than inferring state from which fields are null.
+
+### Concerns
+
+1. **`src/request/runRequest.ts:20` (crash at `src/request/consumer.ts:8`)** — scope: `introduced`
+   - **issue**: The timeout branch returns `{ status: "error" }` with no `error`. `loadProfile` checks `state.status === "error"` and then reads `state.error!.message`. The `!` hides the gap, so a timeout throws `TypeError: Cannot read properties of undefined`. Before this change the timeout branch returned `error: err` (the `TimeoutError`), and `consumer.ts` guarded with `if (state.error)`, so this worked.
+   - **why it matters**: Every request that hits the 5 s timeout now rejects `loadProfile` with a `TypeError` instead of returning `"failed: request timed out"`. The timeout is the one failure the wrapper exists to handle.
+   - **evidence**: `grounded: src/request/runRequest.ts:18-21, src/request/consumer.ts:7-8, git show HEAD~1:src/request/consumer.ts, src/errors/base.ts`. Probe, not run: add a vitest case with `vi.useFakeTimers()`, call `loadProfile(() => new Promise(() => {}))`, advance by 5000 ms, and expect a resolved `"failed: request timed out"`. It should reject with a TypeError.
+
+2. **`src/request/types.ts:1-5`** — scope: `introduced`
+   - **issue**: `RequestState<T>` is one object type with `status` and optional `data`/`error`, not a discriminated union. So `{ status: "error" }` compiles at the construction site (concern 1). Checking `status` also doesn't narrow anything, which forces both `!` assertions in `consumer.ts:8` and `:10`.
+   - **why it matters**: An error state with no error, or a success state with no data, can be represented and passes the compiler. Consumers can only paper over it with non-null assertions that fail at runtime.
+   - **evidence**: `grounded: src/request/types.ts, src/request/consumer.ts, src/request/runRequest.ts`.
+
+3. **`tests/runRequest.test.ts:10-15`** — scope: `introduced`
+   - **issue**: The three tests cover the success status, the `ApiFetchError` path (the fetcher throws), and the success data. None covers the timeout branch. The error test checks only `status`, never that `state.error` exists, so it would pass even if both error branches dropped `error`.
+   - **why it matters**: The only branch that breaks the invariant is the only branch with no test, so concern 1 shipped with the suite unaware of it.
+   - **evidence**: `grounded: tests/runRequest.test.ts` (all 3 `it` blocks read).
+
+4. **`src/request/types.ts:7`** — scope: `introduced`
+   - **issue**: `idleState` has no callers; the grep finds only its definition. `"idle"` and `"loading"` are in the union, but `runRequest` never produces them. So every consumer of `runRequest` has to handle states it can't receive; `consumer.ts:10` sends them to `"unknown"`.
+   - **why it matters**: `runRequest`'s return type claims four outcomes when there are two, which hides the fact that the result is strictly success-or-error.
+   - **evidence**: `grounded: grep across repo, src/request/runRequest.ts, src/request/consumer.ts`.
+
+## Type: `RequestLogEntry` / request log (src/request/log.ts)
+
+### Invariants Identified
+- Log entries are only appended by `logOutcome` and only removed by `clearRequestLog`.
+- `at` is the time the outcome was recorded.
+
+### The four axes
+- **Encapsulation**: `getRequestLog()` copies the array but not the entries, so `getRequestLog()[0].outcome = "success"` rewrites the module's internal record.
+- **Invariant Expression**: The fields are not `readonly` and the return type is a mutable array, so the "append-only" rule is convention only.
+- **Invariant Usefulness**: The rule is cheap to keep and stops a reader from falsifying the log.
+- **Invariant Enforcement**: The shallow copy covers reordering but not changes to individual entries (see above).
+
+### Concerns
+
+5. **`src/request/log.ts:1-4, 12-14`** — scope: `introduced`
+   - **issue**: `RequestLogEntry` has mutable `outcome`/`at`. `getRequestLog` returns `[...entries]`, which shares the entry objects with the private `entries` array.
+   - **why it matters**: Code that reads the log can silently change recorded outcomes, for example turning an error into a success, and later readers will see the changed history.
+   - **evidence**: `grounded: src/request/log.ts`.
+
+6. **`src/request/log.ts:2, 8`** — scope: `introduced`
+   - **issue**: `"success" | "error"` is written out by hand twice here, separately from `RequestState["status"]`.
+   - **why it matters**: This is a minor drift risk: if a new terminal status is added to `RequestState`, the log's type won't change with it.
+   - **evidence**: `grounded: src/request/log.ts, src/request/types.ts`.
+
+### Recommended Improvements
+- Make `RequestState` a discriminated union:
+  ```ts
+  export type RequestState<T> =
+    | { readonly status: "idle" }
+    | { readonly status: "loading" }
+    | { readonly status: "success"; readonly data: T }
+    | { readonly status: "error"; readonly error: Error };
+  ```
+  With this, `runRequest.ts:20` fails to compile until it returns `error: err`, and both `!` in `consumer.ts` can be removed.
+- Give `runRequest` a narrower return type: `Promise<Extract<RequestState<T>, { status: "success" | "error" }>>`, or a separate `RequestResult<T>`. Then `loadProfile` has no `"unknown"` case to invent. Delete `idleState` unless a UI caller is on the way.
+- Add a fake-timer test for the timeout branch that checks `state.error` is a `TimeoutError`. Also have the reject test check `state.error` is present.
+- In `log.ts`:
+  - Mark the fields `readonly`.
+  - Return `ReadonlyArray<Readonly<RequestLogEntry>>`, or copy each entry.
+  - Type `outcome` as `Extract<RequestState<unknown>["status"], "success" | "error">`.
+- Separate from typing: the `setTimeout` in `runRequest` is never cleared on success, so a timer can keep the process alive for up to 5 s. This was already true before the diff (the base had the same code) and doesn't block this change.

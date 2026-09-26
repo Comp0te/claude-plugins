@@ -1,0 +1,83 @@
+I reviewed the three changed type surfaces: `RequestState<T>`, the return type of `runRequest`, and `RequestLogEntry`. Nothing was executed because the brief names no runnable tree, so every item below is `grounded` on files I read.
+
+## Type: `RequestState<T>` (src/request/types.ts:1-5) and the return type of `runRequest` (src/request/runRequest.ts:9)
+
+### Invariants Identified
+- `data` exists only on success, and `error` exists only on error. The old `LegacyRequestState` allowed impossible states like `{loading: true, data: x, error: e}`; the new union rules them out.
+- Only the success and error variants mean the request is finished.
+- `runRequest` only ever returns `success` or `error`. The `return` statements at runRequest.ts:16, 20 and 23 are the only exits; the old `state.loading = true` path is gone. The declared type doesn't say this.
+
+### The four axes
+- **Encapsulation**: Clean. It's a plain data union with nothing to hide.
+- **Invariant Expression**: Mostly clean. The one gap: `Promise<RequestState<T>>` says `idle` or `loading` can come back, and they can't.
+- **Invariant Usefulness**: Clean. Linking `data` to success and `error` to error removes the old `if (state.error) … state.data ?` guessing.
+- **Invariant Enforcement**: Clean for the variants themselves. `{status: "success"}` without `data` won't compile.
+
+### Strengths
+- Replacing three independent flags with a union keyed on `status` is the right change, and consumer.ts:7-10 narrows correctly.
+- `idleState` no longer hands out a mutable object that the caller then changes (the old `state.loading = true` pattern).
+
+### Concerns
+
+1. **src/request/runRequest.ts:9**
+   - **scope**: introduced
+   - **issue**: The return type is the full four-variant `RequestState<T>`, but the function can only produce `success` or `error`. Every caller has to handle two states that can't happen. In consumer.ts:10, the `"unknown"` fallback now catches exactly those impossible states, so it is dead code.
+   - **why it matters**: If `runRequest` is later changed to return `idle` or `loading` for real, `loadProfile` will quietly return `"unknown"` instead of failing to compile, because a catch-all is standing where an exhaustiveness check should be.
+   - **evidence**: grounded: src/request/runRequest.ts (the only returns are at lines 16, 20, 23), src/request/consumer.ts:7-10
+
+2. **src/request/consumer.ts:10**
+   - **scope**: introduced
+   - **issue**: The ternary's `"unknown"` branch replaces an exhaustive check. It stays even if item 1 is fixed, unless it is rewritten.
+   - **why it matters**: Adding a new status variant (for example `"cancelled"`) compiles cleanly, and the result is shown to users as the profile name "unknown".
+   - **evidence**: grounded: src/request/consumer.ts, src/request/types.ts
+
+3. **src/request/types.ts:2-3, 7-9**
+   - **scope**: introduced
+   - **issue**: Nothing in the tree creates the `idle` or `loading` variants, and nothing calls `idleState`. I checked by grepping the whole repo for `idleState`: the only hit is its definition. There are six tracked files in total. By contrast, `initialState` had a caller in the base tree (the old runRequest.ts).
+   - **why it matters**: The type describes a UI state machine that no code runs. That's harmless today, and it's why item 1 exists. Keep the variants only if a hook or store is about to use them.
+   - **evidence**: grounded: grep of the repo for `idleState|initialState|RequestState`; `git ls-files`
+
+## Type: `RequestLogEntry` and its module state (src/request/log.ts)
+
+### Invariants Identified
+- Log entries are only added through `logOutcome` and removed through `clearRequestLog`.
+- `outcome` matches the terminal `RequestState` status.
+
+### The four axes
+- **Encapsulation**: The array is copied, but the entry objects inside are shared. `getRequestLog()[0].outcome = "error"` changes the module's own record.
+- **Invariant Expression**: `"success" | "error"` is written out by hand at log.ts:2 and log.ts:8. It is not derived from `RequestState["status"]`, so the claim that the two match exists only by convention.
+- **Invariant Usefulness**: Clean.
+- **Invariant Enforcement**: Adding and clearing are properly guarded. Changing existing entries is not (see Encapsulation).
+
+### Concerns
+
+4. **src/request/log.ts:1-4, 12-14**
+   - **scope**: introduced
+   - **issue**: The fields aren't `readonly`, and `[...entries]` is a shallow copy. So `getRequestLog()[0].at = 0` rewrites the stored entry.
+   - **why it matters**: Any consumer (a test, a dashboard) that sorts, normalises or annotates what it gets back silently corrupts the log for everyone else who reads it.
+   - **evidence**: grounded: src/request/log.ts
+
+5. **src/request/log.ts:2, 8**
+   - **scope**: introduced
+   - **issue**: The outcome literals are copied by hand rather than written as `Extract<RequestState<unknown>, {status: "success" | "error"}>["status"]`.
+   - **why it matters**: If a status is renamed or added in types.ts (say `"timeout"` split out of `"error"`), the log type won't follow, and the mismatch will only surface at whichever `logOutcome` call happens to break.
+   - **evidence**: grounded: src/request/log.ts, src/request/types.ts
+
+### Also noted (pre-existing, not a type-design issue)
+- **runRequest.ts:11-13**
+  - **scope**: pre-existing (the base runRequest.ts has the same `setTimeout`)
+  - **issue**: The timeout timer is never cleared.
+  - **why it matters**: Every successful request leaves a 5-second timer running and a rejection that nothing handles.
+  - **evidence**: grounded: `git show HEAD~1:src/request/runRequest.ts` via the diff context
+- **runRequest.ts:23**
+  - **scope**: pre-existing
+  - **issue**: `String(err)` drops the original error's stack and cause.
+  - **why it matters**: An `Error("network down")` becomes the message `"Error: network down"` with no trace back to where it was thrown.
+  - **evidence**: grounded: runRequest.ts, errors/base.ts
+
+## Recommended Improvements
+1. In types.ts, add `export type SettledRequestState<T> = Extract<RequestState<T>, { status: "success" | "error" }>;` and make `runRequest` return `Promise<SettledRequestState<T>>`. Then consumer.ts:10 can become `return state.data.name;`, and the dead branch goes away.
+2. Where the full union is really used, narrow it with a `switch` whose `default` does `const _: never = state`, not with a catch-all ternary.
+3. For the error variant, consider `error: ApiFetchError | TimeoutError`. Those are the only two types `runRequest` creates, and callers could then tell a timeout apart without `instanceof Error` guesswork. This is optional; `Error` is also fine if you'd rather keep it simple.
+4. In log.ts, mark `RequestLogEntry` as `readonly outcome`/`readonly at`, make `getRequestLog` return `readonly RequestLogEntry[]`, and derive `outcome` from `SettledRequestState["status"]`.
+5. Drop `idle`, `loading` and `idleState` until something constructs them. A simpler union is better here than one that promises states nobody produces.

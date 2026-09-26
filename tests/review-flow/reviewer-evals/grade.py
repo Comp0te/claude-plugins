@@ -17,13 +17,13 @@ CITE_RE = re.compile(
 HEADING_RE = re.compile(r"^#{1,6}\s")
 RULE_RE = re.compile(r"^(-{3,}|\*{3,}|_{3,})\s*$")
 BOLD_LABEL_RE = re.compile(r"^\*\*([^*\n]+)\*\*:?\s*$")
-NUM_ITEM_RE = re.compile(r"^1\.\s")
-BULLET_RE = re.compile(r"^[-*]\s")
+NUM_MARKER_RE = re.compile(r"^\*{0,2}(\d+)\.\*{0,2}\s*(.*)$")
+BULLET_MARKER_RE = re.compile(r"^[-*]\s+(.*)$")
 
 # A standalone bold line boundaries a section unless its label is a finding's own
 # field (e.g. "**Issue Description**:"); a real section label ("**Cleared**") still ends the record.
 KNOWN_FIELD_LABELS = {
-    "location", "scope", "issue description", "hidden errors",
+    "location", "scope", "issue", "issue description", "hidden errors",
     "why it matters", "evidence", "recommendation", "example",
 }
 
@@ -100,10 +100,28 @@ def _split_blocks(lines):
     return blocks
 
 
-def _bullet_cites_known_file(line, known_files):
-    if not BULLET_RE.match(line):
+def _label_token(rest):
+    """The label of a leading `label: ...` or `**label**: ...` fragment, with
+    markdown and the colon stripped, or None if `rest` has no such token."""
+    head = rest.split(":", 1)[0].strip(" *`")
+    return head.lower() if head else None
+
+
+def _is_record_start(line):
+    """A column-0 numbered item ("1."/"**1.**") or bullet opens a record on a
+    reset to 1, or when its own label isn't a known per-record field (so a
+    field list's "2. **scope**" stays inside the record it belongs to).
+    Indented lines are always a detail of the enclosing record."""
+    if line[:1] in (" ", "\t"):
         return False
-    return any(_resolve_path(m.group("path"), known_files) for m in CITE_RE.finditer(line))
+    m = NUM_MARKER_RE.match(line)
+    if m:
+        digit, rest = m.groups()
+        return digit == "1" or _label_token(rest) not in KNOWN_FIELD_LABELS
+    m = BULLET_MARKER_RE.match(line)
+    if m:
+        return _label_token(m.group(1)) not in KNOWN_FIELD_LABELS
+    return False
 
 
 def _segment_block(lines, known_files):
@@ -121,9 +139,10 @@ def _segment_block(lines, known_files):
     for k in range(1, len(scope_idxs)):
         prev = scope_idxs[k - 1]
         start = None
-        for li in range(prev + 1, len(lines)):
-            line = lines[li]
-            if NUM_ITEM_RE.match(line) or _bullet_cites_known_file(line, known_files):
+        # Nearest opener at or before this record's own scope line, so trailing
+        # detail lines of the previous record can't be mistaken for this one.
+        for li in range(scope_idxs[k], prev, -1):
+            if _is_record_start(lines[li]):
                 start = li
                 break
         starts.append(prev + 1 if start is None else start)
