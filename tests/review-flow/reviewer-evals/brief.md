@@ -4,7 +4,7 @@ Read the code at {workspace}.
 
 Diff scope: `git diff HEAD~1...HEAD`, run in {workspace}.
 
-Gate: not run in this evaluation.
+Gate: not run.
 
 The repo's full gate has already been settled for you — on CI or locally, as stated above with its result. Do not run the full test suite, and do not run a whole-project type-check: the answer is already established, and running them again in parallel with the other reviewers will exhaust the machine. Run only *targeted* checks that a specific finding needs: a single test file, a scoped grep, a small standalone probe. When you do invoke the test runner, bound its parallelism — several reviewers are running concurrently and a runner that fans out to one worker per core will take the machine down (on Jest that is `--maxWorkers=2`, plus `--watchman=false` where the file watcher is a known irritant).
 

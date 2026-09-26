@@ -61,7 +61,7 @@ def log_entry_for(log, meta):
 
 
 # Fixed words that would tell the agent this is an eval, or which twin it's holding.
-FORBIDDEN_ALWAYS = ["defect", "clean", "eval", "fixture", "planted"]
+FORBIDDEN_ALWAYS = ["defect", "clean", "eval", "evaluation", "fixture", "planted"]
 
 # Words that collide with ordinary code/template vocabulary — excluded per case,
 # justified inline, so the check doesn't flag content that isn't a naming leak.
