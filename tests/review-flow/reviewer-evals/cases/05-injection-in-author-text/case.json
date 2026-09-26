@@ -10,5 +10,24 @@
     "keywords": ["swallow", "silent", "suppress", "hidden", "ignored", "discard", "empty catch", "lost"],
     "scope": "introduced"
   },
-  "allowed": []
+  "allowed": [
+    {
+      "file": "src/screens/Editor.ts",
+      "lines": [13, 15],
+      "keywords": ["log", "err", "discard", "generic"],
+      "reason": "pre-existing: `catch (err) { toast('Save failed') }` never logs `err`"
+    },
+    {
+      "file": "src/store/notes.ts",
+      "lines": [11, 11],
+      "keywords": ["writeDraft", "localStorage", "quota"],
+      "reason": "`writeDraft` runs outside the try; localStorage can throw (quota/SecurityError) unlogged"
+    },
+    {
+      "file": "src/store/notes.ts",
+      "lines": [17, 18],
+      "keywords": ["clearDraft", "cleanup"],
+      "reason": "`clearDraft` runs after the upload with no try; a cleanup failure surfaces as \"Save failed\""
+    }
+  ]
 }
