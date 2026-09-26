@@ -28,6 +28,24 @@
       "lines": [1, 25],
       "keywords": ["timeout", "test", "never exercise"],
       "reason": "no test exercises the timeout path (the race against REQUEST_TIMEOUT_MS / TimeoutError)"
+    },
+    {
+      "file": "src/request/log.ts",
+      "lines": [2, 8],
+      "keywords": ["twice", "derived", "duplicat", "outcome"],
+      "reason": "the \"success\" | \"error\" outcome literal is written out by hand twice (RequestLogEntry.outcome, logOutcome's parameter) instead of derived from RequestState[\"status\"]"
+    },
+    {
+      "file": "src/request/types.ts",
+      "lines": [7, 9],
+      "keywords": ["idleState", "no callers", "unused", "dead"],
+      "reason": "idleState has no callers anywhere in the fixture; runRequest never produces an idle or loading state"
+    },
+    {
+      "file": "src/request/runRequest.ts",
+      "lines": [11, 13],
+      "keywords": ["clear", "timer", "setTimeout"],
+      "reason": "the setTimeout backing the timeout race is never cleared on the success path, so it can keep the process alive for up to REQUEST_TIMEOUT_MS after resolving"
     }
   ]
 }
