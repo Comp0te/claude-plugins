@@ -1,8 +1,11 @@
-"""Tests for scripts/roster-stats.py's parsing functions (Task 1).
+"""Tests for scripts/roster-stats.py's parsing (Task 1) and reporting (Task 2).
 
 One test per row of the plan's I/O & Edge-Case Matrix.
 """
+import contextlib
 import importlib.util
+import io
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -103,6 +106,102 @@ class ParseHandoffTests(unittest.TestCase):
     def test_finding_without_found_by(self):
         handoff = rs.parse_handoff("### F4\nfile: src/a.ts:1\n")
         self.assertEqual(handoff.findings[0].found_by, ())
+
+
+class RenderTests(unittest.TestCase):
+    def test_per_bucket_table(self):
+        small = rs.Handoff(files_changed=4, dispatched=("a-agent",), dispatched_unnormalised=(),
+                            findings=())
+        big = rs.Handoff(files_changed=50, dispatched=("a-agent",), dispatched_unnormalised=(),
+                          findings=())
+        out = rs.render([(Path("branch-x.md"), small), (Path("branch-y.md"), big)])
+        self.assertIn("branch", out)
+        self.assertIn("≤10", out)
+        self.assertIn(">30", out)
+        self.assertIn("| agent | dispatched | findings | sole finder | sole / dispatch |", out)
+
+    def test_sole_finder(self):
+        finding = rs.FindingRow(id="F1", found_by=("a-agent",), unnormalised=(), dropped=False)
+        handoff = rs.Handoff(files_changed=5, dispatched=("a-agent",), dispatched_unnormalised=(),
+                              findings=(finding,))
+        out = rs.render([(Path("branch-x.md"), handoff)])
+        self.assertIn("| a-agent | 1 | 1 | 1 | 1.00 |", out)
+
+    def test_shared_finding(self):
+        finding = rs.FindingRow(id="F1", found_by=("a-agent", "b-agent"), unnormalised=(),
+                                 dropped=False)
+        handoff = rs.Handoff(files_changed=5, dispatched=("a-agent", "b-agent"),
+                              dispatched_unnormalised=(), findings=(finding,))
+        out = rs.render([(Path("branch-x.md"), handoff)])
+        self.assertIn("| a-agent | 1 | 1 | 0 | 0.00 |", out)
+        self.assertIn("| b-agent | 1 | 1 | 0 | 0.00 |", out)
+
+    def test_unknown_dispatch(self):
+        finding = rs.FindingRow(id="F1", found_by=("a-agent",), unnormalised=(), dropped=False)
+        handoff = rs.Handoff(files_changed=5, dispatched=None, dispatched_unnormalised=(),
+                              findings=(finding,))
+        out = rs.render([(Path("branch-x.md"), handoff)])
+        self.assertIn("| a-agent | ? | 1 | 1 | - |", out)
+
+    def test_dropped_excluded(self):
+        finding = rs.FindingRow(id="F1", found_by=("a-agent",), unnormalised=(), dropped=True)
+        handoff = rs.Handoff(files_changed=5, dispatched=None, dispatched_unnormalised=(),
+                              findings=(finding,))
+        out = rs.render([(Path("branch-x.md"), handoff)])
+        self.assertNotIn("a-agent", out)
+        self.assertIn("dropped: 1", out)
+
+    def test_unnormalised_listed(self):
+        finding = rs.FindingRow(id="F2", found_by=(), unnormalised=("the main loop's own confirmation",),
+                                 dropped=False)
+        handoff = rs.Handoff(files_changed=5, dispatched=None, dispatched_unnormalised=(),
+                              findings=(finding,))
+        path = Path("proj/branch-x.md")
+        out = rs.render([(path, handoff)])
+        self.assertIn("Unnormalised values", out)
+        self.assertIn(f"{path}", out)
+        self.assertIn("F2", out)
+        self.assertIn("the main loop's own confirmation", out)
+
+    def test_kind_from_filename(self):
+        empty = rs.Handoff(files_changed=None, dispatched=None, dispatched_unnormalised=(),
+                            findings=())
+        out = rs.render([
+            (Path("branch-x.md"), empty),
+            (Path("pr-12-findings.md"), empty),
+            (Path("other.md"), empty),
+        ])
+        self.assertIn("branch", out)
+        self.assertIn("pr", out)
+        self.assertIn("other", out)
+
+
+class MainTests(unittest.TestCase):
+    def test_directory_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "a.md").write_text(
+                "files changed: 5\n\n### F1\nfound-by: a-agent\n"
+            )
+            (tmp_path / "a-deferred.md").write_text(
+                "files changed: 5\n\n### F1\nfound-by: b-agent\n"
+            )
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = rs.main([str(tmp_path)])
+            self.assertEqual(code, 0)
+            self.assertIn("a-agent", out.getvalue())
+            self.assertNotIn("b-agent", out.getvalue())
+            self.assertIn("a.md", out.getvalue())
+            self.assertNotIn("a-deferred.md", out.getvalue())
+
+    def test_nothing_parsed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = rs.main([tmp])
+            self.assertEqual(code, 1)
+            self.assertNotEqual(err.getvalue().strip(), "")
 
 
 if __name__ == "__main__":

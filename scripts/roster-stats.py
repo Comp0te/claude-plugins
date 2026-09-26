@@ -6,11 +6,15 @@ uncommitted). The functions here turn one handoff's text into structured rows;
 a later stage aggregates them into the roster-size numbers `pr-review.md` and
 `branch-review.md` rest on.
 """
+import argparse
+import pathlib
 import re
+import sys
 from dataclasses import dataclass
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 VERIFIERS = {"finding-gate-verifier", "fix-verifier", "anchor-resolver"}
+BUCKET_ORDER = ("≤10", "11-30", ">30", "unknown")
 
 FINDING_HEADING_RE = re.compile(r"^###\s*(F\d+)\b", re.IGNORECASE | re.MULTILINE)
 NEXT_HEADING_RE = re.compile(r"^#{2,3}\s", re.MULTILINE)
@@ -134,3 +138,114 @@ def parse_handoff(text):
         dispatched_unnormalised=dispatched_unnormalised,
         findings=_findings(text),
     )
+
+
+def _kind(path):
+    """Handoff kind from filename: `branch-*`/`pr-*` are the known shapes; anything
+    else is reported as `other` rather than guessed."""
+    stem = path.name[:-3] if path.name.endswith(".md") else path.name
+    for kind in ("branch", "pr"):
+        if stem == kind or stem.startswith(kind + "-") or stem.startswith(kind + "_"):
+            return kind
+    return "other"
+
+
+def _collect_files(paths):
+    """Expand CLI PATH arguments into handoff files. A directory yields its `*.md`
+    files except deferred companions (`x-deferred.md` alongside `x.md`)."""
+    files = []
+    for path in paths:
+        if path.is_dir():
+            files.extend(sorted(f for f in path.glob("*.md") if not f.name.endswith("-deferred.md")))
+        else:
+            files.append(path)
+    return files
+
+
+def render(handoffs):
+    groups = {}
+    for path, handoff in handoffs:
+        groups.setdefault((_kind(path), bucket(handoff.files_changed)), []).append(handoff)
+
+    lines = []
+    for kind, buck in sorted(groups, key=lambda k: (k[0], BUCKET_ORDER.index(k[1]))):
+        # name -> [dispatched, findings, sole finder, dispatch count unknown]
+        agents = {}
+        for handoff in groups[(kind, buck)]:
+            if handoff.dispatched is not None:
+                for agent in handoff.dispatched:
+                    agents.setdefault(agent, [0, 0, 0, False])[0] += 1
+            for finding in handoff.findings:
+                if finding.dropped:
+                    continue
+                sole = len(finding.found_by) == 1
+                for agent in finding.found_by:
+                    row = agents.setdefault(agent, [0, 0, 0, False])
+                    row[1] += 1
+                    if sole:
+                        row[2] += 1
+                    if handoff.dispatched is None:
+                        row[3] = True
+
+        lines.append(f"### {kind} · {buck}")
+        lines.append("")
+        lines.append("| agent | dispatched | findings | sole finder | sole / dispatch |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for name, (dispatched, findings, sole, unknown) in sorted(
+            agents.items(), key=lambda kv: (-kv[1][2], kv[0])
+        ):
+            dispatched_cell = "?" if unknown else str(dispatched)
+            ratio_cell = "-" if unknown or dispatched == 0 else f"{sole / dispatched:.2f}"
+            lines.append(f"| {name} | {dispatched_cell} | {findings} | {sole} | {ratio_cell} |")
+        if any(row[3] for row in agents.values()):
+            lines.append("")
+            lines.append("_dispatched shown as `?` where `checks that ran` could not be parsed._")
+        lines.append("")
+
+    findings_total = dropped_total = 0
+    unnormalised_lines = []
+    for path, handoff in handoffs:
+        for finding in handoff.findings:
+            if finding.dropped:
+                dropped_total += 1
+            else:
+                findings_total += 1
+            for item in finding.unnormalised:
+                unnormalised_lines.append(f"- {path}: {finding.id}: {item}")
+
+    if unnormalised_lines:
+        lines.append("## Unnormalised values")
+        lines.append("")
+        lines.extend(unnormalised_lines)
+        lines.append("")
+
+    lines.append("---")
+    lines.append(f"handoffs: {len(handoffs)}")
+    lines.append(f"findings: {findings_total}")
+    lines.append(f"dropped: {dropped_total}")
+    lines.append("files read:")
+    for path, _ in handoffs:
+        lines.append(f"- {path}")
+
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Aggregate review-flow handoffs into per-reviewer finding counts."
+    )
+    parser.add_argument("paths", metavar="PATH", nargs="+", type=pathlib.Path)
+    args = parser.parse_args(argv)
+
+    files = _collect_files(args.paths)
+    if not files:
+        print("no handoff files found under the given paths", file=sys.stderr)
+        return 1
+
+    handoffs = [(f, parse_handoff(f.read_text())) for f in files]
+    print(render(handoffs), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
