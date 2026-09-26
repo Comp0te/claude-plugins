@@ -3,6 +3,7 @@ against `fake_claude.py` so nothing here makes a live model call.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -45,9 +46,43 @@ def read_log(log_path: Path):
     return [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
 
 
-def log_entries_for(log, case_name, variant):
-    prefix = f"revflow-eval-{case_name}-{variant}-"
-    return [e for e in log if Path(e["cwd"]).name.startswith(prefix)]
+def load_meta(out_dir, case_name, variant, n=0):
+    return json.loads((out_dir / case_name / f"{variant}-{n}.meta.json").read_text())
+
+
+def log_entry_for(log, meta):
+    """Matches a fake_claude log line to a saved job by its full argv — the only field
+    both sides share, now that a job's workspace path carries no case/variant/run marker."""
+    target = meta["argv"][1:]
+    for entry in log:
+        if entry["argv"] == target:
+            return entry
+    raise AssertionError("no log entry matches this job's argv")
+
+
+# Fixed words that would tell the agent this is an eval, or which twin it's holding.
+FORBIDDEN_ALWAYS = ["defect", "clean", "eval", "fixture", "planted"]
+
+# Words that collide with ordinary code/template vocabulary — excluded per case,
+# justified inline, so the check doesn't flag content that isn't a naming leak.
+GENERIC_EXCLUSIONS = {
+    "01-swallowed-catch": {"catch"},  # try/catch is JS syntax, not case-specific
+    "03-illegal-state-type": {"state", "type"},  # ubiquitous identifier / TS keyword
+    "05-injection-in-author-text": {"author", "text"},  # <pr-author-text> is the brief's own tag
+}
+
+
+def case_words(case_name):
+    excluded = GENERIC_EXCLUSIONS.get(case_name, set())
+    return [w for w in case_name.split("-") if len(w) >= 4 and w not in excluded]
+
+
+def assert_no_case_leak(test, case_name, text, label):
+    for word in FORBIDDEN_ALWAYS + [case_name] + case_words(case_name):
+        test.assertIsNone(
+            re.search(rf"\b{re.escape(word)}\b", text, re.IGNORECASE),
+            f"{label} for {case_name} leaks {word!r}:\n{text}",
+        )
 
 
 def git(workspace, *args):
@@ -92,16 +127,16 @@ class RunPyTest(unittest.TestCase):
     def test_workspace_is_a_two_commit_repo_matching_the_fixture(self):
         tmp = self._tmp()
         log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
-            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
+            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
             mode="ok-caught", log_path=log_path,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
         log = read_log(log_path)
-        entries = log_entries_for(log, "01-swallowed-catch", "defect")
-        self.assertEqual(len(entries), 1)
-        workspace = Path(entries[0]["cwd"])
+        meta = load_meta(out_dir, "01-swallowed-catch", "defect")
+        workspace = Path(log_entry_for(log, meta)["cwd"])
 
         self.assertEqual(git(workspace, "rev-list", "--count", "HEAD").strip(), "2")
         trees = CASES_DIR / "01-swallowed-catch"
@@ -114,8 +149,9 @@ class RunPyTest(unittest.TestCase):
         # in for this machine's real (interactive, ~100s-hanging) 1Password signer.
         tmp = self._tmp()
         log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
-            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
+            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
             mode="ok-caught", log_path=log_path,
             extra_env={
                 "GIT_CONFIG_COUNT": "3",
@@ -127,9 +163,8 @@ class RunPyTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
         log = read_log(log_path)
-        entries = log_entries_for(log, "01-swallowed-catch", "defect")
-        self.assertEqual(len(entries), 1)
-        workspace = Path(entries[0]["cwd"])
+        meta = load_meta(out_dir, "01-swallowed-catch", "defect")
+        workspace = Path(log_entry_for(log, meta)["cwd"])
         self.assertEqual(git(workspace, "rev-list", "--count", "HEAD").strip(), "2")
 
     def test_build_workspace_raises_if_toplevel_is_not_the_workspace(self):
@@ -168,22 +203,37 @@ class RunPyTest(unittest.TestCase):
         ).stdout.strip()
         self.assertEqual(after, before)
 
+    # --- no case-identifying leak ---------------------------------------------
+
+    def test_brief_and_git_log_carry_no_case_identifying_words(self):
+        case_dirs = sorted(p for p in CASES_DIR.iterdir() if p.is_dir() and not p.name.startswith("."))
+        for case_dir in case_dirs:
+            case, trees = run.load_case(case_dir)
+            for variant in case["variants"]:
+                with self.subTest(case=case_dir.name, variant=variant):
+                    workspace = self._tmp() / "workspace"
+                    run.build_workspace(trees, variant, workspace)
+                    brief = run.render_brief(case_dir, workspace)
+                    log = git(workspace, "log", "--format=%an %ae %s")
+                    assert_no_case_leak(self, case_dir.name, brief, "brief")
+                    assert_no_case_leak(self, case_dir.name, log, "git log")
+
     # --- fixture_from --------------------------------------------------------
 
     def test_fixture_from_case05_uses_case01_trees(self):
         tmp = self._tmp()
         log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
             ["--case", "05-injection-in-author-text", "--runs", "1",
-             "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
+             "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
             mode="ok-caught", log_path=log_path,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
         log = read_log(log_path)
-        entries = log_entries_for(log, "05-injection-in-author-text", "defect")
-        self.assertEqual(len(entries), 1)
-        workspace = Path(entries[0]["cwd"])
+        meta = load_meta(out_dir, "05-injection-in-author-text", "defect")
+        workspace = Path(log_entry_for(log, meta)["cwd"])
 
         trees = CASES_DIR / "01-swallowed-catch"
         assert_commit_matches_fixture(self, workspace, "HEAD~1", trees / "base")
@@ -194,17 +244,16 @@ class RunPyTest(unittest.TestCase):
     def test_argv_matches_invocation_contract(self):
         tmp = self._tmp()
         log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
             ["--case", "05-injection-in-author-text", "--runs", "1",
-             "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
+             "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
             mode="ok-caught", log_path=log_path,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-        log = read_log(log_path)
-        entries = log_entries_for(log, "05-injection-in-author-text", "defect")
-        self.assertEqual(len(entries), 1)
-        argv = entries[0]["argv"]
+        meta = load_meta(out_dir, "05-injection-in-author-text", "defect")
+        argv = meta["argv"][1:]
         expected_prefix = [
             "-p",
             "--plugin-dir", str(ROOT / "plugins/review-flow"),
@@ -217,23 +266,26 @@ class RunPyTest(unittest.TestCase):
         ]
         self.assertEqual(argv[:-1], expected_prefix)
         self.assertTrue(argv[-1])  # the rendered brief, checked in detail below
-        self.assertTrue(Path(entries[0]["cwd"]).is_dir())
+
+        log = read_log(log_path)
+        self.assertTrue(Path(log_entry_for(log, meta)["cwd"]).is_dir())
 
     # --- brief, plain --------------------------------------------------------
 
     def test_brief_plain_case01(self):
         tmp = self._tmp()
         log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
-            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
+            ["--case", "01-swallowed-catch", "--runs", "1", "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
             mode="ok-caught", log_path=log_path,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
         log = read_log(log_path)
-        entry = log_entries_for(log, "01-swallowed-catch", "defect")[0]
-        brief = entry["argv"][-1]
-        workspace = entry["cwd"]
+        meta = load_meta(out_dir, "01-swallowed-catch", "defect")
+        brief = meta["argv"][-1]
+        workspace = log_entry_for(log, meta)["cwd"]
 
         self.assertIn(workspace, brief)
         self.assertIn("git diff HEAD~1...HEAD", brief)
@@ -246,16 +298,16 @@ class RunPyTest(unittest.TestCase):
 
     def test_brief_author_text_case05(self):
         tmp = self._tmp()
-        log_path = tmp / "log.jsonl"
+        out_dir = tmp / "out"
         result = run_cli(
             ["--case", "05-injection-in-author-text", "--runs", "1",
-             "--claude", str(FAKE_CLAUDE), "--out", str(tmp / "out")],
-            mode="ok-caught", log_path=log_path,
+             "--claude", str(FAKE_CLAUDE), "--out", str(out_dir)],
+            mode="ok-caught",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-        log = read_log(log_path)
-        brief = log_entries_for(log, "05-injection-in-author-text", "defect")[0]["argv"][-1]
+        meta = load_meta(out_dir, "05-injection-in-author-text", "defect")
+        brief = meta["argv"][-1]
 
         warn_idx = brief.index(WARNING_LINE)
         tag_idx = brief.index('<pr-author-text source="body">')

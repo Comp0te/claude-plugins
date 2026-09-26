@@ -63,8 +63,9 @@ def _git(workspace: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _git_commit(workspace: Path, message: str) -> None:
-    # Throwaway fixture repo: never sign, regardless of the operator's global config.
-    _git(workspace, "-c", "user.name=eval", "-c", "user.email=eval@localhost",
+    # Never sign, regardless of the operator's global config; identity is neutral
+    # since the agent can run `git log` in the workspace.
+    _git(workspace, "-c", "user.name=dev", "-c", "user.email=dev@example.com",
          "-c", "commit.gpgsign=false", "commit", "-q", "-m", message)
 
 
@@ -106,11 +107,11 @@ def build_workspace(trees: Path, variant: str, workspace: Path) -> None:
     _git(workspace, "init", "-q")
     _assert_workspace_is_own_repo_toplevel(workspace)
     _git(workspace, "add", "-A")
-    _git_commit(workspace, "base")
+    _git_commit(workspace, "Initial import")
     _clear_tree(workspace)
     _copy_tree_into(trees / variant, workspace)
     _git(workspace, "add", "-A")
-    _git_commit(workspace, "variant")
+    _git_commit(workspace, "Update")
 
 
 def _head_sha(workspace: Path) -> str:
@@ -178,9 +179,9 @@ def _next_index(case_out_dir: Path, variant: str) -> int:
 
 def run_job(case_dir: Path, case: dict, trees: Path, variant: str, n: int,
             out_dir: Path, claude_bin: str, timeout: float) -> None:
-    # Resolved once so the path told to the agent (in the brief, and as its cwd) is the
-    # same string the agent's own `pwd` reports — $TMPDIR is a symlink on macOS.
-    workspace = Path(tempfile.mkdtemp(prefix=f"revflow-eval-{case_dir.name}-{variant}-{n}-")).resolve()
+    # Resolved once so the agent's own `pwd` matches the brief ($TMPDIR is a symlink on
+    # macOS). No case/variant/run marker in the prefix: that would tell the agent which twin it has.
+    workspace = Path(tempfile.mkdtemp(prefix="repo-")).resolve()
     build_workspace(trees, variant, workspace)
     brief = render_brief(case_dir, workspace)
     argv = build_argv(claude_bin, case["agent"], brief)
