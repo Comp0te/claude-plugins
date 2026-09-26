@@ -1,0 +1,20 @@
+{
+  "agent": "review-flow:deletion-check",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/api/users.ts", "lines": [10, 19]},
+      {"file": "src/routes/users.ts", "lines": [1, 15]}
+    ],
+    "keywords": ["admin", "authoriz", "permission", "forbidden", "guard", "role", "check"],
+    "scope": "introduced"
+  },
+  "allowed": [
+    {
+      "file": "src/errors.ts",
+      "lines": [1, 6],
+      "keywords": ["unused", "dead", "no longer used", "ForbiddenError"],
+      "reason": "defect drops the ForbiddenError import along with the guard, so a dead-code finding on the class is real but not the case's target"
+    }
+  ]
+}
