@@ -53,7 +53,11 @@ def diff_stats(a_tree: Path, b_tree: Path):
 
 class FixtureIntegrityTest(unittest.TestCase):
     def setUp(self):
-        self.cases = sorted(CASES_DIR.iterdir()) if CASES_DIR.exists() else []
+        self.cases = (
+            sorted(p for p in CASES_DIR.iterdir() if not p.name.startswith("."))
+            if CASES_DIR.exists()
+            else []
+        )
         self.assertTrue(self.cases, f"no fixtures found under {CASES_DIR}")
 
     def _case_json(self, case_dir: Path) -> dict:
