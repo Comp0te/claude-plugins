@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import grade
+from grade import parse_findings
 
 HERE = Path(__file__).resolve().parent
 CASES_DIR = HERE / "cases"
@@ -182,6 +183,67 @@ class SegmentationTests(unittest.TestCase):
 
     def test_unparsed(self):
         findings, unparsed = grade.parse_findings(UNPARSED_ANSWER, KNOWN)
+        self.assertEqual(findings, [])
+        self.assertTrue(unparsed)
+
+
+class AlignedKeyRecordTests(unittest.TestCase):
+    """Matrix rows for the key-aligned six-key record shape."""
+
+    def test_aligned_records_keep_their_own_fields(self):
+        text = (
+            "file: src/a.ts:12\nscope: introduced\nissue: swallowed error\n"
+            "why: alpha consequence\nfix: rethrow\nevidence: diff-only\n\n"
+            "file: src/b.ts:45\nscope: pre-existing\nissue: another swallow\n"
+            "why: beta consequence\nfix: log it\nevidence: grounded: src/b.ts\n"
+        )
+        findings, unparsed = parse_findings(text, KNOWN)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 2)
+        self.assertIn("alpha consequence", findings[0].text)
+        self.assertNotIn("alpha consequence", findings[1].text)
+        self.assertIn("beta consequence", findings[1].text)
+
+    def test_aligned_record_with_extra_keys_stays_one_finding(self):
+        text = (
+            "file: src/a.ts:12\nscope: introduced\nissue: swallowed error\n"
+            "why: consequence\nfix: rethrow\nevidence: diff-only\n"
+            "hidden-errors: TypeError\nexample: throw err\n"
+        )
+        findings, unparsed = parse_findings(text, KNOWN)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("hidden-errors: TypeError", findings[0].text)
+        self.assertIn("example: throw err", findings[0].text)
+
+    def test_aligned_records_under_heading_split_correctly(self):
+        text = (RECORDED_DIR / "aligned-keys-two-findings.txt").read_text()
+        findings, unparsed = parse_findings(text, KNOWN)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 2)
+        self.assertIn("alpha consequence", findings[0].text)
+        self.assertNotIn("alpha consequence", findings[1].text)
+        self.assertIn("beta consequence", findings[1].text)
+
+    def test_indented_file_line_does_not_open_a_new_record(self):
+        # An indented "file:" citation right before the second record's
+        # "scope:" line must not be picked as its opener instead.
+        text = (
+            "file: src/a.ts:3\nscope: introduced\nissue: swallowed error\n"
+            "why: alpha\nfix: rethrow\nevidence: diff-only\n"
+            "file: src/b.ts:9\nissue: another swallow\n"
+            "  file: src/b.ts:99\n"
+            "scope: pre-existing\nwhy: beta\nfix: log it\n"
+            "evidence: grounded: src/b.ts\n"
+        )
+        findings, unparsed = parse_findings(text, KNOWN)
+        self.assertFalse(unparsed)
+        self.assertEqual(len(findings), 2)
+        self.assertIn("another swallow", findings[1].text)
+
+    def test_why_hint_without_scope_is_unparsed(self):
+        text = "file: src/a.ts:3\nwhy: could break silently\n"
+        findings, unparsed = parse_findings(text, KNOWN)
         self.assertEqual(findings, [])
         self.assertTrue(unparsed)
 

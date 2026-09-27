@@ -10,7 +10,8 @@ import re
 from dataclasses import dataclass
 
 SCOPE_RE = re.compile(r"scope\W{0,6}:\W{0,3}(introduced|pre-existing)", re.I)
-UNPARSED_HINT_RE = re.compile(r"(\bevidence\W{0,6}:|why it matters)", re.I)
+UNPARSED_HINT_RE = re.compile(r"(\bevidence\W{0,6}:|why it matters|\bwhy\W{0,6}:)", re.I)
+FILE_KEY_RE = re.compile(r"^\**file\**\s*:", re.I)
 CITE_RE = re.compile(
     r"(?P<path>[\w./-]+\.(?:ts|tsx|js|jsx))(?::|#L)(?P<a>\d+)(?:\s*[-–]\s*L?(?P<b>\d+))?"
 )
@@ -25,6 +26,7 @@ BULLET_MARKER_RE = re.compile(r"^[-*]\s+(.*)$")
 KNOWN_FIELD_LABELS = {
     "location", "scope", "issue", "issue description", "hidden errors",
     "why it matters", "evidence", "recommendation", "example",
+    "file", "why", "fix", "hidden-errors", "consumer", "test-evidence", "demonstration",
 }
 
 
@@ -108,12 +110,14 @@ def _label_token(rest):
 
 
 def _is_record_start(line):
-    """A column-0 numbered item ("1."/"**1.**") or bullet opens a record on a
-    reset to 1, or when its own label isn't a known per-record field (so a
-    field list's "2. **scope**" stays inside the record it belongs to).
+    """A column-0 numbered item ("1."/"**1.**"), bullet, or `file:` line opens
+    a record on a reset to 1, or when its own label isn't a known per-record
+    field (so a field list's "2. **scope**" stays inside its record).
     Indented lines are always a detail of the enclosing record."""
     if line[:1] in (" ", "\t"):
         return False
+    if FILE_KEY_RE.match(line):
+        return True
     m = NUM_MARKER_RE.match(line)
     if m:
         digit, rest = m.groups()

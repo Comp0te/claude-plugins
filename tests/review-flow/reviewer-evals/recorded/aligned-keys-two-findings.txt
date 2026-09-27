@@ -1,0 +1,18 @@
+Synthetic fixture for the review-flow eval grader: hand-written in the reviewers'
+six-key shape, not a recorded agent run.
+
+### Concerns
+
+file: src/a.ts:12
+scope: introduced
+issue: swallowed error
+why: alpha consequence
+fix: rethrow
+evidence: diff-only
+
+file: src/b.ts:45
+scope: pre-existing
+issue: another swallow
+why: beta consequence
+fix: log it
+evidence: grounded: src/b.ts
