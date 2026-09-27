@@ -240,7 +240,11 @@ Findings come back as records under the keys `file:`, `scope:`, `issue:`, `why:`
 
 **Deletion check (standing dispatch, outside the cap).** If the increment removes or replaces meaningful code — ignoring pure renames, moves and whitespace — **or leaves comments and docs standing next to code it rewrote**, dispatch one additional **context-free** reviewer. Prefer a purpose-built one: if the session offers an agent whose description declares removed or replaced code as its subject, dispatch that and hand it the same tree paths, incremental diff and gate result as everyone else — do not re-compose the brief inline when the agent exists, and do not pass it the requirement or the finding set. Otherwise compose it with this brief:
 
-> For each chunk of removed or replaced code, ask one question: did it carry behavior or a contract that this change neither re-established elsewhere nor intentionally retired? Report the resulting regression, orphaned reference, or newly-dead code, saying where behavior was re-established when it was. Then check the comments and docs the increment left *unchanged* around the code it touched: a surviving claim the change invalidated is the same blind spot in a second form. Return findings in the same shape as every other reviewer, and do not assign severity.
+<!-- shared:deletion-check-brief -->
+
+> For each chunk of removed or replaced code, ask one question: did it carry behavior or a contract that this change neither re-established elsewhere nor intentionally retired? Report the resulting regression, orphaned reference, or newly-dead code. Removed code that was genuinely dead, or whose behavior is demonstrably re-established elsewhere in the diff, is not a finding — say where it was re-established. Then check the comments and docs the change left *unchanged* around the code it touched: a surviving claim the change invalidated is the same blind spot in a second form. Return findings in the same shape as every other reviewer, and do not assign severity.
+
+<!-- /shared:deletion-check-brief -->
 
 The second half is why the comment trigger is there. A fix push that only adds lines still routinely falsifies the comment above them, and nothing else in this flow re-reads a comment the diff did not touch.
 

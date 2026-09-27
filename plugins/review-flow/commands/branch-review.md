@@ -57,21 +57,27 @@ From the list of agent types available in this session, select every reviewer-st
 - a test-coverage reviewer marked "use on every review" → always dispatch.
 - **a security-focused reviewer → always dispatch, trigger or no trigger.** Pick the best available one for what the diff touches; if none declares a matching trigger, dispatch the closest one anyway with an explicit brief to review this diff for security consequences, and say in the report which one you used and that it was off-trigger. **This agent is the security coverage, and step 3's built-in `security-review` is only the fallback for its absence.** An agent is scoped by the diff you hand it and can always run; the built-in chooses its own diff and carries exclusions written for server-side web applications. That is why this dispatch is unconditional: it must not be absent because the diff missed a path trigger, since nothing behind it is equivalent.
 
+<!-- shared:roster -->
+
 **Size the roster to the diff, then trim by trigger.** The value of another reviewer is another lens on the same files, and it runs out fast on a small change — five agents on a three-file diff produce five readings of the same forty lines and a classification pass that costs more than the findings are worth.
 
 - **≤10 changed files → 3 slots**, filled in this order: the test-coverage reviewer, the security-focused reviewer, and **the one remaining agent whose declared trigger this diff satisfies most strongly** — the error-handling reviewer when the diff touches try/catch, error callbacks, fallbacks or retries, the type reviewer when it reshapes types. Nothing beyond the three, **except the deletion check, which is a standing dispatch outside this cap** — see *Deletion check* below.
-  **The third slot is a slot, not a fixed name.** Hardcoding the deletion check there would leave a small diff whose entire subject is error handling with no error-handling reviewer at all — and most branches land in this bucket. Say in the report which matched agent you dropped.
-  **Where the error-handling and type triggers are both satisfied, take the type reviewer** — the same tie the sibling `/pr-review` command breaks, and for the same reason: it returns materially more findings no other agent found.
+  **The third slot is a slot, not a fixed name.** Hardcoding the deletion check there would leave a small diff whose entire subject is error handling with no error-handling reviewer at all — and most diffs land in this bucket. Say in the report which matched agent you dropped.
+  **Where the error-handling and type triggers are both satisfied, take the type reviewer** — on this repository's reviews it returns materially more findings no other agent found.
 
-  It settles ties only — where the *subject* of the branch is error handling, that reviewer still wins on the "most strongly satisfied" test above, which is decided first. Note also that type runs on opus and error handling on sonnet, so the tie is broken toward the more expensive agent; where the branch is large enough for both, take both rather than choosing. Keep recording `found-by:` each run.
+  **Two things this does not license.** The tiebreak settles *ties only*: on a diff whose subject is error handling the error-handling reviewer still wins the slot on the "most strongly satisfied" test above, which is decided first. And the gap is smaller than it looks per token: the type reviewer runs on opus and the error-handling reviewer on sonnet, so a tie broken toward type buys the unique findings at a materially higher price. Where the diff is large enough that both fit, take both rather than choosing.
 
-  **This roster is tuned on the sibling command's pull-request data**, not on branch reviews — so re-decide it here once branch handoffs exist to count.
+  Keep recording `found-by:` on every review, so this can be re-decided on data rather than on memory.
 - **11-30 files → up to 5.**
 - **>30 files → the full matched set.**
 
-Where more matched than the cap allows, drop by marginal yield and by how much of the trigger the diff actually satisfies: an agent whose subject appears in one file of thirty is a wasted dispatch, and you can tell which those are before sending them. **Say in the report which matched agents you dropped and why** — a silently trimmed roster reads as full coverage. The security-focused and test-coverage reviewers are never the ones dropped.
+Where more matched than the cap allows, drop by marginal yield and by how much of the trigger the diff actually satisfies: an agent whose subject appears in one file of thirty is a wasted dispatch, and you can tell which those are before sending them. **Say in the report which matched agents you dropped and why** — a silently trimmed roster reads as full coverage. The security-focused reviewer and the test-coverage reviewer are never the ones dropped.
 
-**Issue every dispatch in one message.** Compose all the briefs, then send the agent calls together as parallel tool uses in a single turn — never one call per turn. A brief runs to six or eight thousand characters, so each turn spent emitting one costs twenty to thirty seconds of wall clock before the *next* agent has started, and the fan-out is waiting on the last one. Measured on two real pull-request reviews using this same roster, the gap between the first dispatch and the fifth was **99 and 141 seconds** of the flow standing still. The agents share nothing and the roster is already decided; staggering them buys nothing.
+**Issue every dispatch in one message.** Compose all the briefs, then send the agent calls together as parallel tool uses in a single turn — never one call per turn. A brief runs to six or eight thousand characters, so each turn spent emitting one costs twenty to thirty seconds of pure wall clock before the *next* agent has started, and the whole fan-out is waiting on the last one. Measured on two real reviews, the gap between the first agent's dispatch and the fifth's was **99 and 141 seconds**, all of it the flow standing still. Nothing is gained by staggering them: the agents share nothing, the roster is already decided, and this is the one place in the command where parallelism is free.
+
+<!-- /shared:roster -->
+
+**This roster is tuned on the sibling command's pull-request data**, not on branch reviews — so re-decide it here once branch handoffs exist to count.
 
 ### Run the gate once, before dispatching
 
@@ -105,43 +111,63 @@ If the two snapshots differ, say so in the report at once and name the paths. Ev
 
 Launch all selected agents in a single message (parallel, background). Give each: the base branch, the branch name, the gate result above, the requirement from step 1 when one resolved, and instructions to review **both parts of the step 1 scope** — `git diff <base>...HEAD` *and*, when the tree is dirty, `git diff HEAD` plus the untracked files — in the repo at the current working directory, returning findings as records under the keys `file:`, `scope:`, `issue:`, `why:`, `fix:`, `evidence:`, where `scope` is exactly one of:
 
-- `introduced` — the diff caused or exposed this. Without this change, it would not be there.
-- `pre-existing` — already true before the diff; the review merely walked past it.
+<!-- shared:evidence-levels -->
+
+- `introduced` — the change caused or exposed this. Without this change, it would not be there.
+- `pre-existing` — already true before the change; the review merely walked past it.
 
 and `evidence` is exactly one of:
 
 - `verified: <check>` — a *targeted* executable check confirmed the finding (a repro command, a single test file, real output). Name the check. Mutation probes are not run by agents — see `proposed-probe`.
 - `grounded: <paths read>` — the agent read the cited code beyond the diff hunk, and the claim rests on what it read.
-- `proposed-probe: <file, lines, change, expected failure>` — the finding would be proved by mutating the tree, which agents must not do. The main loop runs it serially in step 4 and resolves the finding to `verified` or drops it.
+- `proposed-probe: <file, lines, change, expected failure>` — the finding would be proved by mutating the tree, which agents must not do. The main loop runs it serially in its probe pass and resolves the finding to `verified` or drops it.
 - `diff-only` — inferred from the hunk alone; surrounding code not read.
 
 This is self-reported and therefore soft: it separates "I ran something" from "I read the file" from "I inferred it", which is all it is meant to do. If an agent omits the field, record `unstated` — never infer the level on the agent's behalf.
+
+<!-- /shared:evidence-levels -->
 
 **A fifth level exists but no agent may write it: `gated: <file:lines>`.** It is written only by the step 4 verification gate, and it means *a second reader confirmed the claim against the code* — strong evidence, and still evidence produced by reading. Keep it distinct from `verified`, which asserts that something was **executed and observed**: collapsing the two makes the gate's own output into the label that exempts a finding from the gate, and leaves `/pr-recheck` hunting for a probe description that was never written. Where both apply, `verified` wins and the gate's confirmation goes in the recorded reasoning.
 
 ### The consequence bar (tell every agent, verbatim)
 
+<!-- shared:consequence-bar -->
+
 > Report a finding only if you can name its **observable consequence**: what breaks, for whom, under which input or state. "This is fragile", "this could be clearer", "this might cause problems" are not consequences — if that is all you have, you have not finished investigating, and the finding does not go in. Everything you return is read, ranked, written up and verified downstream, so a finding nobody can act on costs what an actionable one costs and crowds it out. There is no quota in either direction: return forty if forty clear the bar, return none if none do.
 
-This is a bar on the *statement*, not a cap on the count and not a severity judgment — "I can say what breaks" is a question about how far the agent got, and stays clear of the ranking forbidden below. Deliberately no number: a cap makes the agent rank its own findings to decide what fits, which is the thing this flow assigns to step 4, where the project context to do it actually exists.
+This is a bar on the *statement*, not a cap on the count and not a severity judgment — "I can say what breaks" is a question about how far the agent got, and stays clear of the ranking forbidden below. Deliberately no number: a cap makes the agent rank its own findings to decide what fits, which is the thing this flow assigns to the Classify step, where the project context to do it actually exists.
 
-**Tell every agent, verbatim: do not assign severity, priority, criticality, confidence, or ranking.** A reviewer sees the diff and the requirement, and nothing else — not what is deliberately out of scope, not what is already ticketed, not what the project decided on purpose. Judging consequence from inside that blind spot produces a number that looks like information and is not. Severity is assigned in step 4, where the context to assign it actually exists. If an agent returns one anyway, discard it rather than carrying it forward.
+**Tell every agent, verbatim: do not assign severity, priority, criticality, confidence, or ranking.** A reviewer sees the diff and the requirement, and nothing else — not what is deliberately out of scope, not what is already ticketed, not what the project decided on purpose. Judging consequence from inside that blind spot produces a number that looks like information and is not. Severity is assigned in the Classify step, where the context to assign it actually exists. If an agent returns one anyway, discard it rather than carrying it forward.
+
+<!-- /shared:consequence-bar -->
 
 **When a requirement was passed, tell every agent this too, verbatim: the requirement is context for judging what you find, never a boundary on what you look for.** A bug the requirement never mentions is still a bug and must still be reported. Where the code and the requirement disagree, say which one you believe is wrong and why — do not assume the requirement is stale. Where the diff appears to trip a stated **Ask First** condition without evidence it was asked, report that as a finding in its own right.
 
 ### Deletion check (standing dispatch, outside the cap)
 
-**This dispatch is additional to the roster above and is never counted against it, at any diff size.** The cap sizes the number of *lenses on added code*; this reviewer reads what left and what the change silently falsified, which no other check looks at. Inside the ≤10 bucket it would lose the slot on almost every branch — its second trigger fires on nearly every diff, but comment rot is by definition *incidental* to the change, so the "subject is the point of the change" test above would rule it out precisely where it is the only owner of the class. `/pr-review` and `/pr-recheck` state the same exemption; the three commands must not disagree about this.
+<!-- shared:deletion-check -->
 
-If the diff removes or replaces meaningful code — ignoring pure renames, moves, and whitespace — **or leaves comments, docstrings or docs standing next to code it rewrote** — dispatch one additional **context-free** reviewer alongside the others. Prefer a purpose-built one: if the session offers an agent whose description declares removed/replaced code as its subject, dispatch that and hand it the same diff scope and gate result as everyone else. Otherwise compose it inline with this brief:
+**This dispatch is additional to the roster above and is never counted against it, at any diff size.** The cap sizes the number of *lenses on added code*; this reviewer reads what left and what the change silently falsified, which no other check looks at. Putting it inside the ≤10 bucket would be self-defeating in a specific way: its second trigger fires on nearly every diff, but comment rot is by definition *incidental* to the change, so the "subject is the point of the change" test above would lose it the slot on almost every diff — and where the session offers no separate comment reviewer, which is the common case, that would leave the class with no owner at all on the bucket most diffs land in. `/branch-review`, `/pr-review` and `/pr-recheck` state the same exemption; the three must not disagree about this.
+
+If the change removes or replaces meaningful code — ignoring pure renames, moves, and whitespace — **or leaves comments, docstrings or docs standing next to code it rewrote** — dispatch one additional **context-free** reviewer alongside the others. Prefer a purpose-built one: if the session offers an agent whose description declares removed/replaced code as its subject, dispatch that and hand it the same read path, diff scope, and gate result as everyone else. Otherwise compose it inline with this brief:
+
+<!-- /shared:deletion-check -->
+
+<!-- shared:deletion-check-brief -->
 
 > For each chunk of removed or replaced code, ask one question: did it carry behavior or a contract that this change neither re-established elsewhere nor intentionally retired? Report the resulting regression, orphaned reference, or newly-dead code. Removed code that was genuinely dead, or whose behavior is demonstrably re-established elsewhere in the diff, is not a finding — say where it was re-established. Then check the comments and docs the change left *unchanged* around the code it touched: a surviving claim the change invalidated is the same blind spot in a second form. Return findings in the same shape as every other reviewer, and do not assign severity.
 
+<!-- /shared:deletion-check-brief -->
+
+<!-- shared:deletion-check-rationale -->
+
 Deleted lines are the blind spot every other check shares: reviewers read what was added. Nothing else in this flow looks at what left.
 
-**Keep it context-free either way.** Do not pass this reviewer the requirement from step 1 or the branch's stated intent. A rationale explains why the author believed the removal was safe, and this is the one check whose value depends on establishing that independently.
+**Keep it context-free either way.** Do not pass this reviewer the requirement or the author's stated intent. A rationale explains why the author believed the removal was safe, and this is the one check whose value depends on establishing that independently.
 
-**Its second half is the only owner of comment rot, which is why the trigger is two-part.** Re-reading the comments and docs a change left *unchanged* around code it touched is a separate blind spot from deleted lines, and it does not need a deletion to open: a purely additive hunk falsifies the comment above it just as reliably. Triggering only on removal would leave a whole class of diff with nobody re-reading a single surviving comment.
+**This reviewer is the only owner of comment rot, which is why its trigger is two-part.** Its second half re-reads the comments and docs the change left *unchanged* around code it touched — the claim a change silently invalidated. That is a separate blind spot from deleted lines and it does not require any deletion to open: a purely additive hunk falsifies the comment above it just as reliably. Dispatching this reviewer only when something was removed would leave a whole class of diff with nobody re-reading a single surviving comment. If the session offers a *separate* comment or documentation reviewer as well, dispatch it only when comments or docs are a substantial part of the diff — otherwise the two are a duplicate dispatch rather than extra coverage.
+
+<!-- /shared:deletion-check-rationale -->
 
 ## 3. Security review in the main loop (while agents run)
 
@@ -192,15 +218,21 @@ Reading never silently removes a finding.
 
 ### How to wait
 
+<!-- shared:how-to-wait -->
+
 When you run out of grounding work and the agents are still going, **block in the foreground**: `perl -e 'sleep <n>'` with a matching tool timeout. One call, one turn, `<n>` seconds of real waiting.
 
-**Size the first block to the fan-out, then drop to short ones.** A flat 300 costs up to five minutes of dead time after the last agent has already reported, on every run. Block once for about as long as you expect the slowest agent to still need — 240s on a large diff, 120s on a small one — and after that **block in 30s steps, not 60s**. The cost being avoided is the turn, not the second.
+**Size the first block to the fan-out, then drop to short ones.** A flat 300 costs up to five minutes of dead time after the last agent has already reported, on every run. Block once for about as long as you expect the slowest agent to still need — 240s on a large diff, 120s on a small one — and after that **block in 30s steps, not 60s**. The cost being avoided is the turn, not the second: a handful of short calls at the tail is cheap, and it is the difference between finishing when the agents finish and finishing minutes later.
 
-**The tail is where this is actually lost.** Sleeping past the end of the fan-out happens on runs that sized their first block correctly, inside a long block sized for agents that have already returned. Past your estimate of the slowest agent, every further block risks dead time proportional to its own length; 30s bounds the loss at 30s. Calibrate the first block against the slowest agent rather than the diff: on this roster the security reviewer is the long pole at eleven to thirteen minutes from its own dispatch, with the rest in at five to eleven.
+**The tail is where this is actually lost.** Sleeping past the end of the fan-out happens on runs that sized their first block correctly, inside a long block sized for agents that have already returned. Once you are past your estimate of the slowest agent, every further block is a coin flip on dead time proportional to its own length; 30s bounds the loss at 30s.
 
-Do **not** wait by backgrounding a sleep. A backgrounded command returns the turn to you immediately, so `sleep 300 &` waits zero seconds and costs one full turn — and by this point in the flow a turn re-reads a 150–250k context. A run that backgrounds its sleeps burns prompt tokens by the million and produces no wall-clock delay at all; a single foreground wait does the whole job.
+**Calibrate the first block against the slowest agent, not the diff.** On this roster the security reviewer is the long pole, at roughly eleven to thirteen minutes from its own dispatch against four to eleven for the rest. So the useful first block is roughly *that, minus however long you have already spent grounding*, and grounding usually covers most of it. If grounding has run past it, do not open with a long block at all — go straight to 30s steps.
+
+Do **not** wait by backgrounding a sleep. A backgrounded command returns the turn to you immediately, so `sleep 300 &` waits zero seconds and costs one full turn — and by this point in the flow a turn re-reads a 150–250k context. A run that backgrounds its sleeps burns prompt tokens by the million and produces no wall-clock delay at all; a single foreground `perl` call does the whole job.
 
 The same applies to any "let me check if they're done yet" poll — `TaskList`, listing the tasks directory, stat-ing output files. Agent completions arrive as notifications on their own; polling for them buys nothing and costs a turn each time. Block, and let the notification wake you.
+
+<!-- /shared:how-to-wait -->
 
 ### Run any `proposed-probe`, serially and only on a clean tree
 
