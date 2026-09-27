@@ -73,9 +73,6 @@ limits, kept as measured rather than patched:
 - **A `scope:` written inside a "not reported" / "cleared" note can still be picked up** as if it
   were a live finding — the tolerant parser has no notion of a negated context, only of where the
   word `scope` appears.
-- **A wrapper wider than `SCOPE_RE`'s `\W{0,3}` gap goes unparsed**: `` **scope:** `introduced` ``
-  puts four non-word characters (`**`, a space, a backtick) between the colon and the value, past
-  the 3 the regex allows, so the finding never registers as scoped.
 - **A "no findings" answer with a grounding citation trips the unparsed heuristic**: citing a known
   file as evidence for finding nothing is enough for `parse_findings` to treat the answer as
   unparsed rather than as zero findings, since it can't tell "grounded, found nothing" from "wrote
@@ -99,6 +96,10 @@ assumption a synthetic `SegmentationTests` case doesn't already cover.
 `baselines/<run date>.md` is a copy of one full run's `summary.md`, kept for comparison against
 future runs. Not regenerated automatically — copy it by hand after a run you intend to keep as a
 reference point.
+
+`baselines/2026-09-27-aligned-keys.md` is the current one, taken after the reviewers switched to
+the six aligned output keys (`file:`/`scope:`/`issue:`/`why:`/`fix:`/`evidence:`); it supersedes
+`baselines/2026-09-26.md` and lists the per-row changes against it.
 
 ## `brief.md`
 
