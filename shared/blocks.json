@@ -72,5 +72,54 @@
       "plugins/review-flow/commands/branch-review.md",
       "plugins/review-flow/commands/pr-review.md"
     ]
+  },
+  "assign-severity": {
+    "source": "shared/review-flow/assign-severity.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "rate-before-drop": {
+    "source": "shared/review-flow/rate-before-drop.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "medium-consequence": {
+    "source": "shared/review-flow/medium-consequence.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "disagreement-and-noise": {
+    "source": "shared/review-flow/disagreement-and-noise.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "field-syntax": {
+    "source": "shared/review-flow/field-syntax.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "key-spellings": {
+    "source": "shared/review-flow/key-spellings.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
+  },
+  "rule-candidates": {
+    "source": "shared/review-flow/rule-candidates.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md"
+    ]
   }
 }

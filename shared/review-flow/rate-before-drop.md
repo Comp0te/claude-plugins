@@ -1,0 +1,1 @@
+**Rate before you drop, and rate the whole set first.** Work through every finding, assign every severity, and only then discard the Lows — deciding to drop while still ranking invites lowering a borderline finding because the set already feels long.

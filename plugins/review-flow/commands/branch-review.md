@@ -243,22 +243,34 @@ Once every agent has reported and nothing else is touching the tree, resolve the
 
 A probe is worth running — it is the difference between "this test looks decorative" and "deleting this leaves the suite green" — but never at the cost of uncommitted work, and never concurrently with other readers. If a probe cannot be run for any other reason, keep it as `proposed-probe` and say so rather than silently promoting or dropping it.
 
+<!-- shared:assign-severity -->
+
 **Assign severity.** Rate each finding by the consequence of leaving it in, for whoever uses this software: Critical / High / Medium / Low. Judge each finding on its own — do not lower one because a related finding was dropped, and do not raise one because several checks happened to report it. A reviewer that returned a severity anyway does not get a vote.
+
+<!-- /shared:assign-severity -->
 
 **A finding you rate Low is dropped here, and goes no further.** It is not authored, not written to the handoff file, not written to the deferred-work log, and does not appear in the report. This is a deliberate policy: a Low is by definition something whose consequence does not justify anyone's time, and carrying it costs an authored record, a file entry and a share of every later step's context — for material that is, in practice, never read. Two consequences, both load-bearing:
 
 - **The call is irreversible, so make it on the finding's consequence and not on your confidence in it.** A finding you doubt is not thereby Low: an unproven claim about a signing path is a High you have not verified, and it belongs in the set with its evidence level saying so. Downgrading uncertainty into Low is how a real defect disappears silently, and after this step nothing can recover it.
 - **Disclose the count, never the contents.** The report says `N findings rated Low and dropped at classification` and nothing more — no list, no appendix, and not one word about a dropped finding in any file. **The count alone is also written to the handoff header, as `low-dropped: <N>`** — `0` when there were none, never omitted. That is deliberate and it is not an exception to the rule above: a number carries no contents, and it is the only trace a Low leaves anywhere once the report scrolls away. The Low drop is the one irreversible decision in this flow, and the question the field exists to answer is whether the bar is discarding real work. The number keeps the policy visible and lets the user notice if it is ever absurd; the contents are exactly what this rule exists not to carry.
 
-**Rate before you drop, and rate the whole set first** — deciding to drop while still ranking invites lowering a borderline finding because the set already feels long.
+<!-- shared:rate-before-drop -->
+
+**Rate before you drop, and rate the whole set first.** Work through every finding, assign every severity, and only then discard the Lows — deciding to drop while still ranking invites lowering a borderline finding because the set already feels long.
+
+<!-- /shared:rate-before-drop -->
 
 **Split Medium by consequence, and give every Medium a `consequence:` field.** With Low dropped at classification, Medium is the whole review, and a tier holding most of the set stops carrying information. The value is one of:
 
-- **a named user-visible or security effect**, in one sentence saying who sees it and under what input or state: wrong data on screen, a control that does nothing, a state that does not recover, work silently lost; or key material, signing, vault, permissions, origin or sender trust, CSP, the message-passing boundary.
-- **`safety-net — <what it fails to catch>`** for a test that cannot fail: a vacuous assertion, an expectation derived from the artefact it guards, an assertion-by-absence. It qualifies because the code it claims to protect is unguarded while the suite says otherwise — the one defect class no gate will raise again.
-- **`internal — <why>`** for everything else: a type that could be narrower, an imprecise comment, a duplicated literal, a coverage gap with no named consequence, a missing diagnostic behind an error the user already sees.
+<!-- shared:medium-consequence -->
 
-The bar is a *named* consequence, not an imaginable one: if the chain to a user needs three unstated conditions, it is `internal`. Cheapness to fix is not a consequence, and doubt belongs in `evidence`, never here.
+- **a one-sentence statement of a user-visible or security effect** — something a person using this software can observe (wrong data on screen, a control that does nothing, a state that does not recover, a message that misinforms, work silently lost), or something on the security surface (key material, signing, vault, permissions, origin or sender trust, CSP, the message-passing boundary). Name who sees it and under what input or state, in the same sentence.
+- **a test that cannot fail** — a vacuous assertion, an expectation derived from the artefact it guards, an assertion-by-absence, a `toContain` that pins nothing. Write `consequence: safety-net — <what it fails to catch>`. This qualifies not because the test matters but because the *code it claims to protect* is unguarded and the suite says otherwise, which is the one defect class no gate will ever raise again.
+- **`internal`** — everything else. A type that could be narrower, an optional field with no caller, a comment that is imprecise, a duplicated literal, a coverage gap with no named consequence, a missing diagnostic behind an error the user already sees. Follow the word with the reason in one clause: `consequence: internal — narrows a type nobody currently passes wrongly`.
+
+**The bar is a *named* consequence, not an imaginable one.** Nearly anything can be argued into a user-visible effect through a long enough chain; if the chain needs three unstated conditions, it is `internal`. Conversely, do not demote a finding to `internal` because it is cheap to fix or because you doubt it — cheapness is not a consequence and doubt belongs in `evidence`.
+
+<!-- /shared:medium-consequence -->
 
 **Nothing is dropped by this split.** This command gates a branch the user owns, so `internal` findings stay in the handoff file and in the report in full — the user is the one who will act on them, and a cheap cleanup they can do in the same pass is worth more here than it would be on someone else's pull request. What the field buys is the ordering in step 6 and a correct default when the same finding later travels to `/pr-publish` or `/pr-tickets:jira`. Critical and High carry no `consequence:` field: at those severities the consequence is the severity.
 
@@ -266,9 +278,13 @@ Where a requirement resolved in step 1, anchor severity to it: a finding that co
 
 **Confirm scope.** Take each reviewer's `introduced` / `pre-existing` as a starting point and correct it where the reviewer was working blind — code that merely moved is not introduced, and a latent bug the diff newly made reachable is. When the two are genuinely indistinguishable, treat it as `introduced`: this is a gate on the branch, and the cost of over-including is a paragraph the user skips.
 
-**Record disagreement.** Where one check raised a finding and another examined the same code and cleared it, do not silently pick a winner. Read the clearing check's reasoning and establish *what question it actually answered* — a clearance that answers a narrower or adjacent question is not a clearance, and this is the common case, because two agents given different briefs rarely converge on the same question. Keep the finding and record the disagreement in its `contested` field for step 5. Only if the clearance is genuinely on point and correct does the finding go under *Drop noise* below — and then say which check settled it. A disagreement resolved in your head and left out of the file cannot be acted on by anything downstream.
+<!-- shared:disagreement-and-noise -->
 
-**Drop noise.** A finding you are not confident is real, and which no evidence level supports, does not need a home — drop it rather than filing it as `pre-existing`. Dropping is an expected outcome, not a failure. This is the one judgment reserved for findings you have actually read: it does not license the suppression forbidden in step 6, which is about findings you doubt but cannot dismiss.
+**Record disagreement.** Where one check raised a finding and another examined the same code and cleared it, do not silently pick a winner. Read the clearing check's reasoning and establish *what question it actually answered* — a clearance that answers a narrower or adjacent question is not a clearance, and this is the common case, because two agents given different briefs rarely converge on the same question. Keep the finding and record the disagreement in its `contested` field for the handoff file. Only if the clearance is genuinely on point and correct does the finding go under *Drop noise* below — and then say which check settled it. A disagreement resolved in your head and left out of the file cannot be acted on by anything downstream.
+
+**Drop noise.** A finding you are not confident is real, and which no evidence level supports, does not need a home — drop it rather than filing it as `pre-existing`. Dropping is an expected outcome, not a failure. This is the one judgment reserved for findings you have actually read: it does not license the suppression forbidden in the report, which is about findings you doubt but cannot dismiss.
+
+<!-- /shared:disagreement-and-noise -->
 
 ### Verification gate
 
@@ -336,13 +352,21 @@ Tell the writer, verbatim: *the only files you may create or modify are the hand
   - **`contested:`** — set it whenever one check raised the finding and another examined the same code and cleared it, naming what the clearing check actually answered. Carried as prose in a *found by* line this is invisible to any consumer; as a field it is the one signal that a finding which looks settled is not. Omit it when no check disagreed — never write `contested: none`.
   - **`gate:`** — the step 4 gate's reasoning, whatever the outcome: what was confirmed and where, which clause was corrected, what refuted it, or what was left open. Give it that name rather than folding it into prose; it is what a reader needs to tell a confirmed finding from an unexamined one. A finding the gate refuted is written as `verdict: dropped — <reasoning>` rather than omitted, so a reader sees it resolved rather than never raised.
 
-**Pin the field syntax, and tell the writer this verbatim.** Every field above is written as `key: value`, one field per line, **starting at column 0** — not as a list item, not folded into the heading, not merged with a neighbour. And exactly one line per key per finding.
+<!-- shared:field-syntax -->
+
+**Pin the field syntax, and tell the writer this verbatim.** Every field is written as `key: value`, one field per line, **starting at column 0** — not as a list item, not folded into the `### F<n>` heading, not merged with a neighbour. Exactly one line per key per finding.
+
+<!-- /shared:field-syntax -->
 
 **The same rule binds the header facts.** `branch:`, `base:`, `head SHA:`, `files changed:`, `checks that ran:`, `checks skipped:`, `low-dropped:` are `key: value` at column 0 too. On the pull-request side the finding fields have held on every run since this rule was written while one archived file rendered its whole header as a markdown list, so the header is the half that actually fails — and a header field nothing can read is indistinguishable from one that was never written.
 
-**Pin the key spellings too, and give the writer the list above literally.** Naming a field in prose — "which checks found it", "why it matters" — leaves the writer to invent the key, and it invents a different one on a different run: the pull-request archive here carries `found by:` in three files and `found-by:` in two, same field, same instruction. `found-by:` is the one that decides roster and model tier, so a rename nothing declares makes every measurement across runs incomparable while every consumer keeps failing open on the absent key.
+<!-- shared:key-spellings -->
 
-**Pin `found-by:`'s *value* too, not just its key: `found-by: <agent>[, <agent>]*` — agent names, comma-separated, and nothing else.** No semicolons, no parentheticals, no "independently confirmed by", no trailing "— 2 checks". Measured across six pull-request reviews and 90 findings: 20 lines separated with commas, 17 with semicolons, and 11 carried free prose, so the one field the roster and model-tier decision rests on could not be counted by `grep` at all and had to be normalised by hand. Anything worth saying beyond the list of names belongs in `contested:`, which exists for exactly that and is already read by every consumer. A key whose value has no grammar is only half pinned.
+**Pin the key spellings too, and give the writer the list above literally.** Naming a field in prose — "which checks found it", "why it matters" — leaves the writer to invent the key, and it will invent a different one on a different run: the archive here carries `found by:` in three files and `found-by:` in two, for the same field, written by the same instruction. That field is the one input to the roster and model-tier decision, and a rename nothing declares makes every measurement across rounds incomparable while every consumer keeps failing open on the absent key. `found-by:` is the spelling; `why:` and `fix:` are the spellings for the two long-named fields.
+
+**Pin `found-by:`'s *value* too, not just its key: `found-by: <agent>[, <agent>]*` — agent names, comma-separated, and nothing else.** No semicolons, no parentheticals, no "independently confirmed by", no trailing "— 2 checks". Measured across six reviews and 90 findings: 20 lines separated with commas, 17 with semicolons, and 11 carried free prose, so the one field the roster and model-tier decision rests on could not be counted by `grep` at all and had to be normalised by hand. Anything worth saying beyond the list of names belongs in `contested:`, which exists for exactly that and is already read by every consumer. A key whose value has no grammar is only half pinned.
+
+<!-- /shared:key-spellings -->
 
 The rule is not cosmetic and it is not the writer's stylistic call. This file is read downstream by `grep` and by per-id `awk` loops, never by a parser: severity decides whether a finding is held, `verdict` decides whether it is collected, `evidence` decides whether it is gated again. A field the writer moved into the `### F<n>` heading, or emitted as `- severity: Medium`, is a field those consumers do not see — and every one of them fails open, treating "absent" as "nothing to do here". Nothing anywhere in the flow re-reads the file to notice.
 
@@ -437,6 +461,8 @@ This command is a *gate*, and a ranked list is not a gate: severity says how bad
 
 Second-to-last section of the report: after the ranked findings, after the footer paths, and before the Verdict.
 
+<!-- shared:rule-candidates -->
+
 Once the findings are ranked, scan them for **bug classes** worth encoding as a static-analysis rule instead of re-reviewing forever. Ask it here, while the context of the bug is still loaded — not a week later. A finding qualifies only if all three hold:
 
 - **Syntactically recognizable** — detectable from code shape alone (a forbidden call, a dangerous sink, a missing wrapper), or expressible as data flow from an untrusted source to a sink. Anything needing project semantics, cross-file type knowledge, or human judgment does not qualify.
@@ -446,6 +472,8 @@ Once the findings are ranked, scan them for **bug classes** worth encoding as a 
 Prefer findings carrying `verified` or `grounded` evidence. A `diff-only` finding may be listed, but say so — encoding a bug that may not exist is worse than no rule.
 
 One line per candidate: the bug **class** (not the instance), the finding number it came from, and whether it is **pattern-shaped** (a single wrong line, expressible as a pattern) or **taint-shaped** (untrusted data reaching a dangerous sink — needs taint mode, not a longer `pattern-either`).
+
+<!-- /shared:rule-candidates -->
 
 Do not write the rule here: this command is report-only, and the repo's rule file is tracked. Naming the candidate is the whole deliverable; authoring it is a separate session that follows the repo's own rule-writing and rule-testing conventions.
 

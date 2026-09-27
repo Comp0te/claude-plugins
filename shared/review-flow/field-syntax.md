@@ -1,0 +1,1 @@
+**Pin the field syntax, and tell the writer this verbatim.** Every field is written as `key: value`, one field per line, **starting at column 0** — not as a list item, not folded into the `### F<n>` heading, not merged with a neighbour. Exactly one line per key per finding.

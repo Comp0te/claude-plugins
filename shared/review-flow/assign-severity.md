@@ -1,0 +1,1 @@
+**Assign severity.** Rate each finding by the consequence of leaving it in, for whoever uses this software: Critical / High / Medium / Low. Judge each finding on its own — do not lower one because a related finding was dropped, and do not raise one because several checks happened to report it. A reviewer that returned a severity anyway does not get a vote.
