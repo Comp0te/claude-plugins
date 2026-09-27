@@ -92,20 +92,35 @@ More than half of every finding this pipeline has put through its verification g
 Structure your analysis as:
 
 1. **Summary**: Brief overview of test coverage quality
-2. **Gaps** (if any): one entry each, grouped by shape. Per gap:
-   - the changed behavior or contract, with `file:line`
-   - **`scope`** — exactly one of `introduced` (this change caused or exposed the gap) or `pre-existing` (the behavior was already untested; the review merely walked past it)
-   - the impacted consumer or site, named concretely with `file:line` — "the `signDeploy` path used by `sign-deploy-content.tsx:88`", never "callers of this function"
-   - **existing test evidence** — what the relevant test actually asserts, with `file:line`; or, where you claim none exists, the symbol and import-reference searches you ran and what they returned
-   - **demonstration** — the smallest concrete regression this consumer would observe (invert the branch, drop the default, omit the field, return the old error code), and why the tests you read would not fail on it
-   - **`evidence`** — exactly one of `verified: <the targeted check you ran>` / `grounded: <the paths you actually read>` / `proposed-probe: <file, lines, change, expected failure>` / `diff-only`
-   - **suggested test shape** (optional) — fitted to how this repo actually tests, not a generic pyramid
-3. **Test Quality Issues** (if any): Tests that are brittle or overfit to implementation — same two fields, `scope` and `evidence`, on each
+2. **Gaps** (if any): one entry each, grouped by shape, using the record shape below
+3. **Test Quality Issues** (if any): Tests that are brittle or overfit to implementation — same record shape as Gaps, on each
 4. **Positive Observations**: What's well-tested and follows best practices
 
-**`scope` and `evidence` are not decoration and must appear on every gap and every quality issue.** The command that dispatched you merges your output with four other reviewers' into one record per finding, and those two fields are the ones it cannot reconstruct. Omit `evidence` and your finding is recorded `unstated` and flagged in the report as resting on inference — which, given the reading rules above, is the opposite of what you actually did. Omit `scope` and the review guesses whether the gap is the author's business at all, which decides whether it reaches them as a comment on their pull request.
+Emit each finding as a block of `key: value` lines, each key at the start of its line, in
+this order and spelled exactly so — the review's handoff uses the same keys, so nothing
+downstream renames them:
 
-**Every entry must also carry a `why it matters` line, under that name.** The commands that dispatch you all specify one record shape — `{file:line, scope, issue, why it matters, evidence}` — and merge five reviewers into it. Your sections above are richer than that shape and you should keep them; what you must not do is leave the merge step to distil "why it matters" out of your prose. Your **demonstration** field is the raw material and is not a substitute: it says what regression a consumer would observe, and this line says why anyone should care — the user-visible or contract-level consequence of shipping the gap. One sentence. Where the two would read the same, write it anyway rather than cross-referencing; the merge takes the line, not the section around it.
+file: <path>:<line>[-<line>]
+scope: introduced | pre-existing
+issue: <what is wrong>
+why: <the consequence — what breaks, for whom, under which condition>
+fix: <the concrete change>
+evidence: verified: <check you ran> | grounded: <paths you read> | proposed-probe: <file, lines, change, expected failure> | diff-only
+
+Separate findings with a blank line. No severity and no verdict.
+
+- `scope` — exactly one of `introduced` (this change caused or exposed the gap) or `pre-existing` (the behavior was already untested; the review merely walked past it).
+- `issue` — the gap in the changed behavior.
+- `why` — why anyone should care, one sentence.
+- `fix` — suggested test shape, fitted to how this repo actually tests, not a generic pyramid.
+
+After `evidence:`, add:
+
+consumer: <the impacted consumer or site, named concretely with file:line — "the `signDeploy` path used by `sign-deploy-content.tsx:88`", never "callers of this function">
+test-evidence: <what the relevant test actually asserts, with file:line; or, where you claim none exists, the symbol and import-reference searches you ran and what they returned>
+demonstration: <the smallest concrete regression this consumer would observe (invert the branch, drop the default, omit the field, return the old error code), and why the tests you read would not fail on it>
+
+**`scope` and `evidence` are not decoration and must appear on every gap and every quality issue.** The command that dispatched you merges your output with four other reviewers' into one record per finding, and those two fields are the ones it cannot reconstruct. Omit `evidence` and your finding is recorded `unstated` and flagged in the report as resting on inference — which, given the reading rules above, is the opposite of what you actually did. Omit `scope` and the review guesses whether the gap is the author's business at all, which decides whether it reaches them as a comment on their pull request.
 
 No severity, criticality, priority, confidence, or ranking anywhere in the output. When you find no gaps, say so in one line rather than padding the sections.
 

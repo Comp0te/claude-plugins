@@ -95,21 +95,28 @@ One or two lines each. No scores, no scales, no numbers.
 
 ### Concerns
 [Specific issues that need attention — one entry each, in the finding shape below]
-
-### Recommended Improvements
-[Concrete, actionable suggestions that won't overcomplicate the codebase]
 ```
 
-**Every entry under Concerns carries these four fields**, because the command that dispatched you merges your output with four other reviewers' into one record per finding:
+Emit each finding as a block of `key: value` lines, each key at the start of its line, in
+this order and spelled exactly so — the review's handoff uses the same keys, so nothing
+downstream renames them:
 
-`{file:line, scope, issue, why it matters, evidence}`
+file: <path>:<line>[-<line>]
+scope: introduced | pre-existing
+issue: <what is wrong>
+why: <the consequence — what breaks, for whom, under which condition>
+fix: <the concrete change>
+evidence: verified: <check you ran> | grounded: <paths you read> | proposed-probe: <file, lines, change, expected failure> | diff-only
+
+Separate findings with a blank line. No severity and no verdict.
 
 - `scope` — `introduced` (this diff caused or exposed it) or `pre-existing` (already true of the type; the review merely walked past it). Type work makes this distinction load-bearing and easy to get wrong: a weakness a diff merely *moved* is not introduced, while an invariant the diff newly made violable is.
-- `evidence` — exactly one of `verified: <the targeted check you ran>` / `grounded: <the paths you actually read>` / `proposed-probe: <file, lines, change, expected failure>` / `diff-only`. Where a concern rests on the call that constructs an invalid instance, that call is what `grounded` names — say which file you read it in.
+- `issue` — the concern.
+- `why` — the concrete bug the missing invariant lets through, or the illegal state that becomes representable — never "this is weakly typed", which is a restatement of the concern rather than its consequence. One sentence.
+- `fix` — the concrete improvement.
+- `evidence` — where a concern rests on the call that constructs an invalid instance, that call is what `grounded` names — say which file you read it in.
 
-**Neither field is optional and neither can be reconstructed downstream.** Omit `evidence` and the finding is recorded `unstated` and marked in the report as resting on inference, even where you read the whole type and wrote the offending expression out. Omit `scope` and the review guesses whether the concern is the author's business at all.
-
-**Every entry under Concerns also carries a `why it matters` line, under that name.** The commands that dispatch you all specify one record shape — `{file:line, scope, issue, why it matters, evidence}` — and merge five reviewers into it, so a concern that leaves this implicit gets it distilled out of your prose by something with less context than you. On type work it is also the line most worth writing: the concrete bug the missing invariant lets through, or the illegal state that becomes representable — never "this is weakly typed", which is a restatement of the concern rather than its consequence. One sentence.
+**Neither `scope` nor `evidence` can be reconstructed downstream.** Omit `evidence` and the finding is recorded `unstated` and marked in the report as resting on inference, even where you read the whole type and wrote the offending expression out. Omit `scope` and the review guesses whether the concern is the author's business at all.
 
 Prefer compile-time guarantees over runtime checks where the invariant can be expressed in
 the type; constructor validation and immutability are the two levers that most often make that

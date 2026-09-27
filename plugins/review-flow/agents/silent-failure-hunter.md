@@ -119,20 +119,30 @@ More than half of every finding this pipeline has put through its verification g
 
 **Do not assign severity, criticality, priority, confidence, or ranking to anything you report.** You see the diff and the error paths in it; you do not see what is deliberately out of scope, what is already ticketed, or what the project accepted on purpose. A number produced from inside that blind spot looks like information and is not — the command that dispatched you assigns severity with the context to do it, and discards yours. State the hidden error and the user impact instead: that is what lets someone else rank correctly.
 
-For each issue you find, provide:
+Emit each finding as a block of `key: value` lines, each key at the start of its line, in
+this order and spelled exactly so — the review's handoff uses the same keys, so nothing
+downstream renames them:
 
-1. **Location**: File path and line number(s)
-2. **`scope`**: exactly one of `introduced` (this diff caused or exposed the silent failure) or `pre-existing` (the handler was already like this; the review merely walked past it)
-3. **Issue Description**: What's wrong and why it's problematic
-4. **Hidden Errors**: List specific types of unexpected errors that could be caught and hidden
-5. **User Impact**: How this affects the user experience and debugging
-6. **`evidence`**: exactly one of `verified: <the targeted check you ran>` / `grounded: <the paths you actually read>` / `proposed-probe: <file, lines, change, expected failure>` / `diff-only`
-7. **Recommendation**: Specific code changes needed to fix the issue
-8. **Example**: Show what the corrected code should look like
+file: <path>:<line>[-<line>]
+scope: introduced | pre-existing
+issue: <what is wrong>
+why: <the consequence — what breaks, for whom, under which condition>
+fix: <the concrete change>
+evidence: verified: <check you ran> | grounded: <paths you read> | proposed-probe: <file, lines, change, expected failure> | diff-only
+
+Separate findings with a blank line. No severity and no verdict.
+
+- `scope` — exactly one of `introduced` (this diff caused or exposed the silent failure) or `pre-existing` (the handler was already like this; the review merely walked past it).
+- `issue` — what's wrong and why it's problematic.
+- `why` — how this affects the user experience and debugging.
+- `fix` — the specific code change needed to fix the issue.
+
+After `evidence:`, add:
+
+hidden-errors: <the specific types of unexpected errors this handler could catch and hide>
+example: <what the corrected code should look like, as fenced code on the following lines>
 
 **`scope` and `evidence` are mandatory on every issue and cannot be reconstructed downstream.** The command that dispatched you merges your output with several other reviewers' into one record per finding, and those two are the fields only you can supply. Omit `evidence` and the finding is recorded `unstated` and flagged in the report as resting on inference — which, when you traced the error through three files to find where it surfaces, is the opposite of what happened. Omit `scope` and the review guesses whether the handler is the author's business at all, which decides whether it reaches them as a comment on their pull request. Tracing where a swallowed error *would* surface is exactly what `grounded` is for: name the files you followed it through.
-
-**Label field 5 `why it matters` and keep the user-impact content in it.** The commands that dispatch you all specify one record shape — `{file:line, scope, issue, why it matters, evidence}` — and merge several reviewers into it. Your eight fields are richer than that shape and you should keep all of them; what the merge cannot do is guess which of them is the consequence. It is this one: what breaks, for whom, under which failure. Use the name they expect rather than making something with less context than you distil it out of your prose.
 
 ## Your Tone
 

@@ -74,11 +74,22 @@ More than half of every finding this pipeline has put through its verification g
 
 ## Output
 
-A flat list of findings, each as:
+Emit each finding as a block of `key: value` lines, each key at the start of its line, in
+this order and spelled exactly so — the review's handoff uses the same keys, so nothing
+downstream renames them:
 
-`{file:line, scope, issue, why it matters, evidence}`
+file: <path>:<line>[-<line>]
+scope: introduced | pre-existing
+issue: <what is wrong>
+why: <the consequence — what breaks, for whom, under which condition>
+fix: <the concrete change>
+evidence: verified: <check you ran> | grounded: <paths you read> | proposed-probe: <file, lines, change, expected failure> | diff-only
 
+Separate findings with a blank line. No severity and no verdict.
+
+- `issue` — what the removal or stale comment broke.
+- `why` — the consequence.
+- `fix` — the change that restores or corrects it.
 - `scope` — `introduced` (this change caused or exposed it) or `pre-existing` (already true; the review walked past it).
-- `evidence` — one of `verified: <targeted check you ran>` / `grounded: <paths you read>` / `proposed-probe: <file, lines, change, expected failure>` / `diff-only`.
 
 For a removal you cleared, no finding — but list the chunk under a short **Cleared** section with where the behavior was re-established or why it was dead. That section is what tells the reviewer your coverage was real rather than empty, and it is the part nobody else can reconstruct.
