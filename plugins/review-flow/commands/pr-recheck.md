@@ -2,6 +2,7 @@
 description: Read-only re-check of a GitHub PR after its author pushed commits in response to published review comments. Judges which findings the new code closed, reviews the incremental diff, updates the handoff. Separates the author's work from a base branch that moved underneath a stacked PR. Never posts anything.
 argument-hint: <pr-number>
 ---
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
 
 Re-check the pull request `$ARGUMENTS` against the review already recorded for it. You MUST NOT post comments, reviews, replies, thread resolutions, or approvals to GitHub, and MUST NOT modify any file tracked by git. The only files you may write are `.claude/reviews/pr-<N>-findings.md` and `.claude/reviews/pr-<N>-deferred.md` in the main repository root, plus scratch directories outside the repository. The deliverables are that updated handoff and one report in chat.
 
@@ -10,6 +11,8 @@ One exception, and only one: re-running a recorded probe may need a temporary wo
 **Bind the PR number once as `<N>` and use `<N>` everywhere below.** Never re-expand the raw argument text into a later command line: the argument routinely carries a long instruction block alongside the number, and re-expanding it at each mention copies that whole block into context several times over, for nothing.
 
 ## Operating assumptions
+
+<!-- shared:operating-assumptions -->
 
 This flow assumes nothing about the session's configuration beyond the tools it names. Two
 things it would otherwise inherit from a personal setup are stated here instead, because a
@@ -24,6 +27,8 @@ other one, and the flow looks identical either way.
   "confirmed" for something you did not execute and whose output you cannot quote. Where a
   step was skipped, say so and say why. A confident summary of an unrun check is the one
   failure this flow cannot detect in itself.
+
+<!-- /shared:operating-assumptions -->
 
 ## 1. Load, and classify the push
 
@@ -316,7 +321,7 @@ Same class as `published-log`, and treated the same way: both are provenance of 
 
 **Give the writer this block verbatim, and require the new line to match it character for character.** `/pr-publish` parses it, and its freshness exception turns on the literal token `rechecked` — a round line reading `re-checked`, `re-reviewed`, or anything else is not recognised, the exception never lifts, and a re-checked PR can never be published. That failure surfaces only at publish time, on a live pull request, as a refusal that sends you back here — where equal heads stop the command immediately. The two commands then bounce the user between them with nothing to do.
 
-<!-- BEGIN handoff-header-schema -->
+<!-- shared:handoff-header-schema -->
 
 ```
 rounds:
@@ -343,7 +348,7 @@ published-log:
   - F<n> @ <file>:<line> — <comment-url> — "<first line of the comment body>"
 ```
 
-<!-- END handoff-header-schema -->
+<!-- /shared:handoff-header-schema -->
 
 **Keep the two blocks where the file already has them, in whatever shape they are already in** — an older file may carry them as plain list items rather than fenced. Match the surrounding file rather than reformatting it; the round line's own wording is what must be exact, and rewriting a header you were told not to touch risks the `published-log` this command must not disturb.
 

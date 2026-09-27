@@ -178,7 +178,8 @@ rather than used as a measuring tool.
 - **A `display: none` element's `aria-label` can still concatenate into a parent element's accessible name in the snapshot**, even though nothing about it is visible. Judge whether visible content is duplicated by the rendered text (`innerText`) rather than by the snapshot's synthetic accessible name.
 - **A `figma.com` design URL cannot substitute for a working design-tool integration** — this browser context holds no authenticated Figma session, so a design URL reaches a login wall rather than the file. Figma's public pages load normally, which proves nothing about a file behind auth. Ask the caller for an exported PNG instead of driving the design tool's own site.
 
-<!-- discipline:begin — generated from shared/verification-discipline.md. Do not edit here: edit the source and run scripts/sync-discipline.py -->
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
+<!-- shared:discipline -->
 
 ## Method
 
@@ -274,7 +275,7 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 7. **New quirks**: anything worth adding to the project's facts file, written as a ready-to-paste bullet. "None" if none.
 8. **Environment notes**: device/emulator, build variant, whether the app was rebuilt or attached, theme, anything flaky. Keep this to a few lines — it is the least valuable part of the report and should not run longer than the findings.
 
-<!-- discipline:end -->
+<!-- /shared:discipline -->
 
 ## Memory
 

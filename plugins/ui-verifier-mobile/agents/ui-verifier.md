@@ -327,7 +327,8 @@ for one **before** you start navigating.
 - **A replay failure is not a checklist failure.** It means the route drifted. Repair or re-record
   per the reference, then verify — never report a route drift as an app defect.
 
-<!-- discipline:begin — generated from shared/verification-discipline.md. Do not edit here: edit the source and run scripts/sync-discipline.py -->
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
+<!-- shared:discipline -->
 
 ## Method
 
@@ -423,7 +424,7 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 7. **New quirks**: anything worth adding to the project's facts file, written as a ready-to-paste bullet. "None" if none.
 8. **Environment notes**: device/emulator, build variant, whether the app was rebuilt or attached, theme, anything flaky. Keep this to a few lines — it is the least valuable part of the report and should not run longer than the findings.
 
-<!-- discipline:end -->
+<!-- /shared:discipline -->
 
 ## Memory
 

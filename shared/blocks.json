@@ -1,0 +1,26 @@
+{
+  "discipline": {
+    "source": "shared/verification-discipline.md",
+    "targets": [
+      "plugins/ui-verifier-mobile/agents/ui-verifier.md",
+      "plugins/ui-verifier-web/agents/ui-verifier.md"
+    ]
+  },
+  "operating-assumptions": {
+    "source": "shared/review-flow/operating-assumptions.md",
+    "targets": [
+      "plugins/review-flow/commands/branch-review.md",
+      "plugins/review-flow/commands/pr-review.md",
+      "plugins/review-flow/commands/pr-recheck.md",
+      "plugins/review-flow/commands/pr-publish.md"
+    ]
+  },
+  "handoff-header-schema": {
+    "source": "shared/review-flow/handoff-header-schema.md",
+    "targets": [
+      "plugins/review-flow/commands/pr-review.md",
+      "plugins/review-flow/commands/pr-publish.md",
+      "plugins/review-flow/commands/pr-recheck.md"
+    ]
+  }
+}

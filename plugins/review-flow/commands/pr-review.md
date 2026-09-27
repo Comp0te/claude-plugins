@@ -2,10 +2,13 @@
 description: Read-only review of a GitHub PR by number or URL. Dispatches focused reviewer agents plus the built-in security review; one ranked report in chat. Never posts anything to the PR.
 argument-hint: <pr-number|pr-url>
 ---
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
 
 Run a read-only review of the pull request `$ARGUMENTS`. You MUST NOT post comments, reviews, or approvals to the PR, and MUST NOT modify any file tracked by git, in the repository or in any worktree. The deliverables are the two files in step 6 — the handoff file and the deferred-work log, both inside the git-excluded `.claude/reviews/`, and the only permitted writes — and one report in chat. Posting anything to the PR happens only if the user explicitly asks afterward.
 
 ## Operating assumptions
+
+<!-- shared:operating-assumptions -->
 
 This flow assumes nothing about the session's configuration beyond the tools it names. Two
 things it would otherwise inherit from a personal setup are stated here instead, because a
@@ -20,6 +23,8 @@ other one, and the flow looks identical either way.
   "confirmed" for something you did not execute and whose output you cannot quote. Where a
   step was skipped, say so and say why. A confident summary of an unrun check is the one
   failure this flow cannot detect in itself.
+
+<!-- /shared:operating-assumptions -->
 
 ## 1. Fetch the PR
 
@@ -367,7 +372,7 @@ Tell the writer, verbatim: *the only files you may create or modify are `.claude
 - **Head the file with where the PR's code can be read**, as one of `local checkout` / `worktree removed — head reachable as refs/pr/<N> (local object, no fetch needed)` / `diff-only (cross-repo) — not available locally`, per the mode step 2 chose. The middle value is the common one and it is a *positive* statement: the working tree is at the merge base, but the head commit is still in the object database, so `/pr-publish` can extract it without touching the network. `/pr-publish` verifies findings against real source before proposing any of them, and this is the only place it can learn whether the session's checkout is the head or the merge base. Getting it wrong there means verifying the wrong file at the wrong length and reporting the result with confidence — so record it even when the answer is the reassuring one.
 - **Head the file with these two blocks, verbatim in this shape.** This document writes them and `/pr-publish` reads them; a divergence in format surfaces only at runtime, on a live pull request, as a comment landing on a line that no longer exists.
 
-<!-- BEGIN handoff-header-schema -->
+<!-- shared:handoff-header-schema -->
 
 ```
 rounds:
@@ -394,7 +399,7 @@ published-log:
   - F<n> @ <file>:<line> — <comment-url> — "<first line of the comment body>"
 ```
 
-<!-- END handoff-header-schema -->
+<!-- /shared:handoff-header-schema -->
 
   **`published-log` survives everything.** The rule above says to preserve a prior review alongside when the head SHA differs; this block is stronger — it survives a complete rebuild of the finding set, including the case where the old ids no longer map to anything. It is the only defence against sending a second copy of a comment to someone else's pull request, and a duplicate is the one failure in this flow with no undo. Losing it is a halt, not a "we overwrote it and will notice later".
 

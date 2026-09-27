@@ -2,10 +2,13 @@
 description: Pre-PR review gate for the current branch. Dispatches focused reviewer agents plus the built-in security review; produces one ranked report in chat. Report-only — never modifies files.
 argument-hint: [base-branch]
 ---
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
 
 Run a report-only review of the current branch. You MUST NOT modify any file tracked by git, and MUST NOT commit or push at any point of this flow. The single exception is the serial probe pass in step 4, which the main loop runs only on a clean tree and reverts immediately, leaving no net change; agents get no such exception. The deliverables are the two files in step 5 — the handoff file and the deferred-work log, both inside the git-excluded `.claude/reviews/`, and the only permitted writes — and one report in chat. Findings are reported; fixes are the user's separate decision.
 
 ## Operating assumptions
+
+<!-- shared:operating-assumptions -->
 
 This flow assumes nothing about the session's configuration beyond the tools it names. Two
 things it would otherwise inherit from a personal setup are stated here instead, because a
@@ -20,6 +23,8 @@ other one, and the flow looks identical either way.
   "confirmed" for something you did not execute and whose output you cannot quote. Where a
   step was skipped, say so and say why. A confident summary of an unrun check is the one
   failure this flow cannot detect in itself.
+
+<!-- /shared:operating-assumptions -->
 
 ## 1. Establish the diff and the requirement
 

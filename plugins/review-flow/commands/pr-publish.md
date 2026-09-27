@@ -2,6 +2,7 @@
 description: Publish selected findings from a /pr-review handoff file as comments on a GitHub PR. Every finding not backed by an executed check is re-verified against the PR's own source first, and nothing is posted without explicit approval of the exact payload.
 argument-hint: <pr-number>
 ---
+<!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
 
 Publish findings from an existing `/pr-review` handoff file to the pull request `$ARGUMENTS`.
 
@@ -10,6 +11,8 @@ Publish findings from an existing `/pr-review` handoff file to the pull request 
 This is the only command in the review flow that writes to GitHub, and the pull request belongs to someone else. Nothing reaches the PR until the user has seen the exact payload and approved it in this session. You MUST NOT approve the PR, request changes, or push commits — comment-only.
 
 ## Operating assumptions
+
+<!-- shared:operating-assumptions -->
 
 This flow assumes nothing about the session's configuration beyond the tools it names. Two
 things it would otherwise inherit from a personal setup are stated here instead, because a
@@ -24,6 +27,8 @@ other one, and the flow looks identical either way.
   "confirmed" for something you did not execute and whose output you cannot quote. Where a
   step was skipped, say so and say why. A confident summary of an unrun check is the one
   failure this flow cannot detect in itself.
+
+<!-- /shared:operating-assumptions -->
 
 ## 1. Load and check freshness
 
@@ -381,7 +386,7 @@ Write back into the findings file, per posted finding: `verdict: posted` plus th
 
 Plus — for every finding that reached the pull request for the first time — an entry in the header's `published-log` block. Both header blocks have this shape, and it must match the one `/pr-review` writes exactly:
 
-<!-- BEGIN handoff-header-schema -->
+<!-- shared:handoff-header-schema -->
 
 ```
 rounds:
@@ -408,7 +413,7 @@ published-log:
   - F<n> @ <file>:<line> — <comment-url> — "<first line of the comment body>"
 ```
 
-<!-- END handoff-header-schema -->
+<!-- /shared:handoff-header-schema -->
 
 Per finding, by how it was sent: `verdict: resolved` with the thread id, `verdict: replied` with the reply's URL, `verdict: posted` with the comment's URL. A reply into an existing thread adds no new `published-log` entry — that finding is already in it.
 
