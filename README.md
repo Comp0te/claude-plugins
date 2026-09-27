@@ -172,6 +172,15 @@ the rename was caught by the cross-reference checker in `scripts/check-structure
 inside this repository — the consuming projects' `CLAUDE.md` files and memory stores had to be
 found by hand, which is the argument for keeping that column honest here.
 
+## Why review-flow fans out
+
+Anthropic's guidance is to keep work in one agent loop when its steps need shared context, and
+split it across agents only when they don't. A review falls on the second side on purpose: each
+reviewer judges the diff without the implementer's framing, which is what makes a second look
+worth running. `deletion-check` is the sharpest case — it is kept context-free so the author's
+account of why a removal was safe cannot stand in for checking that it was. The fan-out applies
+that criterion; it doesn't depart from it.
+
 ## Repository-local reviewers
 
 The review commands select reviewer agents dynamically from whatever the session offers.
