@@ -45,8 +45,9 @@ A dispatch carries exactly four things, and nothing else:
    section instead of the whole file.
 2. Which steps are in scope for this dispatch.
 3. What earlier tasks already put on disk, so it isn't redone.
-4. Environment facts that are not in the plan — branch, sandbox quirks, deviations already
-   approved.
+4. Environment facts that are not in the plan — branch, sandbox quirks — and, once the plan's
+   Spec Change Log has entries, its line range, so accepted deviations reach the executor from
+   the plan rather than from a retelling.
 
 **Never restate the plan's own header or the executor's own rules.** The executor already reads
 the frozen header itself and already carries its own contract; a dispatch that repeats either is
@@ -71,6 +72,11 @@ else's call. Stop and bring it to the plan's author.
 - **The executor halts on a frozen-section conflict:** that is not yours to resolve. Bring it to
   the plan's author. The frozen block exists precisely so this friction cannot be relieved by
   editing the target.
+- **The author resolves a halt by amending the plan:** re-read the frozen header and the
+  Decision points before the next dispatch, and take task line ranges afresh. What you read at
+  the start describes a plan that no longer exists.
+- **The report declares a deviation you accept:** append it to the plan's Spec Change Log
+  before the next dispatch. Later tasks inherit it from there, not from your memory of the run.
 - **The report notes a size overrun** — materially more than about 40 tool-using turns or 120k
   tokens of context for the task (see the plan-writing skill's *Task size* reference for where
   this ceiling comes from) — record it in the run's summary. It is a planning defect worth

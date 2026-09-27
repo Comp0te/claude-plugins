@@ -127,7 +127,7 @@ not the *how*.
 
 ## Spec Change Log
 
-<!-- Append-only. Empty until a review forces a change to a non-frozen section. -->
+<!-- Append-only. Empty until a review or an accepted deviation forces a change to a non-frozen section. -->
 ```
 
 ---
@@ -380,10 +380,10 @@ case it was written for.
 
 ### Spec Change Log
 
-Append-only, at the bottom of the plan. Empty until review forces a change to a non-frozen
-section. Each entry records four things:
+Append-only, at the bottom of the plan. Empty until review, or a deviation accepted during
+execution, forces a change to a non-frozen section. Each entry records four things:
 
-1. the finding that triggered the change,
+1. the finding or reported deviation that triggered the change,
 2. what was amended,
 3. the known-bad state the amendment avoids,
 4. **KEEP** — what worked and must survive re-derivation.
