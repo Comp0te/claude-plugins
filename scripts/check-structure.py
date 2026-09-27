@@ -91,6 +91,44 @@ def check_frontmatter(problems):
             problems.append(f"duplicate agent name '{name}': {names}")
 
 
+def agent_tools(path):
+    """Return the agent's `tools` as a list, or None when the field is absent."""
+    lines = path.read_text().split("\n---", 1)[0].splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith("tools:"):
+            continue
+        value = line.partition(":")[2].strip()
+        if value:
+            return [t.strip() for t in value.split(",") if t.strip()]
+        tools = []
+        for item in lines[i + 1 :]:
+            if not item.lstrip().startswith("- "):
+                break
+            tools.append(item.lstrip()[2:].strip())
+        return tools
+    return None
+
+
+# review-flow agents only report: none may write or spawn, and the verifiers
+# judge from source alone. The reviewers keep Bash for `verified:` evidence.
+REVIEW_FLOW_FORBIDDEN = {"Agent", "Task", "Write", "Edit", "NotebookEdit"}
+REVIEW_FLOW_NO_BASH = {"finding-gate-verifier", "fix-verifier"}
+
+
+def check_agent_tools(problems, paths=None):
+    if paths is None:
+        paths = sorted(PLUGINS.glob("review-flow/agents/*.md"))
+    for path in paths:
+        tools = agent_tools(path)
+        if tools is None:
+            problems.append(f"review-flow agent has no tools field, so inherits all: {path.name}")
+            continue
+        for tool in sorted(REVIEW_FLOW_FORBIDDEN.intersection(tools)):
+            problems.append(f"review-flow agent granted {tool}: {path.name}")
+        if path.stem in REVIEW_FLOW_NO_BASH and "Bash" in tools:
+            problems.append(f"review-flow verifier granted Bash: {path.name}")
+
+
 def check_cross_references(problems):
     local_plugins = sorted(
         d.name for d in PLUGINS.iterdir() if d.is_dir() and not d.name.startswith(".")
@@ -123,6 +161,7 @@ def main():
     problems = []
     check_manifests(problems)
     check_frontmatter(problems)
+    check_agent_tools(problems)
     check_cross_references(problems)
     for problem in problems:
         print(problem, file=sys.stderr)
