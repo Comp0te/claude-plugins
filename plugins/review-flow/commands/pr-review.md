@@ -164,7 +164,7 @@ The main loop runs proposed probes serially in step 5, where nothing else is tou
 
 If the two snapshots differ, say so in the report and name the paths: every finding produced in that window was read from a tree somebody mutated mid-review, so its evidence level means nothing. This matters most in the **no-worktree** path, where the tree is the user's own checkout rather than a disposable copy — there, do not attempt to restore it yourself, since you cannot tell an agent's edit from the user's own work.
 
-Each agent must return findings as a list of `{file:line, scope, issue, why it matters, evidence}`, where `scope` is exactly one of:
+Each agent must return findings as records under the keys `file:`, `scope:`, `issue:`, `why:`, `fix:`, `evidence:`, where `scope` is exactly one of:
 
 - `introduced` — the PR caused or exposed this. Without this change, it would not be there.
 - `pre-existing` — already true before the PR; the review merely walked past it.
