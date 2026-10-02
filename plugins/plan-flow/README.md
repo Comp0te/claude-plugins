@@ -22,13 +22,19 @@ scoped to one task at a time.
 | `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/plan-flow:execute-plan <path-to-plan.md>`. |
 | Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import described below is missing, dangling or stale. When that import is delivering nothing at all, also injects the agreements verbatim, so an unconfigured install still has them in the main conversation. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
 | Comment-budget hook | `hooks/comment-budget.py` (registered in `hooks/hooks.json`) | Counts the comment block just written against the budget in the working agreements (2 prose lines inline, 4 in a docstring) and says so when it is over. Reads only what the edit added, so existing comments are never flagged. Silence it with `PLAN_FLOW_COMMENT_BUDGET=off`. | `PostToolUse`, matching `Edit`, `Write`, and `MultiEdit`. |
+| Plan progress pane | `hooks/progress/` (registered under `modules` in `hooks/hooks.json`) | A side pane that follows a plan being executed: each task's status (pending, executing, review, committed, halted with its reason), the running executor's tool-call count and elapsed time, the attempt number on a re-dispatch, and each task's check results. It only observes — it adds nothing to any model's context and never delays a tool call. Configure it with the `progressPane` option (`auto`, `command`, `off`). | Opens when you start executing a plan (`auto`), or through its own command. |
 
 ## Tests
 
 ```bash
 python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
 python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_*.py'
+claude plugin test plugins/plan-flow
+tsc -p plugins/plan-flow
 ```
+
+`tsc` needs the engine's declaration files, which it writes into
+`plugins/plan-flow/.claude-plugin/types/` the first time the plugin is loaded.
 
 Stdlib only, no dependencies, about a second. The first covers the comment-budget hook; the
 second covers the eval suite's own integrity, including whether the copy of the Code Comments
