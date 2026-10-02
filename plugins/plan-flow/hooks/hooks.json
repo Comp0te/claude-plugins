@@ -25,5 +25,8 @@
         ]
       }
     ]
-  }
+  },
+  "modules": [
+    "./progress/register.tsx"
+  ]
 }
