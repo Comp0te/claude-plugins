@@ -4,5 +4,20 @@
   "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
   "license": "MIT",
-  "keywords": ["planning", "spec-driven", "implementation-plan", "code-review", "design-to-code"]
+  "keywords": ["planning", "spec-driven", "implementation-plan", "code-review", "design-to-code"],
+  "userConfig": {
+    "progressPane": {
+      "type": "string",
+      "title": "Plan progress pane",
+      "description": "auto opens the pane when you start executing a plan; command opens it only through its own command; off turns the pane and its observation off.",
+      "default": "auto",
+      "options": ["auto", "command", "off"]
+    },
+    "progressCheckPattern": {
+      "type": "string",
+      "title": "Check command pattern",
+      "description": "A regular expression: an executor shell command matching it is shown as a check, besides the task's own Verification commands. git commands never count.",
+      "default": "\\b(test|tests|lint|eslint|tsc|typecheck|type-check|code:check|unittest|pytest|jest|vitest|prettier|ruff|mypy)\\b"
+    }
+  }
 }
