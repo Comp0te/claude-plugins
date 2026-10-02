@@ -95,6 +95,40 @@ it; nothing restates another component's text.
 - **A local directory marketplace still produces a versioned cache copy** of the plugin. That
   copy, not the source repository, is what `${CLAUDE_PLUGIN_ROOT}` resolves to at run time.
 
+### Progress pane: measured platform facts
+
+Measured with a throwaway logging mod on Claude Code 2.1.288 (`claude -p`, toy one-task plan).
+
+- **A mod loads beside installed plugins** with `claude -p --plugin-dir <dir>`: its `session.start`
+  hook ran and wrote its log.
+- **Command expansion is observable.** `classic.UserPromptExpansion` fires for the person-form
+  prompt with `command_name: "plan-flow:execute-plan"` and `command_args: "docs/plans/toy.md"`.
+- **Executor spawn is observable.** `agent.spawn` carries `subagentType: "plan-flow:plan-executor"`
+  and `prompt`; the `agentId` is on what `next(e)` resolved to (for example `"aabc3413f6e6136be"`).
+- **Executor tool calls carry its id.** A `tool.call` made inside the executor has `agentId` equal
+  to the spawn's; main-loop calls have none. The event holds the tool's own input fields flat
+  (`file_path`, `offset`, `limit`, `command`). `offset` appears only when the model passes one: the
+  main loop's Read logged `offset: 38`, the executor's Read used `limit` and no `offset`.
+- **Tool results sit under `r.result`** (beside `r.text`, `r.isError`). A failing Bash call has
+  `isError: true` and a string `result` of the form `"Error: Exit code 1\n..."`; a successful one
+  has an object `{ stdout, stderr, ... }`.
+- **Executor completion is observable.** `classic.SubagentStop` has `agent_id`, `agent_type:
+  "plan-flow:plan-executor"` and `last_assistant_message` present. The main loop's `Agent` call
+  resolves with `result.status: "completed"`, `agentId`, `content` (array), `totalToolUseCount`
+  and `toolStats`.
+- **Commits are observable only when git prints output.** A Bash result carries
+  `result.gitOperation.commit = { sha, kind: "committed", branch }` for `git commit -m ...`; the
+  same commit with `-q` leaves `gitOperation` undefined.
+- **A mod adds nothing to model context.** In the toy session's transcript JSONL (main file, 62
+  rows, plus the executor's subagent file, 25 rows) no row, attachment or hook-context entry came
+  from the mod. The `hook_success` and `hook_additional_context` attachments all trace to other
+  installed plugins' shell hooks (SessionStart, PostToolUse, Stop, SubagentStop). The only mentions
+  of the mod are its log file name `.plan-pane-spike.log`, appearing as model-run `git status`
+  output, the executor's report, and the executor's git-status context.
+- **A registered command answering `{}`** is invoked by its bare name: `/spike-pane` (registered
+  with `name: "spike-pane"` through `$.command.register`) reached the `command.run` hook with
+  `origin.kind: "sdk"`, ran zero turns, cost 0, and emitted no model request or message row.
+
 ## The technique that produced all of this
 
 Ask a dispatched worker what is **literally** in its context, with tools disallowed, using a
