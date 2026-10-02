@@ -14,10 +14,13 @@ import {
   mainAdded,
   mainCommitted,
   newRun,
+  personClosed,
   tailOf,
   withPlan,
   type Run,
 } from './run'
+import { COMMAND_NAME, PANE_ID, STORE_KEY, fromStored, toStored } from './store'
+import { paneLines } from './view'
 
 type Dollar = EngineInterface
 
@@ -27,11 +30,39 @@ export const session = {
   plan: [] as PlanTask[],
   cwd: '',
   error: undefined as string | undefined,
+  /** Runs read from the store at session start, kept current as they are written back. */
+  stored: [] as Run[],
+  /** The newest stored run, drawn until this session's own run begins. */
+  restored: undefined as Run | undefined,
+  paneOpen: false,
+  persistArmed: false,
 }
 
 let opts: ProgressOptions = optionsOf({})
 
-export const redraw = ($: Dollar) => $.ui.invalidate('ui.render')
+/** Asks for the pane to be drawn again, and arms the write of runs to the store when none is pending. */
+export const redraw = ($: Dollar) => {
+  armPersist($)
+  $.ui.invalidate('ui.render')
+}
+
+const PERSIST_DELAY_MS = 1000
+
+function armPersist($: Dollar) {
+  if (session.persistArmed) return
+  session.persistArmed = true
+  $.clock.after(PERSIST_DELAY_MS, () => {
+    session.persistArmed = false
+    const run = session.run
+    if (!run) return
+    const saved = toStored([...session.stored.filter(r => r.planPath !== run.planPath), run])
+    session.stored = saved.runs
+    $.store.set(STORE_KEY, saved).catch((error: unknown) => {
+      session.error = failure(error)
+      safeRedraw($)
+    })
+  })
+}
 
 const EXECUTE_PLAN = /(^|:)execute-plan$/
 
@@ -89,9 +120,32 @@ async function startRun($: Dollar, arg: string): Promise<boolean> {
   if (!(await $.fs.exists(path))) return false
   const plan = parsePlan(String(await $.fs.read(path)))
   if (session.run) return true
+  const earlier = session.stored.find(r => r.planPath === path)
   session.plan = plan
-  session.run = newRun(path, plan, Date.now())
+  session.run = earlier ? withPlan(earlier, plan, Date.now()) : newRun(path, plan, Date.now())
   return true
+}
+
+const displayPath = (path: string | undefined) => {
+  const root = `${session.cwd.replace(/\/+$/, '')}/`
+  return path === undefined ? '' : session.cwd !== '' && path.startsWith(root) ? path.slice(root.length) : path
+}
+
+function openPane($: Dollar) {
+  session.paneOpen = true
+  const failed = (error: unknown) => {
+    session.error = failure(error)
+    safeRedraw($)
+  }
+  try {
+    void Promise.resolve($.ui.open({ id: PANE_ID, title: 'Plan progress' })).catch(failed)
+  } catch (error) {
+    failed(error)
+  }
+}
+
+function openOnStart($: Dollar) {
+  if (opts.mode === 'auto' && !session.paneOpen && !session.run?.closedByPerson) openPane($)
 }
 
 async function rereadPlan($: Dollar) {
@@ -184,6 +238,19 @@ export const register: Register = (on, options) => {
     session.plan = []
     session.error = undefined
     session.cwd = e.cwd
+    session.stored = []
+    session.restored = undefined
+    session.paneOpen = false
+    session.persistArmed = false
+    if (active()) {
+      try {
+        session.stored = fromStored(await $.store.get(STORE_KEY))
+        session.restored = [...session.stored].sort((a, b) => b.updatedAt - a.updatedAt)[0]
+        await $.command.register({ name: COMMAND_NAME, description: 'Show the plan progress pane' })
+      } catch (error) {
+        session.error = failure(error)
+      }
+    }
     return result
   })
 
@@ -203,7 +270,11 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     if (active() && EXECUTE_PLAN.test(e.command_name)) {
       if (session.cwd === '') session.cwd = e.cwd
-      watch($, () => schedule($, () => startRun($, e.command_args)))
+      watch($, () =>
+        schedule($, async () => {
+          if (await startRun($, e.command_args)) openOnStart($)
+        }),
+      )
     }
     return result
   })
@@ -212,5 +283,40 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     if (active()) watch($, () => observeStop(e))
     return result
+  })
+
+  on('ui.close', async ($, e, next) => {
+    const result = await next(e)
+    if (e.id === PANE_ID && result.deny === undefined) {
+      session.paneOpen = false
+      if (e.origin.kind === 'person') {
+        watch($, () => {
+          if (session.run) session.run = personClosed(session.run)
+        })
+      }
+    }
+    return result
+  })
+
+  on('command.run', { command: COMMAND_NAME }, async ($, e, next) => {
+    if (!active()) return next(e)
+    openPane($)
+    return {}
+  })
+
+  on('ui.render', { component: 'Pane', requestId: PANE_ID }, ($, e) => {
+    const { Box, Text } = $.ui.resolve(e)
+    const shown = session.run ?? session.restored
+    const lines = paneLines(shown, { now: Date.now(), columns: e.props.bodyColumns, path: displayPath(shown?.planPath), error: session.error })
+    const color = { plain: undefined, dim: undefined, active: 'cyan', ok: 'green', warn: 'yellow', fail: 'red' } as const
+    return (
+      <Box flexDirection="column">
+        {lines.map(l => (
+          <Text color={color[l.tone]} dimColor={l.tone === 'dim'} bold={l.bold}>
+            {l.text || ' '}
+          </Text>
+        ))}
+      </Box>
+    )
   })
 }
