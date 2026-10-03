@@ -39,8 +39,10 @@ This happened here on 2026-09-16: a 24-run ablation came back with two cases sco
 0.50 identically in both arms, which read as a clean null result and was in fact the session
 limit, `judgeCostUsd` at zero across fourteen runs. The same cases re-run clean scored 1.00.
 
-Two further edges it covers, both silent: `--case` accepts `*` and `?` but no character classes,
-and a filter matching nothing still **exits 0** with an empty result — which is not a pass.
+It also rejects a result marked `partial` — interrupted, stopped at a `--max-cost-usd` ceiling,
+or refused credentials — since the cases that lost runs score on fewer of them than they claim.
+One further edge: `--case` accepts `*` and `?` but no character classes, so a bracketed filter
+matches nothing and the result carries no runs.
 
 Pass `--json <path>` on every paid run so there is something to validate.
 
@@ -48,7 +50,7 @@ Pass `--json <path>` on every paid run so there is something to validate.
 
 ```bash
 claude plugin eval . --tag plan-writing --ablation with-without --scaffold \
-  --allow-tools Write Edit --judge-model opus --no-publish
+  --allow-tools Write Edit --judge-model claude-opus-5-5 --no-publish
 ```
 
 Every flag is load-bearing:
@@ -59,22 +61,23 @@ Every flag is load-bearing:
   against an empty workspace and score near zero in both arms.
 - `--allow-tools Write Edit` — the skill's frontmatter grants itself no tools, so the operator has
   to. Without it no plan file can be created and every file grader fails in both arms.
-- `--judge-model opus` — the judge must not be the agent model (cases run on sonnet), and the
-  artifacts are 20–40k characters.
+- `--judge-model claude-opus-5-5` — the judge must not be the agent model (cases pin
+  `claude-sonnet-5-5`), and the artifacts are 20–40k characters. Both are full IDs rather than
+  aliases, so a model rollout cannot pass for a plugin change.
 
 Run it from the plugin directory. `-j 4` halves wall-clock but four `claude` children plus a
 session can exhaust memory on a 16GB machine; `-j 2` is safer. Budget about 65 minutes and $18
 for the full suite at `-j 2` — the plan-producing cases dominate, at roughly 10 minutes a pair.
 
-`--threshold` is documented as exiting 1 when a case scores below it, defaulting to 1.0, but a
-full run on 2026-09-13 exited 0 with cases at 0.93 and 0.96. Do not rely on the exit code as a
-CI gate until that is understood; read the per-case table.
+`--threshold` exits 1 when a case scores below it, defaulting to 1.0: on CLI 2.1.288 a single-arm
+run of case 16 at 0.95 exited 1. A two-arm full run on 2026-09-13 exited 0 with cases at 0.93 and
+0.96, and no two-arm run has been checked since, so confirm the exit code there before gating on it.
 
 ### Execution tier
 
 ```bash
 claude plugin eval . --tag plan-execution --ablation with-without --scaffold \
-  --allow-tools Write Edit Bash --judge-model opus --no-publish
+  --allow-tools Write Edit Bash --judge-model claude-opus-5-5 --no-publish
 ```
 
 The grant is wider than the plan-writing tier's — `Bash` alongside `Write Edit` — because each
@@ -85,7 +88,7 @@ checks to verify its work. A case that cannot run them measures nothing.
 
 ```bash
 claude plugin eval . --tag plan-command --ablation none --scaffold \
-  --allow-tools Write Edit Bash --judge-model opus --no-publish
+  --allow-tools Write Edit Bash --judge-model claude-opus-5-5 --no-publish
 ```
 
 `--ablation none` rather than `with-without`: without the plugin loaded, `/plan-flow:execute-plan`
@@ -102,7 +105,7 @@ reachable.
 
 ```bash
 claude plugin eval . --tag comment-rules --ablation none --scaffold \
-  --allow-tools Write Edit --judge-model opus --no-publish
+  --allow-tools Write Edit --judge-model claude-opus-5-5 --no-publish
 ```
 
 Ten cases measuring the Code Comments section of `references/working-agreements.md` against a
@@ -174,6 +177,9 @@ Two tiers do not need that caveat. `comment-rules` was measured after the change
 tier was re-measured across it** on 2026-09-16 and held at 1.00 on all five cases, 15 of 15 runs
 valid — which is the evidence that the fallback did not disturb a tier that never asked for it.
 Plan-writing, execution and end-to-end remain unmeasured since.
+
+Every table below was also recorded on the `sonnet` and `opus` aliases, whose resolved models the
+result JSON does not keep. Cases and judge are pinned to full IDs from 2026-10-04 on.
 
 ## The cases
 
@@ -381,6 +387,10 @@ that a rewrite can retire silently. Losing them costs two ways of catching a res
 keeps the third; the grader cannot read `agents/plan-executor.md` to notice, because a grader's
 file source resolves inside the run's scaffold, not the plugin.
 
+The pattern deliberately misses a bare "Do not commit", which the supervisor wrote in all six
+dispatches of a 2026-10-04 run. It agrees with the executor's rule 5, which already overrides any
+dispatch that asks for a commit, so it cannot drift into a contradiction.
+
 ## Comment-rules tier baseline
 
 Measured 2026-09-16, `--ablation none`, three runs a case, judge `opus`, $2.52 for the tier:
@@ -544,9 +554,9 @@ consistently as a regression.
   it while still failing the rule it stands in for. `no-header-copy` is narrower than it looks
   only in the same direction: its three sentinels each name the thing their frozen line
   constrains, so conveying that constraint carries the token, and what escapes is a restatement
-  vague enough to have dropped all three. Neither can be closed with a judge — an `llm` grader's
-  `focus` accepts `last_message`, `files`, `mock_calls` and `{source: file, path}`, and none of
-  them expose an `Agent` call's input.
+  vague enough to have dropped all three. Neither can be closed with a judge: `focus: trace`
+  shows it only the first and last 12 trace lines, and a 2026-10-04 pilot found every dispatch
+  outside that window in 3 of 3 runs, so the judge passed dispatches it never saw.
 - **Whether the executor reads only its own slice.** Rule 1 tells it to read its task's range and
   not the rest of the plan; no grader can see what it read, only what it produced, so a case
   cannot distinguish scoped reading from a lucky guess.
@@ -564,7 +574,8 @@ consistently as a regression.
   `evals-ablation/`; do not make that change on the strength of the wording alone.
 - **A comment in a file no grader names.** `focus` and `target` take one fixed path and no glob,
   so every comment-rules grader is pinned to a file the scaffold created. A violation the agent
-  writes into a file it invented is invisible.
+  writes into a file it invented is invisible, except in `22`, whose tokens are specific enough
+  to match in any Write or Edit input; a judged rule has no such token to match.
 - **Whether case 25's judge counted the right block.** `new-comment-in-budget` asks the judge to
   ignore two long pre-existing comment blocks and grade only the one on the new function. A judge
   that misidentifies which block is new fails the case for a reason that has nothing to do with

@@ -13,7 +13,7 @@ Generated, not committed, because a checked-in copy of a case drifts from the ca
 Then, from the plugin directory:
 
     claude plugin eval . --eval-dir evals-ablation --tag ablation --ablation with-without \\
-      --scaffold --allow-tools Write Edit --judge-model opus --no-publish --json out.json
+      --scaffold --allow-tools Write Edit --judge-model claude-opus-5-5 --no-publish --json out.json
     python3 evals/check-run.py out.json
 """
 import pathlib, shutil, sys

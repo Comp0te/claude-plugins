@@ -47,7 +47,7 @@ execution:
     Тесты: `node --test test/*.test.js`.
   max_turns: 45
   timeout_seconds: 900
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
 runs: 2
 graders:

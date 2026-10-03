@@ -24,7 +24,7 @@ execution:
     Tests are `npm test` (vitest). Types are `npm run typecheck`.
   max_turns: 45
   timeout_seconds: 900
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
 runs: 3
 graders:

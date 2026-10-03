@@ -8,7 +8,7 @@ execution:
     /plan-flow:execute-plan docs/plans/2026-09-13-csv-quoting.md
   max_turns: 40
   timeout_seconds: 900
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
 runs: 3
 # no-rules-copy is drawn from plan-executor.md:17-23's "Never move the target" wording

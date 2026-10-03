@@ -8,7 +8,7 @@ execution:
     /plan-flow:execute-plan docs/plans/2025-11-03-flag-parsing.md
   max_turns: 40
   timeout_seconds: 900
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
 runs: 3
 graders:

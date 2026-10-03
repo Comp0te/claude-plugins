@@ -66,6 +66,11 @@ class NotMeasurements(unittest.TestCase):
     def test_a_case_with_no_runs_fails(self):
         self.assertEqual(1, verdict(result(JUDGED, [])))
 
+    def test_a_partial_result_fails_even_when_every_run_is_clean(self):
+        res = result(JUDGED, [run()])
+        res.update(partial=True, partialReason="interrupted")
+        self.assertEqual(1, verdict(res))
+
 
 class Reasons(unittest.TestCase):
     def test_the_error_text_is_carried_through(self):

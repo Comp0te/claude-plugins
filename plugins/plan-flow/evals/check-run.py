@@ -39,10 +39,14 @@ def main(argv):
         print(__doc__)
         return 2
     result = json.loads(pathlib.Path(argv[0]).read_text())
+    if result.get("partial"):
+        print("partial result (%s): some runs never started; re-run before reading the table."
+              % result.get("partialReason", "unknown reason"))
+        return 1
     bad = verdicts(result)
     total = sum(len(runs) for c in result.get("cases", []) for runs in c.get("arms", {}).values())
     if not total:
-        # `--case` takes no character classes, and matching nothing still exits 0.
+        # A result with no runs measured nothing, whatever the exit code said.
         print("no runs in this result — the filter matched no cases, or none started.")
         return 1
     if not bad:

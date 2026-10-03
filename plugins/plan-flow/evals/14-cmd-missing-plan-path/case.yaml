@@ -13,7 +13,7 @@ execution:
     /plan-flow:execute-plan docs/plans/2026-09-14-retry-backoff.md
   max_turns: 40
   timeout_seconds: 900
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
 runs: 3
 graders:

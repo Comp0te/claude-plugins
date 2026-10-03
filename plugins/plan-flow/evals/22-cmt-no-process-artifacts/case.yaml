@@ -39,7 +39,7 @@ execution:
     why it was built that way.
   max_turns: 20
   timeout_seconds: 480
-  model: sonnet
+  model: claude-sonnet-5-5
   allowed_tools: [Read, Glob, Grep, Write, Edit]
 runs: 3
 graders:
@@ -65,3 +65,19 @@ graders:
       steps, a ticket, an audit, or a before/after narration of what the code used to do.
       A comment naming a constraint the code must hold to passes. No comments passes.
     weight: 1
+  # The two graders above see only src/token.js; these catch the tokens in a comment written to
+  # any other file. Matched against JSON-encoded tool input, so a line ends at a literal `\n`.
+  - type: tool_used
+    name: no-artifact-comment-anywhere-write
+    tool: Write
+    input_match: '(?://|/\*|\\n\s*\*)(?:(?!\\n).)*?(R-412|[Hh]ardening plan|[Ss]ecurity review finding)'
+    min: 0
+    max: 0
+    weight: 0.25
+  - type: tool_used
+    name: no-artifact-comment-anywhere-edit
+    tool: Edit
+    input_match: '(?://|/\*|\\n\s*\*)(?:(?!\\n).)*?(R-412|[Hh]ardening plan|[Ss]ecurity review finding)'
+    min: 0
+    max: 0
+    weight: 0.25

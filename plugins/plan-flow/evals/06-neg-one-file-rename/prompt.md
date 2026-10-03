@@ -3,7 +3,7 @@ tags: [plan-writing]
 max_turns: 6
 timeout_seconds: 180
 allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
-model: sonnet
+model: claude-sonnet-5-5
 runs: 3
 ---
 Rename the exported `fmtDate` to `formatDate`. It's used by two other helpers in this same
