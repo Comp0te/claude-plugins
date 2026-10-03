@@ -104,10 +104,9 @@ claude plugin install <name>@compote --scope user
 
 ## Migrating a project off its local verifier or extractor agent
 
-Seven projects held a project-local `ui-verifier` agent and four a local `figma-extractor` —
-copies that predate this marketplace. All seven have since been migrated; the recipe is kept for
-the next project that arrives with a local copy, and because steps 2 and 3 are where the
-migration loses things quietly.
+A project set up before this marketplace existed may hold a project-local `ui-verifier` or
+`figma-extractor` agent under `.claude/agents/`. The recipe below moves it onto the shipped
+plugins; steps 2 and 3 are where the migration loses things quietly.
 
 A local agent under `.claude/agents/` shadows a shipped one of the same `name:`, so installing
 the plugin next to it changes nothing until the local copy is gone. The shipped verifier agents
@@ -131,7 +130,9 @@ run once per project:
    everything it learned. **This is measured, not assumed** — a pilot run wrote to the
    plugin-prefixed address while its migrated store sat one directory over, and the same happened
    independently for the extractor. It also means **a rename moves the address**: renaming either
-   the plugin or the agent orphans the store unless it is moved in the same change.
+   the plugin or the agent orphans the store unless it is moved in the same change, and
+   `scripts/check-structure.py` catches stale names only inside this repository — consuming
+   projects' `CLAUDE.md` files and memory stores have to be found by hand.
 3. **Drain the memory store's promotion queue before deleting anything.** Read every file
    against the shipped agent and resolve it as **promoted** (a driver or discipline fact now in
    the shipped agent, with its CLI version stamp — delete the note), **kept** (a genuine project
@@ -152,25 +153,13 @@ run once per project:
    scripts first.
 6. **Delete the local copy** — `git rm .claude/agents/<name>.md` in the consuming repository.
 
-**Known defect in step 6:** `.claude/` is git-excluded in several of these repositories (checked
-via `.git/info/exclude`). `git rm` fails there with nothing staged for the project's author to
-commit, since the file was never tracked. Deleting the local copy in that case is a plain `rm`,
-and there is no diff to review or commit — say so explicitly rather than reporting a commit that
-doesn't exist. Until the local copy is removed, the project holds both it and the shipped agent
-at once, and **the local one wins**; that overlap is only safe as a temporary state between step
-5 and step 6, never as an end state.
-
-**Current state — the migration is complete.** No project under `~/Projects` holds a local
-`ui-verifier` or `figma-extractor` in `.claude/agents/` any more, and all seven verifier projects
-run the shipped agent at project scope with `figma-flow` alongside it and a
-`.claude/docs/ui-verification.md` facts file in place.
-
-An empty memory column is not an unfinished step — it is an agent that has met no project fact
-worth keeping yet. The three stores that do exist were moved to the plugin-prefixed address when
-the agents were renamed to `ui-verifier-mobile` / `ui-verifier-web`, per the warning in step 2;
-the rename was caught by the cross-reference checker in `scripts/check-structure.py`, but only
-inside this repository — the consuming projects' `CLAUDE.md` files and memory stores had to be
-found by hand, which is the argument for keeping that column honest here.
+**Known defect in step 6:** `.claude/` is often git-excluded (check `.git/info/exclude`). `git rm`
+fails there with nothing staged for the project's author to commit, since the file was never
+tracked. Deleting the local copy in that case is a plain `rm`, and there is no diff to review or
+commit — say so explicitly rather than reporting a commit that doesn't exist. Until the local
+copy is removed, the project holds both it and the shipped agent at once, and **the local one
+wins**; that overlap is only safe as a temporary state between step 5 and step 6, never as an
+end state.
 
 ## Why review-flow fans out
 
