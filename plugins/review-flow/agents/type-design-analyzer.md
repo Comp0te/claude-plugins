@@ -2,6 +2,7 @@
 name: type-design-analyzer
 description: Use when a diff or PR introduces or reshapes types (domain models, state shapes, discriminated unions, type-level narrowing like Omit/Pick) to review their design along four axes — encapsulation, invariant expression, usefulness, and enforcement. Pushes toward types whose illegal states are unrepresentable.
 model: opus
+effort: medium
 color: pink
 tools: Read, Grep, Glob, Bash
 ---

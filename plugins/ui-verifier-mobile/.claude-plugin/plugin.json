@@ -1,6 +1,6 @@
 {
   "name": "ui-verifier-mobile",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Verifies UI changes in a running React Native app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
   "license": "MIT",

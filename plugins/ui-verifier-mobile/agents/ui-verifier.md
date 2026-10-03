@@ -3,6 +3,7 @@ name: ui-verifier-mobile
 description: Use to verify UI changes in a running React Native app on a simulator or emulator — give it a concrete checklist of steps and expectations; it drives the device with agent-device, captures screenshots, and returns a pass/fail report with evidence. It reports findings only and never modifies code.
 tools: Bash, Read, Glob, Grep, Skill
 model: sonnet
+effort: medium
 memory: local
 skills: [agent-device]
 ---

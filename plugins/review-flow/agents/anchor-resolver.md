@@ -2,6 +2,7 @@
 name: anchor-resolver
 description: Resolves review findings to GitHub inline-comment anchors by computing each cited file:line against a PR's combined diff. Returns a compact table saying whether each line was added by the PR, is unchanged context inside a hunk, or falls outside every hunk and cannot be anchored. Spawned by /pr-publish before its verification gate.
 model: sonnet
+effort: low
 color: yellow
 tools:
   - Read

@@ -2,6 +2,7 @@
 name: fix-verifier
 description: Judges whether a previously reported review finding was actually closed by new commits on a pull request. Reads the old and the new head trees plus the incremental diff and returns fixed / partial / not-fixed / contested-by-author / inconclusive per finding, with the lines that back the verdict. Holds no write tool. Spawned by /pr-recheck after a PR author pushes in response to review comments.
 model: opus
+effort: high
 color: green
 tools:
   - Read

@@ -3,6 +3,7 @@ name: ui-verifier-web
 description: Use to verify UI changes in a running web app or browser extension — give it a concrete checklist of steps and expectations; it drives the browser with agent-browser, captures screenshots, and returns a pass/fail report with evidence. It reports findings only and never modifies code.
 tools: Bash, Read, Glob, Grep, Skill
 model: sonnet
+effort: medium
 memory: local
 skills: [agent-browser]
 ---

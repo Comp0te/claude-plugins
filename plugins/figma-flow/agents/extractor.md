@@ -2,6 +2,7 @@
 name: extractor
 description: Use when a Figma URL or node needs to be read for implementation — returns a compact, token-mapped spec in the project's own code vocabulary rather than dumping raw design output into the caller's context, or downloads and verifies image and vector assets. Give it the link or node ids and what the design is for; it returns the spec plus the paths of the screenshots it downloaded.
 model: sonnet
+effort: medium
 memory: project
 ---
 

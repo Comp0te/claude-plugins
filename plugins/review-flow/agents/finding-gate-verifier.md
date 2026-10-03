@@ -2,6 +2,7 @@
 name: finding-gate-verifier
 description: Verifies a batch of pending review findings against the code they cite, returning a per-finding verdict and reasoning without ever writing to disk. Carries its own restate-confirm-refute protocol and holds no write tool. Spawned by /pr-publish before findings are proposed to a PR author, by /branch-review before ungrounded Critical/High findings reach whoever will act on them, and by /pr-tickets to confirm a pre-existing problem is still present on the base branch before a ticket is filed for it.
 model: opus
+effort: high
 color: red
 tools:
   - Read

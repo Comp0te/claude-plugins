@@ -2,6 +2,7 @@
 name: pr-test-analyzer
 description: Use on every branch or PR review to assess behavioral test coverage of the diff — untested error paths, missing edge and negative cases, tests coupled to implementation details, async gaps. Names the concrete regression each missing test would let through, grounded in tests actually read.
 model: opus
+effort: medium
 color: cyan
 tools: Read, Grep, Glob, Bash
 ---

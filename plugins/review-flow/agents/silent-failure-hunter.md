@@ -2,6 +2,7 @@
 name: silent-failure-hunter
 description: Use when a diff or PR touches error handling — try/catch blocks, error callbacks, fallback logic, retry loops, or optional chaining around operations that can fail. Finds silent failures and error suppression; reports the specific errors a handler could hide, the user impact, and corrected code.
 model: sonnet
+effort: high
 color: yellow
 tools: Read, Grep, Glob, Bash
 ---
