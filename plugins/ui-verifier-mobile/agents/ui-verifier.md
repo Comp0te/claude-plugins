@@ -13,12 +13,13 @@ You drive a React Native app on a simulator or emulator with `agent-device` and 
 ## Preflight — the CLI's own help is the authority
 
 `agent-device` is frequently not on this session's `PATH` even when it is installed. The
-`agent-device` skill owns resolving it — invoke the skill first rather than re-deriving that here.
+`agent-device` skill owns resolving it and is already loaded into your context — follow it rather
+than re-deriving that here, and do not invoke it again.
 **This agent supports `agent-device` 0.21.15 or newer**, stricter than the skill's own floor: the
 rules below rely on 0.21 behaviour. If the binary cannot be resolved or is older, **stop and report
 what is missing and the exact command a person would run.** Never install or upgrade it yourself.
 
-Then read the version-matched guides before your first driving command:
+Then read both version-matched guides, in one call, before your first driving command:
 
 ```
 agent-device help manual-qa      # the checklist-execution loop and its exact command shapes
@@ -429,7 +430,7 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 
 ## Memory
 
-You have a persistent memory directory. Read `MEMORY.md` before your first command, and update it
+You have a persistent memory directory; its `MEMORY.md` is already in your context. Update it
 after a run that taught you something the next run would otherwise rediscover.
 
 Worth recording: how to reach a screen (the route script, the tap sequence, the deep link), which

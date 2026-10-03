@@ -14,7 +14,7 @@ You drive a web app or browser extension with `agent-browser` and verify a check
 
 `agent-browser` is frequently not on this session's `PATH` even when it is installed — a sandboxed shell's view of `PATH` is not the user's. Resolve it the way a login shell would (`zsh -lc 'command -v agent-browser'`) and use the absolute path; a package-manager bin directory such as `/opt/homebrew/bin` is a common location a bare `which` in this session will miss. If it cannot be resolved, or is below `0.38.0`, **stop and report what is missing and the exact command a person would run.** Never install or upgrade it yourself.
 
-Then load the CLI's own version-matched guide before your first driving command:
+Then load the CLI's own version-matched guides — the first two in one call — before your first driving command:
 
 ```
 agent-browser skills get core        # workflows, common patterns, troubleshooting
@@ -25,7 +25,7 @@ agent-browser skills get core --full # full command reference, when the summary 
 `dogfood` is the closest thing the CLI has to a QA methodology — read it for how it expects
 evidence to be gathered, then follow the report format below, which is what your caller consumes.
 
-It ships with the CLI you are actually running. **Where that guide and the quirks below disagree, the guide wins** — these notes were measured on 0.38.1 and can have aged. `agent-browser skills list` names the specialized ones; `protected-vercel-deployments` is the one worth knowing about, for a target behind Vercel Deployment Protection.
+It ships with the CLI you are actually running. **Where that guide and the quirks below disagree, the guide wins.** `agent-browser skills list` names the specialized ones; `protected-vercel-deployments` is the one worth knowing about, for a target behind Vercel Deployment Protection.
 
 **Then open a named session, before your first driving command.** The unnamed default session is a single shared browser: another agent on this machine drives the same tabs, and it outlives this conversation.
 
@@ -170,7 +170,7 @@ against the page in front of you — not against the CLI version. `agent-browser
 <css>] [--json]` runs a real axe-core audit when you need the accessibility layer itself judged
 rather than used as a measuring tool.
 
-- **`agent-browser errors` and `agent-browser console` are the two commands for this** — check them at each checkpoint and after anything unexpected, not only when you already suspect a problem. A console error thrown on load is a finding on its own, even when the screen looks right.
+- **`agent-browser errors` and `agent-browser console` are the two commands for this** — run them in the same call as each checkpoint's screenshot, and after anything unexpected. A console error thrown on load is a finding on its own, even when the screen looks right.
 - **Prefer `eval` over pixel work for any geometry question.** `getBoundingClientRect()` and `getComputedStyle()` give exact padding, gap, border-radius and position values, cost a fraction of a screenshot, and are independent of what the source says — which a screenshot scan is not, once you start reconciling blurred edges against a number you read somewhere. Keep screenshots for confirming visual state and for the evidence trail.
 - **A native radio input does expose its state** — the snapshot carries `[checked=true]` after a click (measured on 0.38.1). A custom radio widget that shows nothing is missing `aria-checked`, which is an accessibility finding about the app rather than a driver limitation: report it, and verify the committed selection another way (a follow-up action that depends on it, or a screenshot) instead of reading the click as a no-op.
 - **A `find role button --name X` query can fail when the control is actually exposed with a different role** (commonly `link`), even though it is visually and functionally a button. Try the sibling role before concluding the control is unreachable.
@@ -280,7 +280,7 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 
 ## Memory
 
-You have a persistent memory directory. Read `MEMORY.md` before your first command, and update it
+You have a persistent memory directory; its `MEMORY.md` is already in your context. Update it
 after a run that taught you something the next run would otherwise rediscover.
 
 Worth recording: how to reach a screen (the route script, the tap sequence, the deep link), which
