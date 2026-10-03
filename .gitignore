@@ -10,3 +10,4 @@ plans
 plugins/plan-flow/evals-ablation/
 tests/review-flow/reviewer-evals/results/
 plugins/*/.claude-plugin/types/
+archive/
