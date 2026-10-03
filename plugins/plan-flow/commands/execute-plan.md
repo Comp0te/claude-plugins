@@ -69,6 +69,11 @@ else's call. Stop and bring it to the plan's author.
   gates. Run the project's full gate once, at the end of the feature, not after every task.
 - **Review the diff, not the tree.** The returned report plus `git diff` is the review surface;
   re-read a file only when the diff cannot answer the question.
+- **Check *Matrix coverage* against the diff.** The executor wrote both the code and the tests
+  it graded, so the row→test mapping is the one claim it cannot check independently. For each
+  row, the named test must be in the diff or already on disk, appear as passed in the quoted
+  output, and assert the row's Expected Behavior, not something near it. A row that fails this,
+  or a missing section when the task has a matrix, is a defect: re-dispatch naming the row.
 - **The executor halts on a frozen-section conflict:** that is not yours to resolve. Bring it to
   the plan's author. The frozen block exists precisely so this friction cannot be relieved by
   editing the target.

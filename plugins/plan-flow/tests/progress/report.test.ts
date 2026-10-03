@@ -48,6 +48,11 @@ describe('parseReport', () => {
     const text = '**Status**: done\n**Contract not satisfied**: none\n**Ready to commit**: `src/a.ts`'
     expect(parseReport(text)).toEqual({ kind: 'review', readyPaths: ['src/a.ts'] })
   })
+  test('test paths in a Matrix coverage section after Ready to commit are not ready paths', async () => {
+    const text =
+      '**Status**: done\n**Contract not satisfied**: none\n**Ready to commit**: `src/a.ts`\n**Matrix coverage**:\n- HAPPY_PATH → `tests/a.test.ts` › "adds"'
+    expect(parseReport(text)).toEqual({ kind: 'review', readyPaths: ['src/a.ts'] })
+  })
   test('a backslash-continued git add in a fence yields every path and no lone backslash', async () => {
     const text =
       '**Status**: done\n**Contract not satisfied**: none\n**Ready to commit**:\n```\ngit add .gitignore \\\n  plugins/plan-flow/tsconfig.json \\\n  plugins/plan-flow/hooks/progress/plan.ts\n```'

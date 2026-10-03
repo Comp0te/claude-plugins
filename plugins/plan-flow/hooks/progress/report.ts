@@ -5,7 +5,7 @@ export type ExecutorOutcome =
   | { kind: 'halted'; reason: string; readyPaths: string[] }
 
 const SECTION =
-  /^\s*(?:\d+\.\s*)?\*\*(Status|Changes|Checks|Deviations from the plan|Contract not satisfied|Native \/ build impact|Ready to commit|Follow-ups[^*]*|Task size)\*\*\s*:?\s*/gim
+  /^\s*(?:\d+\.\s*)?\*\*(Status|Changes|Checks|Matrix coverage|Deviations from the plan|Contract not satisfied|Native \/ build impact|Ready to commit|Follow-ups[^*]*|Task size)\*\*\s*:?\s*/gim
 
 function sections(text: string): Map<string, string> {
   const marks = [...text.matchAll(SECTION)]
