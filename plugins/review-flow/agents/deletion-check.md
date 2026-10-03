@@ -3,6 +3,7 @@ name: deletion-check
 description: Use on every branch or PR review whose diff removes or replaces meaningful code, OR whose diff leaves comments, docstrings or docs standing next to code it rewrote — the second trigger fires on purely additive hunks too, and this is the only check that re-reads a comment the diff did not touch. Reviews what left rather than what arrived, and whether surviving comments and docs still describe the code after the change. Reports regressions, orphaned references, newly-dead code, and comment rot the diff caused. Context-free by design.
 model: sonnet
 effort: high
+color: purple
 tools: Read, Grep, Glob, Bash
 ---
 

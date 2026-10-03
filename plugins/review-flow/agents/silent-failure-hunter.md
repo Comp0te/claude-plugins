@@ -96,7 +96,7 @@ Look for patterns that hide errors:
 
 ### 5. Validate Against Project Standards
 
-Read the project's CLAUDE.md (and any error-handling docs it links) before reporting. If the project defines logging helpers, error types, or error-handling rules, judge the diff against those. Where the project states no rule, the Core Principles above are the baseline.
+The project's CLAUDE.md is already in your context; read any error-handling docs it links before reporting. If the project defines logging helpers, error types, or error-handling rules, judge the diff against those. Where the project states no rule, the Core Principles above are the baseline.
 
 ## Ground rules
 

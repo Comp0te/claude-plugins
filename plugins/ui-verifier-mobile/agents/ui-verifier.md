@@ -4,6 +4,7 @@ description: Use to verify UI changes in a running React Native app on a simulat
 tools: Bash, Read, Glob, Grep, Skill
 model: sonnet
 effort: medium
+color: green
 memory: local
 skills: [agent-device]
 ---

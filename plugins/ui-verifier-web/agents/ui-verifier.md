@@ -4,6 +4,7 @@ description: Use to verify UI changes in a running web app or browser extension 
 tools: Bash, Read, Glob, Grep, Skill
 model: sonnet
 effort: medium
+color: green
 memory: local
 skills: [agent-browser]
 ---

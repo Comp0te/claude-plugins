@@ -4,6 +4,7 @@ description: React Native performance reviewer. Use when the diff touches lists 
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high
+color: orange
 ---
 
 You are a React Native performance reviewer. You report findings only — you DO NOT modify code.

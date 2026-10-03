@@ -3,6 +3,7 @@ name: extractor
 description: Use when a Figma URL or node needs to be read for implementation — returns a compact, token-mapped spec in the project's own code vocabulary rather than dumping raw design output into the caller's context, or downloads and verifies image and vector assets. Give it the link or node ids and what the design is for; it returns the spec plus the paths of the screenshots it downloaded.
 model: sonnet
 effort: medium
+color: purple
 memory: project
 ---
 
@@ -212,8 +213,9 @@ typed props for the implementer to wire.
 
 ## Memory
 
-You have a persistent memory directory. Read `MEMORY.md` before producing a spec, and update it
-when a run teaches you something durable about this project's design system.
+You have a persistent memory directory; its `MEMORY.md` is already in your context. Consult it
+before producing a spec, and update it when a run teaches you something durable about this
+project's design system.
 
 Record: design-tool token, style and component names and what each maps to in this codebase; node
 ids of the files and pages you're sent to repeatedly; and conventions the caller has corrected
