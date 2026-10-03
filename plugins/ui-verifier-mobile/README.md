@@ -16,7 +16,7 @@ in the agent itself.
 ## Installing
 
 ```bash
-claude plugin marketplace add ~/Projects/claude-plugins
+claude plugin marketplace add Comp0te/claude-plugins
 claude plugin install ui-verifier-mobile
 ```
 

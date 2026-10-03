@@ -42,7 +42,7 @@ at the top of the report when it is absent.
 ## Installing
 
 ```bash
-claude plugin marketplace add <owner>/<repo>
+claude plugin marketplace add Comp0te/claude-plugins
 
 claude plugin install review-flow@compote --scope user
 claude plugin install pr-tickets@compote --scope user   # optional; needs review-flow and Jira tooling

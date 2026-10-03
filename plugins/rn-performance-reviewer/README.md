@@ -17,7 +17,7 @@ nothing from it — the agent's description never matches a non-RN diff, so it i
 dispatched.
 
 ```bash
-claude plugin marketplace add ~/Projects/claude-plugins
+claude plugin marketplace add Comp0te/claude-plugins
 claude plugin install rn-performance-reviewer
 ```
 

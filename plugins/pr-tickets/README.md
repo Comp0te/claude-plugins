@@ -57,7 +57,7 @@ are answered — it never invents a project key.
 ## Installing
 
 ```bash
-claude plugin marketplace add ~/Projects/claude-plugins
+claude plugin marketplace add Comp0te/claude-plugins
 claude plugin install review-flow
 claude plugin install pr-tickets
 ```

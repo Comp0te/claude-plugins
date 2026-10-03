@@ -10,7 +10,7 @@ It never modifies code. Spec mode is read-only; asset mode writes only image fil
 ## Installing
 
 ```bash
-claude plugin marketplace add ~/Projects/claude-plugins
+claude plugin marketplace add Comp0te/claude-plugins
 claude plugin install figma-flow
 ```
 
