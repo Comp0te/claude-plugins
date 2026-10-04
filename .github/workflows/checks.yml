@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   shared-sync:
     name: shared text blocks are in sync
@@ -19,6 +22,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check-structure.py
+      - run: python3 -m unittest discover -s tests/review-flow/check-structure
+
+  unit-tests:
+    name: unit tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
+      - run: python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_*.py'
+      - run: python3 -m unittest discover -s plugins/plan-flow/evals/e2e -p 'test_*.py'
+      - run: python3 -m unittest discover -s tests/review-flow/reviewer-evals -p 'test_*.py'
+      - run: python3 -m unittest discover -s tests/review-flow/roster-stats
+
+  claude-cli:
+    name: manifests validate and the progress pane's tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: for p in . plugins/*; do claude plugin validate "$p" || exit 1; done
+      - run: claude plugin test plugins/plan-flow
 
   hunk-map:
     name: review-flow hunk-map matches its fixtures
