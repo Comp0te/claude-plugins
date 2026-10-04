@@ -11,7 +11,7 @@ It never modifies code. Spec mode is read-only; asset mode writes only image fil
 
 ```bash
 claude plugin marketplace add Comp0te/claude-plugins
-claude plugin install figma-flow
+claude plugin install figma-flow@compote --scope project   # from inside the repository
 ```
 
 This agent depends on a separate Figma MCP plugin (`figma@claude-plugins-official`), declared as
@@ -21,8 +21,8 @@ own preflight will say so and name what to install, rather than guessing at a de
 memory or falling back to fetching the Figma page as a web document.
 
 ```bash
-claude plugin marketplace add claude-plugins-official
-claude plugin install figma
+claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin install figma@claude-plugins-official
 ```
 
 ## The project's design-mapping document
@@ -44,6 +44,7 @@ them listed as a blocker, so the gap is visible instead of silently absorbed.
 
 ## No other configuration needed
 
-There is nothing else to wire up. The agent keeps a persistent memory of node ids and
+There is nothing else to wire up: the agent is dispatched as `figma-flow:extractor`, and its
+description matches a Figma URL or node in the conversation. It keeps a persistent memory of node ids and
 corrections it has been given, and treats the mapping document — not its own memory — as the
 source of truth to promote observations into.

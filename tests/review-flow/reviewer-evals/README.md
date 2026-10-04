@@ -28,7 +28,7 @@ Needs network access to `api.anthropic.com` and an authenticated `claude` CLI (O
 runner never passes `--bare`, which would drop it). Each of the 9 case/variant rows runs 3 times
 against the real agent, an isolated two-commit git repo per job under the system temp directory.
 Writes raw JSON and metadata under a fresh `results/<UTC timestamp>/`, then a graded
-`results/<...>/summary.md`. The full 27-job baseline (2026-09-26, `-j 2`) cost **$3.54** and took
+`results/<...>/summary.md`. A full 27-job run at `-j 2` costs about **$3.54** and takes
 **~19 minutes** wall clock; a one-case, one-run smoke (`--case '01-*' --runs 1`) is a cheap way to
 confirm login and network before a full run.
 
@@ -62,7 +62,7 @@ changed the agent's behavior, not the fixture.
 
 ## Known parser limits
 
-The parser (`grade.py`) is deliberately tolerant rather than strict-after-key-alignment (D3) — this
+The parser (`grade.py`) is deliberately tolerant rather than strict — this
 baseline measures today's agent prompts against it as-is, not a parser tuned to them. Observed
 limits, kept as measured rather than patched:
 
@@ -98,8 +98,7 @@ future runs. Not regenerated automatically — copy it by hand after a run you i
 reference point.
 
 `baselines/2026-09-27-aligned-keys.md` is the current one, taken after the reviewers switched to
-the six aligned output keys (`file:`/`scope:`/`issue:`/`why:`/`fix:`/`evidence:`); it supersedes
-`baselines/2026-09-26.md` and lists the per-row changes against it.
+the six aligned output keys (`file:`/`scope:`/`issue:`/`why:`/`fix:`/`evidence:`).
 
 ## `brief.md`
 

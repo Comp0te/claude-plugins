@@ -65,19 +65,12 @@ Not when the import is merely stale. That one is still delivering, and the condi
 the rules arrive at all, not whether they are current: injecting a second copy that differs from
 the one already loaded trades old text for a contradiction.
 
-## Why the rules moved byte-identical
+## Why the agreements are never paraphrased
 
-An earlier draft paraphrased these sections to fit the hook's word budget and **lost seven
-rules** in doing so: the autonomous-fix-loop prohibition, "don't narrate the failure the code
-prevents", the comment budget with its exceptions clause, the changelog sentence, "don't paper
-over confusion", the reuse rule's package-search half, and the UI-verification skip criteria.
-
-An imported file has no budget, so the sections move verbatim and the losses do not arise. Only
-two sentences were rewritten, both to remove one machine's private vocabulary: a tool name in
-*Research before coding*, and four project-specific agent and directory names in *UI
-verification*.
-Byte-identity was a requirement of that migration, not a standing one: the sections have since
-been edited here, and this file is the source they are edited in.
+A draft that paraphrased the agreements to fit the hook's word budget **lost seven rules**, among them
+the autonomous-fix-loop prohibition, the comment budget's exceptions clause and the
+UI-verification skip criteria. An imported file has no
+budget, which is why the agreements travel as a whole file and the fallback injects it verbatim.
 
 Each rule has exactly one source file. A component needing a rule points at the file that holds
 it; nothing restates another component's text.
@@ -89,9 +82,6 @@ it; nothing restates another component's text.
 - **An unavailable MCP tool in an agent's `tools:` list is silently dropped** and the agent still
   loads with the remainder. This is why `plan-executor` can name a documentation-lookup tool in
   its grant while phrasing the body conditionally — it degrades cleanly rather than failing.
-- **There is no plugin dependency mechanism.** An unknown `dependencies` field in a manifest
-  passes validation and is ignored. Requiring another plugin's MCP server means shipping your own
-  copy of its config, which duplicates the server for anyone who has both.
 - **A local directory marketplace still produces a versioned cache copy** of the plugin. That
   copy, not the source repository, is what `${CLAUDE_PLUGIN_ROOT}` resolves to at run time.
 

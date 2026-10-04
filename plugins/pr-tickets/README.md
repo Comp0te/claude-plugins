@@ -58,6 +58,6 @@ are answered — it never invents a project key.
 
 ```bash
 claude plugin marketplace add Comp0te/claude-plugins
-claude plugin install review-flow
-claude plugin install pr-tickets
+claude plugin install review-flow@compote --scope user
+claude plugin install pr-tickets@compote --scope user
 ```

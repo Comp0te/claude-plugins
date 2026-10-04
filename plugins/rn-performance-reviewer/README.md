@@ -18,7 +18,7 @@ dispatched.
 
 ```bash
 claude plugin marketplace add Comp0te/claude-plugins
-claude plugin install rn-performance-reviewer
+claude plugin install rn-performance-reviewer@compote --scope project   # from inside the repository
 ```
 
 ## No configuration needed

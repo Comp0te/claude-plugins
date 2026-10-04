@@ -6,7 +6,7 @@
   },
   "metadata": {
     "version": "0.3.1",
-    "description": "Personal Claude Code plugins: a pull-request and branch review flow, and a spec-driven development toolkit."
+    "description": "Claude Code plugins for spec-driven development: plan writing and execution, pull-request and branch review, Figma-to-spec extraction, and UI verification in the running app."
   },
   "plugins": [
     {

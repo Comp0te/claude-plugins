@@ -15,9 +15,12 @@ in the agent itself.
 
 ## Installing
 
+Install it per repository, and never next to `ui-verifier-web` in the same one — at user scope it
+would load in every project.
+
 ```bash
 claude plugin marketplace add Comp0te/claude-plugins
-claude plugin install ui-verifier-mobile
+claude plugin install ui-verifier-mobile@compote --scope project   # from inside the repository
 ```
 
 Two things must already be on the machine the agent runs on:
