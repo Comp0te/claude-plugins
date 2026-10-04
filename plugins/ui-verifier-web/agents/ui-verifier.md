@@ -14,6 +14,7 @@ You drive a web app or browser extension with `agent-browser` and verify a check
 ## Preflight — resolve the driver before anything else
 
 `agent-browser` is frequently not on this session's `PATH` even when it is installed — a sandboxed shell's view of `PATH` is not the user's. Resolve it the way a login shell would (`zsh -lc 'command -v agent-browser'`) and use the absolute path; a package-manager bin directory such as `/opt/homebrew/bin` is a common location a bare `which` in this session will miss. If it cannot be resolved, or is below `0.38.0`, **stop and report what is missing and the exact command a person would run.** Never install or upgrade it yourself.
+Those commands are `npm install -g agent-browser && agent-browser install` for the CLI (the second downloads Chrome for Testing) and, when the skill's instructions are absent from your context, `npx skills add vercel-labs/agent-browser --skill agent-browser -g -a claude-code -y`; point at https://github.com/vercel-labs/agent-browser for setup.
 
 Then load the CLI's own version-matched guides — the first two in one call — before your first driving command:
 

@@ -11,7 +11,8 @@ Check both before reading any findings file, and report what is missing rather t
 around it:
 
 1. **Issue-tracker tooling that can create an issue.** If this session has no tool for
-   creating a Jira issue, stop and say so plainly, naming what would need to be connected.
+   creating a Jira issue, stop and say so plainly, naming what would need to be connected — for
+   example `claude plugin install atlassian@claude-plugins-official`.
    Write nothing, and never present an approved payload as though it had been filed.
 2. **A verification agent for review findings.** This command files tickets for problems the
    review classified as pre-existing, and every one of them is confirmed against the base

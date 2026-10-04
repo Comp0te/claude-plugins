@@ -24,13 +24,26 @@ claude plugin install ui-verifier-web@compote --scope project   # from inside th
 
 Two things must already be on the machine the agent runs on:
 
-- **The `agent-browser` CLI**, version `0.38.0` or newer — the version whose snapshot-delta and ref
-  semantics the agent's driver facts assume. The agent resolves it itself — through a
-  login shell, since a sandboxed `PATH` routinely misses it — and stops with an install command if
-  it's missing. It never installs or upgrades it autonomously.
+- **The [`agent-browser`](https://github.com/vercel-labs/agent-browser) CLI**, version `0.38.0`
+  or newer — the version whose snapshot-delta and ref semantics the agent's driver facts assume.
+  The second command downloads Chrome for Testing on first use; the CLI's README covers Homebrew,
+  Cargo and Linux dependencies.
+
+  ```bash
+  npm install -g agent-browser
+  agent-browser install
+  ```
+
 - **The `agent-browser` skill**, which the agent declares in its frontmatter and uses to load the
-  CLI's version-matched guide. This plugin does not ship it; it is a separate skill (e.g. under
-  `~/.claude/skills/agent-browser`).
+  CLI's version-matched guide. It ships in the same repository and installs with the
+  [`skills`](https://github.com/vercel-labs/skills) CLI:
+
+  ```bash
+  npx skills add vercel-labs/agent-browser --skill agent-browser -g -a claude-code -y
+  ```
+
+The agent resolves the CLI through a login shell, since a sandboxed `PATH` routinely misses it.
+When either is missing it stops and prints these commands instead of installing anything itself.
 
 ## Project-specific facts
 

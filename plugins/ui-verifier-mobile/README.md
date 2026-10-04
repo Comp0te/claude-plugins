@@ -25,14 +25,27 @@ claude plugin install ui-verifier-mobile@compote --scope project   # from inside
 
 Two things must already be on the machine the agent runs on:
 
-- **The `agent-device` CLI**, version `0.21.15` or newer. Only the current CLI is supported: the
-  driver quirks are measured against it, and older versions are not. The agent resolves the CLI
-  itself and stops with an install command if it's missing or older — it never installs or
-  upgrades it autonomously.
+- **The [`agent-device`](https://github.com/callstack/agent-device) CLI**, version `0.21.15` or
+  newer. Only the current CLI is supported: the driver quirks are measured against it. It needs
+  Node.js 22.12 or newer; see its
+  [installation guide](https://oss.callstack.com/agent-device/docs/installation) for the
+  simulator and emulator requirements.
+
+  ```bash
+  npm install -g agent-device@latest
+  agent-device doctor
+  ```
+
 - **The `agent-device` skill**, which the agent declares in its frontmatter and uses to resolve
-  the binary and route into the CLI's version-matched help. This plugin does not ship it; it is a
-  separate skill (e.g. under `~/.claude/skills/agent-device`). Without it the agent still runs,
-  but it loses the `help` routing it leans on.
+  the binary and route into the CLI's version-matched help. It ships in the same repository and
+  installs with the [`skills`](https://github.com/vercel-labs/skills) CLI:
+
+  ```bash
+  npx skills add callstack/agent-device --skill agent-device -g -a claude-code -y
+  ```
+
+The agent checks both before its first command, and when one is missing it stops and prints
+these commands instead of installing anything itself.
 
 ## Project-specific facts
 

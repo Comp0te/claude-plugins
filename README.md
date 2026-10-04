@@ -14,7 +14,7 @@ application.
 - **[review-flow](plugins/review-flow/README.md)** — read-only review of a GitHub pull request
   or the current branch. Dispatches focused reviewer agents matched to the diff, verifies every
   finding against the source before it is reported, and publishes an approved subset as inline
-  PR comments. Requires the GitHub CLI (`gh`), authenticated.
+  PR comments. Requires the [GitHub CLI](https://cli.github.com/) (`gh`), authenticated.
 - **[pr-tickets](plugins/pr-tickets/README.md)** — triages the findings a review deliberately
   left unposted (pre-existing problems and deferred work) and turns the ones worth tracking into
   Jira issues, after verifying each against the base branch. Requires `review-flow`, Jira
@@ -87,6 +87,9 @@ claude plugin update <name>@compote --scope user
 For a project-scope install, run the update from inside that repository with `--scope project`;
 each such install is updated separately. Restart the session to pick up the new version.
 
+What changed in each version is in the repository's
+[Releases](https://github.com/Comp0te/claude-plugins/releases).
+
 ## Developing
 
 Installing copies a plugin into `~/.claude/plugins/cache/compote/<name>/<version>/`, and that
@@ -94,19 +97,29 @@ cache is keyed by version: an edit without a version bump never reaches an insta
 Raise `version` in the plugin's `plugin.json` and in its `marketplace.json` entry whenever its
 content changes.
 
+To release a bump, push it, then tag it and publish its notes:
+
+```bash
+claude plugin tag plugins/<name> --push        # creates <name>--v<version>
+gh release create <name>--v<version> --title "<name> <version>" --notes "<what changed, what to do>"
+```
+
+Installs pick the new version up through `claude plugin update`; the release is where a user
+reads what changed.
+
 To work against a local clone, add it as the marketplace instead of the GitHub repository:
 `claude plugin marketplace add <path to your clone>`.
 
 Text shared between commands and agents lives in `shared/` and is copied between
 `<!-- shared:NAME -->` markers by `scripts/sync-shared.py` (`shared/blocks.json` maps each block to
-its targets). Edit the source in `shared/`, never the copy, then run the sync. CI runs:
+its targets). Edit the source in `shared/`, never the copy, then run the sync.
 
-```bash
-python3 scripts/sync-shared.py --check
-python3 -m unittest discover -s tests/shared-blocks
-python3 scripts/check-structure.py
-python3 scripts/check-hunk-map.py
-```
+CI ([`.github/workflows/checks.yml`](.github/workflows/checks.yml)) runs every check that costs
+nothing — the shared-block sync, the structure and hunk-map checkers, every unit-test suite,
+`claude plugin validate` on the marketplace and each plugin, and `claude plugin test` for
+plan-flow's progress pane. The workflow is the list of commands to run locally before a push.
+`tsc -p plugins/plan-flow` stays local: it needs declaration files that Claude Code writes only
+when a session loads the plugin.
 
 The model-graded evals and their costs are described in
 [plugins/plan-flow/evals/README.md](plugins/plan-flow/evals/README.md) and

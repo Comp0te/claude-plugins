@@ -17,8 +17,16 @@ stops rather than reconstructing findings on its own.
 - **`review-flow` installed.** The preflight checks for a verification agent that confirms
   findings against the base branch before any ticket is filed; without it, the command stops
   and says so.
-- **Jira tooling that exposes issue creation** in the session. Without it, the command stops
-  before triage begins and writes nothing — it never simulates a created ticket.
+- **Jira tooling that exposes issue creation** in the session — for example the Atlassian plugin
+  from the official marketplace, which connects
+  [Atlassian's MCP server](https://github.com/atlassian/atlassian-mcp-server):
+
+  ```bash
+  claude plugin install atlassian@claude-plugins-official
+  ```
+
+  Without it, the command stops before triage begins and writes nothing — it never simulates a
+  created ticket.
 
 ## Configuration
 

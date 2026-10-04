@@ -18,7 +18,7 @@
     },
     {
       "name": "pr-tickets",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "description": "Triage the findings a review deliberately left unposted — pre-existing problems and deferred work — and turn the ones worth tracking into Jira issues, after verifying each against the base branch.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/pr-tickets"
@@ -39,14 +39,14 @@
     },
     {
       "name": "ui-verifier-mobile",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "description": "Verifies UI changes in a running React Native app against a caller-supplied checklist: drives the simulator or emulator, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-mobile"
     },
     {
       "name": "ui-verifier-web",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "description": "Verifies UI changes in a running web app or browser extension against a caller-supplied checklist: drives the browser, measures what it sees, captures screenshots, and returns a pass/fail report with evidence. Reports findings only and never modifies code.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/ui-verifier-web"

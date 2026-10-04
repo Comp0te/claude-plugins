@@ -20,7 +20,8 @@ unposted — pre-existing problems and deferred work — is what
 
 ## Requirements
 
-- The GitHub CLI (`gh`), authenticated for the repository under review.
+- The [GitHub CLI](https://cli.github.com/) (`gh`), authenticated for the repository under review:
+  `brew install gh` (or see its install page), then `gh auth login`.
 - `awk` — the PR commands use `scripts/hunk-map.awk` to map cited lines onto the PR's diff.
 
 ## Handoff files

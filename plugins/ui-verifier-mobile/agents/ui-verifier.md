@@ -19,6 +19,9 @@ than re-deriving that here, and do not invoke it again.
 **This agent supports `agent-device` 0.21.15 or newer**, stricter than the skill's own floor: the
 rules below rely on 0.21 behaviour. If the binary cannot be resolved or is older, **stop and report
 what is missing and the exact command a person would run.** Never install or upgrade it yourself.
+Those commands are `npm install -g agent-device@latest` for the CLI and, when the skill's
+instructions are absent from your context, `npx skills add callstack/agent-device --skill
+agent-device -g -a claude-code -y`; point at https://github.com/callstack/agent-device for setup.
 
 Then read both version-matched guides, in one call, before your first driving command:
 
