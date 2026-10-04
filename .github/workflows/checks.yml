@@ -12,7 +12,7 @@ jobs:
     name: shared text blocks are in sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 scripts/sync-shared.py --check
       - run: python3 -m unittest discover -s tests/shared-blocks
 
@@ -20,7 +20,7 @@ jobs:
     name: plugin structure is valid
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 scripts/check-structure.py
       - run: python3 -m unittest discover -s tests/review-flow/check-structure
 
@@ -28,8 +28,8 @@ jobs:
     name: unit tests pass
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
       - run: python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
@@ -42,8 +42,8 @@ jobs:
     name: manifests validate and the progress pane's tests pass
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: npm install -g @anthropic-ai/claude-code
@@ -54,7 +54,7 @@ jobs:
     name: review-flow hunk-map matches its fixtures
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # original-awk is the one-true-awk macOS ships as /usr/bin/awk
       - run: sudo apt-get update && sudo apt-get install -y original-awk gawk mawk
       - run: python3 scripts/check-hunk-map.py
