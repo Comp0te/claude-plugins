@@ -20,6 +20,10 @@ application.
   Jira issues, after verifying each against the base branch. Requires `review-flow`, Jira
   tooling that exposes issue creation, and a `.claude/pr-tickets.json` in the consuming
   repository.
+- **[dependabot-triage](plugins/dependabot-triage/README.md)** — triages a repository's open
+  Dependabot PRs: categorizes each by risk against how the repository actually uses the
+  dependency, merges the safe ones after approval, and closes the unwanted ones so they aren't
+  proposed again. Requires `gh`.
 - **[rn-performance-reviewer](plugins/rn-performance-reviewer/README.md)** — a React Native
   performance reviewer for `review-flow`. Reports statically-provable defects in lists, effects
   and subscriptions, animations, Skia usage, memoization, bundle size and image rendering, and
@@ -48,6 +52,7 @@ claude plugin marketplace add Comp0te/claude-plugins
 claude plugin install plan-flow@compote --scope user
 claude plugin install review-flow@compote --scope user
 claude plugin install pr-tickets@compote --scope user   # optional; needs Jira tooling
+claude plugin install dependabot-triage@compote --scope user   # optional
 ```
 
 `plan-flow` then needs one line added to `~/.claude/CLAUDE.md` — see
@@ -68,13 +73,14 @@ claude plugin install ui-verifier-web@compote --scope project
 
 ## Command names
 
-Commands resolve under their plugin's prefix, and only under it:
+Commands and skills resolve under their plugin's prefix, and only under it:
 
 ```
 /plan-flow:execute-plan
 /review-flow:pr-review     /review-flow:branch-review
 /review-flow:pr-publish    /review-flow:pr-recheck
 /pr-tickets:jira
+/dependabot-triage:dependabot-triage
 ```
 
 ## Updating
