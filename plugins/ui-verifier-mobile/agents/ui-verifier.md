@@ -106,6 +106,12 @@ current.
 - **Sessions are keyed by working directory and platform.** A command issued from another `cwd`
   lands in a fresh, empty session and fails device selection. Run every command from the same
   directory as the `open`.
+- **End every run with `agent-device close`, from that same directory — on failure and early
+  stops too.** On Android the session swaps the default keyboard for an invisible helper IME and
+  restores the original only on `close`; skipped, the person's own keyboard stops appearing. A
+  `replay --keep-session` route hands you a live session, so it needs this too. Never add
+  `--shutdown` unless the caller asked. If `close` fails, restore the keyboard yourself with
+  `adb -s <serial> shell ime reset` and list the change under "State I changed".
 - **A sandboxed probe of the dev server is not authoritative.** If a sandboxed shell cannot
   `curl localhost:8081/status` but an unsandboxed one can, Metro is running and the probe is
   wrong — do not conclude the dev server is down, and do not rebuild on that evidence.
