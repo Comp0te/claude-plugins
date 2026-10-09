@@ -17,16 +17,16 @@ stops rather than reconstructing findings on its own.
 - **`review-flow` installed.** The preflight checks for a verification agent that confirms
   findings against the base branch before any ticket is filed; without it, the command stops
   and says so.
-- **Jira tooling that exposes issue creation** in the session — for example the Atlassian plugin
-  from the official marketplace, which connects
-  [Atlassian's MCP server](https://github.com/atlassian/atlassian-mcp-server):
+- **[`twg`](https://teamwork-graph.atlassian.com/cli/install)**, Atlassian's Teamwork Graph CLI,
+  installed and logged in. Every Jira search, fetch and create goes through it:
 
   ```bash
-  claude plugin install atlassian@claude-plugins-official
+  curl -fsSL https://teamwork-graph.atlassian.com/cli/install | bash
+  twg login
   ```
 
   Without it, the command stops before triage begins and writes nothing — it never simulates a
-  created ticket.
+  created ticket. Under a network sandbox, `twg` needs `api.atlassian.com`.
 
 ## Configuration
 
@@ -49,7 +49,7 @@ and commit it:
 
 | Key | Meaning |
 | --- | --- |
-| `site` | The Jira Cloud site the issue is created on, e.g. `your-org.atlassian.net`. |
+| `site` | The Jira Cloud site the issue is created on, e.g. `your-org.atlassian.net`. Passed to `twg --site`. |
 | `project` | The Jira project key tickets are filed into. |
 | `component` | The component value set on every created ticket. |
 | `issueType` | The default issue type — `Bug` for a defect, `Task` for a missing test, cleanup, or design change. |

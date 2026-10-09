@@ -17,9 +17,9 @@ application.
   PR comments. Requires the [GitHub CLI](https://cli.github.com/) (`gh`), authenticated.
 - **[pr-tickets](plugins/pr-tickets/README.md)** — triages the findings a review deliberately
   left unposted (pre-existing problems and deferred work) and turns the ones worth tracking into
-  Jira issues, after verifying each against the base branch. Requires `review-flow`, Jira
-  tooling that exposes issue creation, and a `.claude/pr-tickets.json` in the consuming
-  repository.
+  Jira issues, after verifying each against the base branch. Requires `review-flow`,
+  Atlassian's [`twg` CLI](https://teamwork-graph.atlassian.com/cli/install) (logged in), and a
+  `.claude/pr-tickets.json` in the consuming repository.
 - **[dependabot-triage](plugins/dependabot-triage/README.md)** — triages a repository's open
   Dependabot PRs: categorizes each by risk against how the repository actually uses the
   dependency, merges the safe ones after approval, and closes the unwanted ones so they aren't
@@ -51,7 +51,7 @@ claude plugin marketplace add Comp0te/claude-plugins
 
 claude plugin install plan-flow@compote --scope user
 claude plugin install review-flow@compote --scope user
-claude plugin install pr-tickets@compote --scope user   # optional; needs Jira tooling
+claude plugin install pr-tickets@compote --scope user   # optional; needs the twg CLI
 claude plugin install dependabot-triage@compote --scope user   # optional
 ```
 

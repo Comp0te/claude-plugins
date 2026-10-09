@@ -18,7 +18,7 @@
     },
     {
       "name": "pr-tickets",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "description": "Triage the findings a review deliberately left unposted — pre-existing problems and deferred work — and turn the ones worth tracking into Jira issues, after verifying each against the base branch.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/pr-tickets"

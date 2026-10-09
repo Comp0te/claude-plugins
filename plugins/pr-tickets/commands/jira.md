@@ -10,10 +10,13 @@ Triage the unposted remainder of the review of pull request `$ARGUMENTS` and tur
 Check both before reading any findings file, and report what is missing rather than working
 around it:
 
-1. **Issue-tracker tooling that can create an issue.** If this session has no tool for
-   creating a Jira issue, stop and say so plainly, naming what would need to be connected — for
-   example `claude plugin install atlassian@claude-plugins-official`.
-   Write nothing, and never present an approved payload as though it had been filed.
+1. **The `twg` CLI, authenticated.** Every Jira read and write below goes through Atlassian's
+   [Teamwork Graph CLI](https://teamwork-graph.atlassian.com/cli/install). Run `twg whoami`.
+   If `twg` is not on PATH, stop and give the install command,
+   `curl -fsSL https://teamwork-graph.atlassian.com/cli/install | bash`; if it is not logged
+   in, stop and tell the user to run `! twg login`. Under a network sandbox it needs
+   `api.atlassian.com`. Write nothing, and never present an approved payload as though it had
+   been filed.
 2. **A verification agent for review findings.** This command files tickets for problems the
    review classified as pre-existing, and every one of them is confirmed against the base
    branch before a ticket exists. If no such agent is available in this session, stop and say
@@ -131,11 +134,14 @@ A worked example of the shape, from one repository that uses this command: site
 prefixed `PROJ | `, no labels. It is an illustration of the fields, not a default — never
 file into it.
 
+Every `twg` call in this command passes `--site <site>` and `--output json`.
+
 Per row, in this order:
 
-1. **Any issue key the row already names** — in its `evidence`, its summary, or the deferred entry's text. Fetch it and read what it actually covers.
-2. The dedupe search uses `dedupeJql` where the config provides it, and otherwise a search by
-   component and substance. **Never search by the summary prefix**: more than one repository can
+1. **Any issue key the row already names** — in its `evidence`, its summary, or the deferred entry's text. Fetch it with `twg jira workitem get <KEY> --fields summary,description,status,components` and read what it actually covers.
+2. The dedupe search runs `twg jira workitem query --jql '<JQL>' --fields summary,status --limit 50`
+   with `dedupeJql` where the config provides it, and otherwise a JQL by component and substance
+   (`text ~ "<mechanism>"`). **Never search by the summary prefix**: more than one repository can
    file into the same project, and a prefix match silently scopes the dedupe to the wrong subset.
 
    Search the mechanism and the file, not the review's wording. Run it once per distinct problem, not once per row where rows share one.
@@ -247,7 +253,16 @@ Ask for approval **on this list**. Anything other than explicit approval — sil
 
 ## 5. Create
 
-One ticket at a time, with `createJiraIssue`, from the payload file. Never transition, never assign, never link issues unless the user asked for it.
+One ticket at a time, from the payload file:
+
+```bash
+twg --site <site> --output json jira workitem create \
+  --space <project> --type <type> --priority <priority> --summary '<summary>' \
+  --description "$(cat <scratch>/pr-<N>-ticket-<i>.md)" --description-format markdown \
+  --fields-json '{"components":[{"name":"<component>"}]}' [--labels <a,b>]
+```
+
+Write each description to its own scratch file and pass it through `$(cat …)`; never inline it, since shell quoting corrupts code blocks and backticks. Read the created key from the JSON response. If the create is rejected over a field, run `twg jira workitem field create-metadata --space <project> --type <type>` and report what the project requires rather than guessing a value. Never pass `--assignee`, never transition, never link issues unless the user asked for it.
 
 **Write each returned key to disk before making the next call.** A ticket created but not recorded becomes a duplicate on the next run, and this command has no way to tell one apart from an untriaged row.
 
