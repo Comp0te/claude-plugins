@@ -20,6 +20,13 @@ const plan = titles.map((t, i) => pt(i + 1, t))
 const base = (): Run => newRun('docs/plan.md', plan, 0)
 const at = (over: Partial<Parameters<typeof paneLines>[1]> = {}) => ({ now: 240_000, columns: 80, path: 'docs/plan.md', ...over })
 const review = (paths: string[] = []) => ({ kind: 'review' as const, readyPaths: paths })
+function busy(): Run {
+  let run = executorSpawned(base(), 'a', 4, 0)
+  run = executorChecked(run, 'a', { label: 'lint', ok: true, tail: [], at: 1 }, 1)
+  run = executorChecked(run, 'a', { label: 'tests', ok: false, tail: ['one', 'two'], at: 2 }, 2)
+  run = executorSpawned(run, 'h', 5, 0)
+  return executorFinished(run, 'h', { kind: 'halted', reason: 'file moved', readyPaths: [] }, 1)
+}
 const find = (run: Run, text: string) => paneLines(run, at()).find(l => l.text.includes(text))
 
 describe('paneLines', () => {
@@ -108,11 +115,21 @@ describe('paneLines', () => {
     const lines = paneLines(run, at())
     const i = lines.findIndex(l => l.text.includes('Run reducer'))
     expect(lines.slice(i + 1, i + 5)).toEqual([
-      { text: '  ✓ lint', tone: 'ok' },
+      { text: '  ✓ 1 check passed', tone: 'ok' },
       { text: '  ✗ tests', tone: 'fail' },
       { text: '    one', tone: 'dim' },
       { text: '    two', tone: 'dim' },
     ])
+  })
+
+  test('passing checks fold into one row', async () => {
+    let run = executorSpawned(base(), 'a', 4, 0)
+    run = executorChecked(run, 'a', { label: 'lint', ok: true, tail: [], at: 1 }, 1)
+    run = executorChecked(run, 'a', { label: 'tests', ok: true, tail: [], at: 2 }, 2)
+    const lines = paneLines(run, at())
+    const i = lines.findIndex(l => l.text.includes('Run reducer'))
+    expect(lines[i + 1]).toEqual({ text: '  ✓ 2 checks passed', tone: 'ok' })
+    expect(lines[i + 2]!.text).toBe('○ 5. View  pending')
   })
 
   test('unmatched executor', async () => {
@@ -149,6 +166,29 @@ describe('paneLines', () => {
     const row = paneLines(run, at({ columns: 30 })).find(l => l.text.startsWith('▶ 4.'))!
     expect(row.text).toContain('executing')
     expect(row.text.length).toBeLessThanOrEqual(30)
+  })
+
+  test('a short pane keeps every task row and failures, hiding the other details', async () => {
+    const run = busy()
+    expect(paneLines(run, at()).length).toBe(16)
+    const lines = paneLines(run, at({ rows: 14 }))
+    expect(lines.length).toBe(14)
+    expect(lines.filter(l => /^[○▶■] \d\. /.test(l.text)).length).toBe(8)
+    expect(lines.map(l => l.text)).toContain('  ✗ tests')
+    expect(lines.map(l => l.text)).toContain('  file moved')
+    expect(lines.map(l => l.text)).not.toContain('    one')
+    expect(lines.at(-1)).toEqual({ text: '… 3 detail rows hidden', tone: 'dim' })
+  })
+
+  test('a pane shorter than its task list drops details and says how to scroll', async () => {
+    const lines = paneLines(busy(), at({ rows: 8 }))
+    expect(lines.length).toBe(10)
+    expect(lines[1]!.text).toBe('0/8 committed · 1 executing · 1 halted · ctrl+x tab to scroll')
+    expect(lines.slice(2).every(l => /^[○▶■] \d\. /.test(l.text))).toBe(true)
+  })
+
+  test('a pane with room draws everything', async () => {
+    expect(paneLines(busy(), at({ rows: 16 }))).toEqual(paneLines(busy(), at()))
   })
 
   test('error line', async () => {

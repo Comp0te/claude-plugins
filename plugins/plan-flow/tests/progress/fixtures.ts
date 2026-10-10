@@ -194,7 +194,7 @@ export async function harnessOf(
     delays,
     placed,
     render: async (props = {}) => {
-      const input = { surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 72, ...props } }
+      const input = { surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 72, scroll: { offset: 0, bodyRows: 40 }, ...props } }
       return textsOf(await call('ui.render', input))
     },
     settle: async () => {

@@ -7,16 +7,43 @@ const normalize = (command: string) =>
     .replace(/^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, '')
     .replace(/\s+/g, ' ')
 
-/** Labels a shell command as a check: the matching Verification command, else the command itself when `pattern` matches. `git` never counts. */
-export function checkLabel(command: string, verification: readonly string[], pattern: RegExp): string | undefined {
-  const run = normalize(command)
-  if (/^git\s/.test(run)) return undefined
-  const planned = verification.find(v => {
+/** The command's parts: a heredoc's body is dropped, then it splits at `;`, `&&`, `||`, `|` and newlines. */
+function partsOf(command: string): string[] {
+  const lines = command.split('\n')
+  const heredoc = lines.findIndex(l => l.includes('<<'))
+  const kept = heredoc < 0 ? lines : [...lines.slice(0, heredoc), lines[heredoc]!.slice(0, lines[heredoc]!.indexOf('<<'))]
+  return kept.join(';').split(/&&|\|\||;|\|/).map(normalize).filter(p => p !== '')
+}
+
+/** A part's program and subcommand words: file names, paths, flags and quoted arguments say nothing about what runs. */
+const wordsOf = (part: string) =>
+  part
+    .split(' ')
+    .filter(w => !/[./"'<>=]/.test(w) && !w.startsWith('-'))
+    .join(' ')
+
+const plannedIn = (run: string, verification: readonly string[]) =>
+  verification.find(v => {
     const p = normalize(v)
     return run === p || run.startsWith(`${p} `)
   })
-  if (planned) return planned
-  return pattern.test(run) ? run.slice(0, 80) : undefined
+
+/**
+ * Labels a shell command as a check: the matching Verification command, else the first part whose program or
+ * subcommand words `pattern` matches, labelled with that part alone. `git` never counts.
+ */
+export function checkLabel(command: string, verification: readonly string[], pattern: RegExp): string | undefined {
+  const parts = partsOf(command).filter(p => !/^git(\s|$)/.test(p))
+  const whole = normalize(command)
+  if (!/^git\s/.test(whole)) {
+    const planned = plannedIn(whole, verification)
+    if (planned) return planned
+  }
+  for (const part of parts) {
+    const planned = plannedIn(part, verification)
+    if (planned) return planned
+  }
+  return parts.find(p => pattern.test(wordsOf(p)))?.slice(0, 80)
 }
 
 /** Attributes a dispatch prompt to a task: the first `Task N` present in the plan, else the one task starting inside its line range. */

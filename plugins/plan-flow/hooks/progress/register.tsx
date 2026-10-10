@@ -307,7 +307,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: PANE_ID }, ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const shown = session.run ?? session.restored
-    const lines = paneLines(shown, { now: Date.now(), columns: e.props.bodyColumns, path: displayPath(shown?.planPath), error: session.error })
+    const lines = paneLines(shown, { now: Date.now(), columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows, path: displayPath(shown?.planPath), error: session.error })
     const color = { plain: undefined, dim: undefined, active: 'cyan', ok: 'green', warn: 'yellow', fail: 'red' } as const
     return (
       <Box flexDirection="column">

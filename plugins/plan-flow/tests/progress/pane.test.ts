@@ -116,6 +116,14 @@ describe('render', () => {
     expect(await h.render()).toEqual(expected.map(l => l.text || ' '))
   })
 
+  test('fits the rows the pane is given', async () => {
+    const h = await harnessOf(FILES, {}, false, false, withStore(storedRun()))
+    const expected = paneLines(session.restored!, { now: Date.now(), columns: 72, rows: 6, path: 'docs/plans/p.md' })
+    expect(await h.render({ scroll: { offset: 0, bodyRows: 6 } })).toEqual(expected.map(l => l.text || ' '))
+    expect(expected.length).toBe(5)
+    expect(expected[1]!.text).toBe('1/3 committed · 1 in review · 1 halted · 4 detail rows hidden')
+  })
+
   test('draws the empty state when no run exists', async () => {
     const h = await harnessOf(FILES)
     const expected = paneLines(undefined, { now: Date.now(), columns: 72, path: '' })

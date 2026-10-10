@@ -34,8 +34,10 @@ Set at install with `--config <key>=<value>`, or later with
 
 - `progressPane` — `auto` (default) opens the pane when you start executing a plan; `command`
   opens it only through `/plan-progress`; `off` turns the pane and its observation off.
-- `progressCheckPattern` — a regular expression; an executor shell command matching it is shown
-  as a check in the pane, besides the task's own verification commands.
+- `progressCheckPattern` — a regular expression, matched against the program and subcommand words
+  of each part of an executor shell command (not its file names, paths, flags or quoted
+  arguments); a matching part is shown as a check in the pane, besides the task's own
+  verification commands.
 
 ## Where plans live
 

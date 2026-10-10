@@ -1,6 +1,6 @@
 {
   "name": "plan-flow",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
   "license": "MIT",
@@ -16,7 +16,7 @@
     "progressCheckPattern": {
       "type": "string",
       "title": "Check command pattern",
-      "description": "A regular expression: an executor shell command matching it is shown as a check, besides the task's own Verification commands. git commands never count.",
+      "description": "A regular expression, matched against the program and subcommand words of each part of an executor shell command (not file names, paths, flags or quoted arguments); a matching part is shown as a check, besides the task's own Verification commands. git commands never count.",
       "default": "\\b(test|tests|lint|eslint|tsc|typecheck|type-check|code:check|unittest|pytest|jest|vitest|prettier|ruff|mypy)\\b"
     }
   }

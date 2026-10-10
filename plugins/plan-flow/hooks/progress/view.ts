@@ -52,20 +52,53 @@ function details(t: TaskRun): PaneLine[] {
   if (t.status === 'committed') {
     return failed ? [{ text: `  ✗ ${failed} check${failed > 1 ? 's' : ''} failed at last run`, tone: 'warn' }] : []
   }
-  const lines: PaneLine[] = t.checks.flatMap(c => [
-    { text: `  ${c.ok ? '✓' : '✗'} ${c.label}`, tone: c.ok ? 'ok' : 'fail' } as PaneLine,
-    ...c.tail.map(l => ({ text: `    ${l}`, tone: 'dim' }) as PaneLine),
-  ])
+  const passed = t.checks.length - failed
+  const lines: PaneLine[] = passed ? [{ text: `  ✓ ${passed} check${passed > 1 ? 's' : ''} passed`, tone: 'ok' }] : []
+  for (const c of t.checks.filter(c => !c.ok)) {
+    lines.push({ text: `  ✗ ${c.label}`, tone: 'fail' }, ...c.tail.map(l => ({ text: `    ${l}`, tone: 'dim' }) as PaneLine))
+  }
   if (t.reason) lines.push({ text: `  ${t.reason}`, tone: 'fail' })
   return lines
 }
 
+type Row = PaneLine & { detail?: boolean }
+
+/** Fits rows to `rows`: task rows always stay, failures are the last details to go. */
+function fit(all: Row[], rows: number | undefined): PaneLine[] {
+  const strip = (r: Row): PaneLine => ({ text: r.text, tone: r.tone, ...(r.bold ? { bold: true } : {}) })
+  if (rows === undefined || all.length <= rows) return all.map(strip)
+  const kept = all.filter(r => !r.detail)
+  const details = all.length - kept.length
+  const hiddenNote = (n: number) => `${n} detail row${n > 1 ? 's' : ''} hidden`
+  if (kept.length >= rows) {
+    const [path, counts, ...rest] = kept
+    if (!counts) return kept.map(strip)
+    const tight = [path!, counts, ...rest.filter(r => r.text !== '')]
+    const note = tight.length > rows ? 'ctrl+x tab to scroll' : hiddenNote(details)
+    tight[1] = { ...counts, text: `${counts.text} · ${note}` }
+    return tight.map(strip)
+  }
+  let room = rows - kept.length - 1
+  const shown = new Set<Row>()
+  for (const failure of [true, false]) {
+    for (const r of all) {
+      if (room > 0 && r.detail && (r.tone === 'fail') === failure) {
+        shown.add(r)
+        room--
+      }
+    }
+  }
+  const note: Row = { text: `… ${hiddenNote(details - shown.size)}`, tone: 'dim' }
+  return [...all.filter(r => !r.detail || shown.has(r)), note].map(strip)
+}
+
+/** The pane's rows, each cut to `columns`; with `rows`, detail rows give way so every task row fits. */
 export function paneLines(
   run: Run | undefined,
-  at: { now: number; columns: number; path: string; error?: string },
+  at: { now: number; columns: number; path: string; rows?: number; error?: string },
 ): PaneLine[] {
   const { now, columns } = at
-  const lines: PaneLine[] = []
+  const lines: Row[] = []
   if (!run) {
     lines.push(
       { text: 'No plan is running.', tone: 'plain' },
@@ -74,7 +107,7 @@ export function paneLines(
   } else {
     lines.push(...header(run, at.path))
     for (const t of run.tasks) {
-      lines.push(taskRow(t, now, columns), ...details(t))
+      lines.push(taskRow(t, now, columns), ...details(t).map(l => ({ ...l, detail: true })))
     }
     for (const u of Object.values(run.unmatched)) {
       lines.push({
@@ -83,9 +116,9 @@ export function paneLines(
       })
     }
     for (const sha of run.unassignedCommits) {
-      lines.push({ text: `commit ${sha.slice(0, 7)} not matched to a task`, tone: 'dim' })
+      lines.push({ text: `commit ${sha.slice(0, 7)} not matched to a task`, tone: 'dim', detail: true })
     }
   }
   if (at.error) lines.push({ text: `pane error: ${at.error}`, tone: 'fail' })
-  return lines.map(l => ({ ...l, text: cut(l.text, columns) }))
+  return fit(lines, at.rows).map(l => ({ ...l, text: cut(l.text, columns) }))
 }

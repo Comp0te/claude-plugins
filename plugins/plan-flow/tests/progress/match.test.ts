@@ -58,6 +58,18 @@ describe('checkLabel', () => {
   test('an env prefix is stripped', async () => {
     expect(checkLabel('CI=1 yarn test', ['yarn test'], PATTERN)).toBe('yarn test')
   })
+  test('a file name that merely mentions a check tool is not a check', async () => {
+    expect(checkLabel('cd /r; cat jest.config.ts jest.setup.js | head -20', [], PATTERN)).toBeUndefined()
+    expect(checkLabel('cd /r; cat > src/services/__tests__/a.test.ts <<\'EOF\'\nyarn test\nEOF', [], PATTERN)).toBeUndefined()
+    expect(checkLabel('grep -rn "jest" src', [], PATTERN)).toBeUndefined()
+  })
+  test('a check after other commands is labelled with its own part alone', async () => {
+    expect(checkLabel('cd /r; cat src/a.ts; yarn jest src/a.test.ts 2>&1 | tail -5', [], PATTERN)).toBe('yarn jest src/a.test.ts 2>&1')
+    expect(checkLabel('cd /r; yarn test -- src/a.test.ts | tail -5', ['yarn test'], PATTERN)).toBe('yarn test')
+  })
+  test('a git part does not hide a check beside it', async () => {
+    expect(checkLabel('git stash && npx tsc --noEmit', [], PATTERN)).toBe('npx tsc --noEmit')
+  })
 })
 
 describe('isExecutorType', () => {
