@@ -78,6 +78,9 @@ export function gitAddPaths(command: string): string[] {
   })
 }
 
+/** Whether the command makes a new commit: a `git commit` part that does not amend. */
+export const makesCommit = (command: string) => partsOf(command).some(p => /^git commit\b/.test(p) && !/\s--amend\b/.test(p))
+
 /** The plan path named in a dispatch prompt, preferring one under `plans/`. */
 export function planPathIn(prompt: string): string | undefined {
   const paths = prompt.match(/[\w./~-]+\.md\b/g) ?? []

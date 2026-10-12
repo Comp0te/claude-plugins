@@ -116,6 +116,9 @@ export type Harness = {
   placed: { value: boolean }
   /** What the pane's render hook draws: the `Text` rows, in order. */
   render: (props?: Record<string, unknown>) => Promise<string[]>
+  /** What `git rev-parse HEAD` prints through `$.process.run`; every argv the module ran, in order. */
+  head: { sha: string }
+  ran: string[][]
 }
 
 const textsOf = (node: unknown): string[] => {
@@ -147,6 +150,8 @@ export async function harnessOf(
   const registered: Harness['registered'] = []
   const store = new Map<string, unknown>(Object.entries(initialStore))
   const placed = { value: true }
+  const head = { sha: 'f00dfeed' }
+  const ran: string[][] = []
   let sets = 0
   let invalidated = 0
   const has = (path: string) => files[relOf(path)] !== undefined || Object.keys(files).some(f => f.startsWith(`${relOf(path)}/`))
@@ -176,6 +181,12 @@ export async function harnessOf(
       },
     },
     command: { register: async (spec: Harness['registered'][number]) => void registered.push(spec) },
+    process: {
+      run: async (argv: string[]) => {
+        ran.push(argv)
+        return argv.join(' ') === 'git rev-parse HEAD' ? { exitCode: 0, stdout: `${head.sha}\n`, stderr: '' } : { exitCode: 1, stdout: '', stderr: 'unknown' }
+      },
+    },
   } as never
   const call = (event: string, input: object, beneath: unknown = {}) => {
     const hit = handlers.find(h => h.pattern === event && matches(h.matcher, input as Record<string, unknown>))
@@ -193,6 +204,8 @@ export async function harnessOf(
     sets: () => sets,
     delays,
     placed,
+    head,
+    ran,
     render: async (props = {}) => {
       const input = { surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 72, scroll: { offset: 0, bodyRows: 40 }, ...props } }
       return textsOf(await call('ui.render', input))

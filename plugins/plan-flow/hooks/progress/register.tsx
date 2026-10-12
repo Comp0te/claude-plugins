@@ -1,6 +1,6 @@
 import type { AgentSpawnInput, AgentSpawnResult, EngineInterface, Register, ToolCallInput, ToolCallResult } from 'claude-code'
 
-import { checkLabel, gitAddPaths, isExecutorType, planPathIn, taskForDispatch, taskForRead } from './match'
+import { checkLabel, gitAddPaths, isExecutorType, makesCommit, planPathIn, taskForDispatch, taskForRead } from './match'
 import { optionsOf, type ProgressOptions } from './options'
 import { parsePlan, type PlanTask } from './plan'
 import { parseReport } from './report'
@@ -158,6 +158,13 @@ async function rereadPlan($: Dollar) {
   session.run = withPlan(session.run, plan, Date.now())
 }
 
+async function readCommit($: Dollar) {
+  const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', 'HEAD'])
+  const sha = stdout.trim()
+  if (exitCode !== 0 || sha === '' || !session.run) return
+  session.run = mainCommitted(session.run, sha, Date.now())
+}
+
 function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
   const run = session.run
   const result: unknown = r.result
@@ -194,9 +201,11 @@ function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
   if (e.tool === 'Bash') {
     const added = gitAddPaths(e.command)
     let next = added.length > 0 ? mainAdded(run, added, Date.now()) : run
-    const commit = recordOf<BashResult>(result)?.gitOperation?.commit
-    if (commit?.kind === 'committed') next = mainCommitted(next, commit.sha, Date.now())
+    const operation = recordOf<BashResult>(result)?.gitOperation
+    if (operation?.commit?.kind === 'committed') next = mainCommitted(next, operation.commit.sha, Date.now())
     session.run = next
+    // The engine reports a commit only from git's own output, so `git commit -q` leaves no operation.
+    if (operation === undefined && r.isError !== true && makesCommit(e.command)) schedule($, () => readCommit($))
   } else if ((e.tool === 'Edit' || e.tool === 'Write') && resolvePath(e.file_path) === run.planPath) {
     schedule($, () => rereadPlan($))
   } else if (e.tool === 'Agent') {

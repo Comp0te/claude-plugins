@@ -159,6 +159,30 @@ describe('observation', () => {
     expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'abc1234' })
   })
 
+  test('a quiet commit, which carries no git operation, is read from HEAD', async () => {
+    const h = await harnessOf({ ...FILES })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
+    const quiet = { result: { stdout: 'lint-staged output', stderr: '' }, text: 'x' }
+    await h.call('tool.call', { tool: 'Bash', command: "git add src/a.ts && git commit -q -F - <<'EOF'\nfix: done\nEOF\ngit log --oneline -1" }, quiet)
+    await h.settle()
+    expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'f00dfeed' })
+  })
+
+  test('a failed or amended quiet commit reads nothing', async () => {
+    const h = await harnessOf({ ...FILES })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
+    await h.call('tool.call', { tool: 'Bash', command: 'git add src/a.ts && git commit -q -m done' }, { result: 'Error: Exit code 1\nhusky failed', text: 'x', isError: true })
+    await h.call('tool.call', { tool: 'Bash', command: 'git commit -q --amend --no-edit' }, OK)
+    await h.call('tool.call', { tool: 'Bash', command: 'git log --oneline -1 && git status' }, OK)
+    await h.settle()
+    expect(h.ran).toEqual([])
+    expect(status(2)).toBe('review')
+  })
+
   test('a SubagentStop alone finishes the task', async () => {
     const h = await harnessOf({ ...FILES })
     await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 1 of ${PLAN}`), { model: 'm', agentId: 'a1' })
