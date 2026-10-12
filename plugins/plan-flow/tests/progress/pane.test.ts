@@ -121,7 +121,7 @@ describe('render', () => {
     const expected = paneLines(session.restored!, { now: Date.now(), columns: 72, rows: 6, path: 'docs/plans/p.md' })
     expect(await h.render({ scroll: { offset: 0, bodyRows: 6 } })).toEqual(expected.map(l => l.text || ' '))
     expect(expected.length).toBe(5)
-    expect(expected[1]!.text).toBe('1/3 committed · 1 in review · 1 halted · 4 detail rows hidden')
+    expect(expected[1]!.text).toBe('1/3 committed · 1 in review · 1 halted · ctrl+x tab to scroll')
   })
 
   test('draws the empty state when no run exists', async () => {

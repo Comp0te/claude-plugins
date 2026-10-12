@@ -177,7 +177,7 @@ describe('paneLines', () => {
     expect(lines.map(l => l.text)).toContain('  ✗ tests')
     expect(lines.map(l => l.text)).toContain('  file moved')
     expect(lines.map(l => l.text)).not.toContain('    one')
-    expect(lines.at(-1)).toEqual({ text: '… 3 detail rows hidden', tone: 'dim' })
+    expect(lines.at(-1)).toEqual({ text: '… 3 detail rows hidden · ctrl+x tab to scroll', tone: 'dim' })
   })
 
   test('a pane shorter than its task list drops details and says how to scroll', async () => {
@@ -185,6 +185,14 @@ describe('paneLines', () => {
     expect(lines.length).toBe(10)
     expect(lines[1]!.text).toBe('0/8 committed · 1 executing · 1 halted · ctrl+x tab to scroll')
     expect(lines.slice(2).every(l => /^[○▶■] \d\. /.test(l.text))).toBe(true)
+  })
+
+  test('a focused pane draws everything for the engine to scroll', async () => {
+    expect(paneLines(busy(), at({ rows: 8, focused: true }))).toEqual(paneLines(busy(), at()))
+  })
+
+  test('the hidden-details note says how to see them', async () => {
+    expect(paneLines(busy(), at({ rows: 14 })).at(-1)).toEqual({ text: '… 3 detail rows hidden · ctrl+x tab to scroll', tone: 'dim' })
   })
 
   test('a pane with room draws everything', async () => {

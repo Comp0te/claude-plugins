@@ -167,6 +167,15 @@ describe('observation', () => {
     expect(status(1)).toBe('review')
   })
 
+  test('a background executor finishes its task through its hand-back call', async () => {
+    const h = await harnessOf({ ...FILES })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 1 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    await h.call('tool.call', { tool: 'SubagentHandback', message: REPORT_CLEAN, agentId: 'a1' }, { result: { success: true }, text: 'x' })
+    await h.call('classic.SubagentStop', stop('a1', undefined))
+    expect(task(1)).toMatchObject({ status: 'review', readyPaths: ['src/a.ts'] })
+  })
+
   test('an executor whose dispatch named no task is matched by its read of the plan', async () => {
     const h = await harnessOf({ ...FILES })
     await h.call('agent.spawn', spawnInput(EXECUTOR, `Please work on ${PLAN}`), { model: 'm', agentId: 'a1' })

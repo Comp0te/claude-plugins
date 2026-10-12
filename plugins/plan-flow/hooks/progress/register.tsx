@@ -65,6 +65,7 @@ function armPersist($: Dollar) {
 }
 
 const EXECUTE_PLAN = /(^|:)execute-plan$/
+const HANDBACK = 'SubagentHandback'
 
 type BashResult = { stdout?: unknown; stderr?: unknown; gitOperation?: { commit?: { sha: string; kind: string } } }
 type AgentResult = { status?: string; agentId?: string; content?: { text: string }[] }
@@ -183,6 +184,9 @@ function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
         next = executorChecked(next, e.agentId, { label, ok, tail: ok ? [] : tailOf(text), at: now }, now)
       }
     }
+    // A background executor reports through this call, so neither its Agent result nor its SubagentStop carries the report.
+    const handback = (e.tool as string) === HANDBACK ? (e as { message?: unknown }).message : undefined
+    if (typeof handback === 'string') next = executorFinished(next, e.agentId, parseReport(handback), now)
     session.run = next
     return
   }
@@ -307,7 +311,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: PANE_ID }, ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const shown = session.run ?? session.restored
-    const lines = paneLines(shown, { now: Date.now(), columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows, path: displayPath(shown?.planPath), error: session.error })
+    const lines = paneLines(shown, { now: Date.now(), columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows, focused: e.props.isFocused, path: displayPath(shown?.planPath), error: session.error })
     const color = { plain: undefined, dim: undefined, active: 'cyan', ok: 'green', warn: 'yellow', fail: 'red' } as const
     return (
       <Box flexDirection="column">

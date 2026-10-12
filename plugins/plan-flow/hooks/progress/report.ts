@@ -4,15 +4,22 @@ export type ExecutorOutcome =
   | { kind: 'review'; readyPaths: string[]; note?: string }
   | { kind: 'halted'; reason: string; readyPaths: string[] }
 
-const SECTION =
-  /^\s*(?:\d+\.\s*)?\*\*(Status|Changes|Checks|Matrix coverage|Deviations from the plan|Contract not satisfied|Native \/ build impact|Ready to commit|Follow-ups[^*]*|Task size)\*\*\s*:?\s*/gim
+const NAMES =
+  'Status|Changes|Checks|Matrix coverage|Deviations from the plan|Contract not satisfied|Native \\/ build impact|Ready to commit|Follow-ups[^*:\\n]*|Task size'
+
+/** A heading in bold (`**Status**:`), or plain with an optional note before a colon or the line's end (`Ready to commit (not committed):`). */
+const SECTION = new RegExp(
+  `^[ \\t]*(?:\\d+\\.[ \\t]*)?(?:\\*\\*(${NAMES})\\*\\*[ \\t]*:?|(${NAMES})[ \\t]*(?:\\([^)\\n]*\\))?[ \\t]*(?::|$))\\s*`,
+  'gim',
+)
 
 function sections(text: string): Map<string, string> {
   const marks = [...text.matchAll(SECTION)]
   const out = new Map<string, string>()
   marks.forEach((m, i) => {
     const end = marks[i + 1]?.index ?? text.length
-    const key = m[1]!.toLowerCase().startsWith('follow-ups') ? 'follow-ups' : m[1]!.toLowerCase()
+    const name = (m[1] ?? m[2])!.toLowerCase()
+    const key = name.startsWith('follow-ups') ? 'follow-ups' : name
     out.set(key, text.slice(m.index! + m[0].length, end).trim())
   })
   return out
@@ -33,7 +40,7 @@ function readyPathsIn(body: string): string[] {
   const added = body
     .replace(/\\\r?\n/g, ' ')
     .split('\n')
-    .flatMap(l => gitAddPaths(l.replace(/`/g, '')))
+    .flatMap(l => gitAddPaths(l.replace(/`/g, '').replace(/^\s*[-*]\s+/, '')))
     .filter(p => p !== '\\')
   return added.length > 0 ? added : backticked(body)
 }

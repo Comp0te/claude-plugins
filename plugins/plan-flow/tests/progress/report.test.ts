@@ -29,6 +29,25 @@ describe('parseReport', () => {
       '1. **Status**: Done\n2. **Changes**: x\n5. **Contract not satisfied**: None.\n7. **Ready to commit**: git add a.ts'
     expect(parseReport(text)).toEqual({ kind: 'review', readyPaths: ['a.ts'] })
   })
+  test('plain headings, with a note before the colon, parse like bold ones', async () => {
+    const text = [
+      '1. Status: done.',
+      '',
+      '2. Changes:',
+      '- Created `src/a.ts`.',
+      '',
+      '6. Contract not satisfied: none.',
+      '',
+      '8. Ready to commit (I did not commit):',
+      '- `git add src/a.ts test/a.test.ts`',
+      '',
+      '9. Follow-ups the caller should verify: none.',
+    ].join('\n')
+    expect(parseReport(text)).toEqual({ kind: 'review', readyPaths: ['src/a.ts', 'test/a.test.ts'] })
+  })
+  test('a plain blocked status halts with its reason', async () => {
+    expect(parseReport('Status: blocked — file moved\nContract not satisfied: none')).toEqual({ kind: 'halted', reason: 'file moved', readyPaths: [] })
+  })
   test('a report without a Status heading is review with a note', async () => {
     expect(parseReport('I did the thing.')).toEqual({
       kind: 'review',
