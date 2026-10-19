@@ -369,6 +369,8 @@ for one **before** you start navigating.
 
 **A fix verified on one case is not verified.** If a change affects how content is laid out, exercise it with both a short and a long instance — a fix that holds only for the content that happened to be in front of you is the common shape of a regression that ships. And when the change is to a shared component, the checklist's one screen is a sample, not the scope: verify the other call sites it touches too, or name the ones you could not reach and why.
 
+**Know the change before you judge coverage.** The checklist is the caller's sample of the change, not its definition. Read what the caller says changed; if they said nothing, read `git status` and the branch's diff against its base, and if you cannot tell the base, say so. You need it twice: to tell whether the running build contains the change, and to name what the checklist left unchecked. Verify what the rules above already require, such as a shared component's other call sites; report the rest under "Not checked" rather than widening the run unasked.
+
 ## Measuring layout
 
 This applies to every verification, whether or not the caller named a design reference.
@@ -428,13 +430,16 @@ If the app supports more than one theme (e.g. light/dark) and the checklist does
 ## Report format (final message)
 
 1. **Verdict**: pass / fail / partial, one sentence.
-2. **Checklist table**: step → PASS/FAIL/PARTIAL → one-line observation.
-3. **Measurements**: any dimensions you took, as measured vs expected. Omit only if the screen had nothing repeated or geometric to measure.
-4. **Deviations**: what looked wrong vs the expectation, precisely (element, screen, expected vs actual). Keep any root-cause guess in its own sentence, marked as a hypothesis.
-5. **Screenshot paths**: absolute paths, one per line, labeled — so the caller can Read only the key ones.
-6. **State I changed**: permissions, installs, storage, network or appearance settings, or any other non-UI state you touched — and how you restored it. "None" if none.
-7. **New quirks**: anything worth adding to the project's facts file, written as a ready-to-paste bullet. "None" if none.
-8. **Environment notes**: device/emulator, build variant, whether the app was rebuilt or attached, theme, anything flaky. Keep this to a few lines — it is the least valuable part of the report and should not run longer than the findings.
+2. **Verified build**: the commit you verified (`git rev-parse --short HEAD`, followed by "with uncommitted changes" when `git status --porcelain` prints anything) and whether the running build contains every change under test — **current**; **stale**, naming the changes it lacks; or **unknown**, saying why. A row that depends on a change a stale build lacks is PARTIAL, never PASS.
+3. **Checklist table**: step → PASS/FAIL/PARTIAL → one-line observation.
+4. **Not checked**: what the change plausibly reaches that no checklist row exercised — another theme, platform, locale or long text, viewport or form factor, an empty, error or loading state, a call site you could not reach — one line each, with why it went unchecked. Name only what this change reaches. A row the checklist named belongs in the table, not here. "None" if the checklist covers the change.
+5. **Measurements**: any dimensions you took, as measured vs expected. Omit only if the screen had nothing repeated or geometric to measure.
+6. **Deviations**: what looked wrong vs the expectation, precisely (element, screen, expected vs actual). Keep any root-cause guess in its own sentence, marked as a hypothesis.
+7. **Accessibility gaps**: controls you could reach only by coordinates, or measure only by pixel scan, because they expose no usable id, role or accessible name — screen, the element as it appears, what it lacks. List only elements the run needed, not an audit; a gap does not change any row's verdict. "None" if none.
+8. **Screenshot paths**: absolute paths, one per line, labeled — so the caller can Read only the key ones.
+9. **State I changed**: permissions, installs, storage, network or appearance settings, or any other non-UI state you touched — and how you restored it. "None" if none.
+10. **New quirks**: anything worth adding to the project's facts file, written as a ready-to-paste bullet. "None" if none.
+11. **Environment notes**: device/emulator or browser, build variant, theme, anything flaky. Keep this to a few lines — it is the least valuable part of the report and should not run longer than the findings.
 
 <!-- /shared:discipline -->
 
