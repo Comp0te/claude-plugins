@@ -6,7 +6,6 @@ import {
   executorChecked,
   executorFinished,
   executorSpawned,
-  mainAdded,
   mainCommitted,
   newRun,
   withPlan,
@@ -42,7 +41,7 @@ describe('paneLines', () => {
     for (const n of [1, 2]) {
       run = executorSpawned(run, `c${n}`, n, 0)
       run = executorFinished(run, `c${n}`, review(), 0)
-      run = mainCommitted(run, `sha${n}`, 0)
+      run = mainCommitted(run, `sha${n}`, [], 0)
     }
     run = executorSpawned(run, 'r', 3, 0)
     run = executorFinished(run, 'r', review(), 0)
@@ -82,7 +81,7 @@ describe('paneLines', () => {
     let run = executorSpawned(base(), 'a', 1, 0)
     run = executorChecked(run, 'a', { label: 'tests', ok: true, tail: [], at: 1 }, 1)
     run = executorFinished(run, 'a', review(), 1)
-    run = mainCommitted(run, 'a1b2c3d4e5', 2)
+    run = mainCommitted(run, 'a1b2c3d4e5', [], 2)
     const lines = paneLines(run, at())
     const i = lines.findIndex(l => l.text.includes('Plan parser'))
     expect(lines[i]).toEqual({ text: '✓ 1. Plan parser  committed a1b2c3d', tone: 'ok' })
@@ -93,7 +92,7 @@ describe('paneLines', () => {
     let run = executorSpawned(base(), 'a', 1, 0)
     run = executorChecked(run, 'a', { label: 'tests', ok: false, tail: ['boom'], at: 1 }, 1)
     run = executorFinished(run, 'a', review(), 1)
-    run = mainCommitted(run, 'a1b2c3d4e5', 2)
+    run = mainCommitted(run, 'a1b2c3d4e5', [], 2)
     const lines = paneLines(run, at())
     const i = lines.findIndex(l => l.text.includes('Plan parser'))
     expect(lines[i + 1]).toEqual({ text: '  ✗ 1 check failed at last run', tone: 'warn' })
@@ -142,7 +141,7 @@ describe('paneLines', () => {
   })
 
   test('unassigned commit', async () => {
-    const run = mainCommitted(mainAdded(base(), ['x.ts'], 0), 'a1b2c3d4e5', 1)
+    const run = mainCommitted(base(), 'a1b2c3d4e5', ['x.ts'], 1)
     expect(paneLines(run, at()).find(l => l.text.includes('not matched to a task') && l.text.startsWith('commit'))).toEqual({
       text: 'commit a1b2c3d not matched to a task',
       tone: 'dim',

@@ -116,9 +116,11 @@ export type Harness = {
   placed: { value: boolean }
   /** What the pane's render hook draws: the `Text` rows, in order. */
   render: (props?: Record<string, unknown>) => Promise<string[]>
-  /** What `git rev-parse HEAD` prints through `$.process.run`; every argv the module ran, in order. */
+  /** The HEAD `git rev-parse` prints through `$.process.run`; every argv the module ran, in order. */
   head: { sha: string }
   ran: string[][]
+  /** Makes a commit of `files` and moves HEAD to it. */
+  commit: (sha: string, files: string[]) => void
 }
 
 const textsOf = (node: unknown): string[] => {
@@ -152,6 +154,14 @@ export async function harnessOf(
   const placed = { value: true }
   const head = { sha: 'f00dfeed' }
   const ran: string[][] = []
+  const history: { sha: string; files: string[] }[] = [{ sha: head.sha, files: [] }]
+  const logOf = (range: string) => {
+    const [from, to] = range.split('..')
+    const at = (sha: string | undefined) => history.findIndex(c => c.sha === sha)
+    if (at(from) < 0 || at(to) < 0) return { exitCode: 128, stdout: '', stderr: 'bad revision' }
+    const shown = history.slice(at(from) + 1, at(to) + 1).reverse()
+    return { exitCode: 0, stdout: shown.map(c => `@${c.sha}\n\n${c.files.join('\n')}\n`).join('\n'), stderr: '' }
+  }
   let sets = 0
   let invalidated = 0
   const has = (path: string) => files[relOf(path)] !== undefined || Object.keys(files).some(f => f.startsWith(`${relOf(path)}/`))
@@ -184,7 +194,13 @@ export async function harnessOf(
     process: {
       run: async (argv: string[]) => {
         ran.push(argv)
-        return argv.join(' ') === 'git rev-parse HEAD' ? { exitCode: 0, stdout: `${head.sha}\n`, stderr: '' } : { exitCode: 1, stdout: '', stderr: 'unknown' }
+        if (argv.join(' ') === 'git rev-parse --show-toplevel HEAD') return { exitCode: 0, stdout: `${CWD}\n${head.sha}\n`, stderr: '' }
+        if (argv[0] === 'git' && argv[1] === 'log') return logOf(argv[argv.length - 1]!)
+        if (argv.slice(0, 3).join(' ') === 'git merge-base --is-ancestor') {
+          const at = (sha: string | undefined) => history.findIndex(c => c.sha === sha)
+          return { exitCode: at(argv[3]) >= 0 && at(argv[3]) <= at(argv[4]) ? 0 : 1, stdout: '', stderr: '' }
+        }
+        return { exitCode: 1, stdout: '', stderr: 'unknown' }
       },
     },
   } as never
@@ -206,6 +222,10 @@ export async function harnessOf(
     placed,
     head,
     ran,
+    commit: (sha, files) => {
+      history.push({ sha, files })
+      head.sha = sha
+    },
     render: async (props = {}) => {
       const input = { surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 72, scroll: { offset: 0, bodyRows: 40 }, ...props } }
       return textsOf(await call('ui.render', input))

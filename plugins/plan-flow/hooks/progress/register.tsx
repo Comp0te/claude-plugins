@@ -1,6 +1,6 @@
 import type { AgentSpawnInput, AgentSpawnResult, EngineInterface, Register, ToolCallInput, ToolCallResult } from 'claude-code'
 
-import { checkLabel, gitAddPaths, isExecutorType, makesCommit, planPathIn, taskForDispatch, taskForRead } from './match'
+import { checkLabel, isExecutorType, planPathIn, taskForDispatch, taskForRead } from './match'
 import { optionsOf, type ProgressOptions } from './options'
 import { parsePlan, type PlanTask } from './plan'
 import { parseReport } from './report'
@@ -11,7 +11,6 @@ import {
   executorMatched,
   executorSpawned,
   isKnownExecutor,
-  mainAdded,
   mainCommitted,
   newRun,
   personClosed,
@@ -36,6 +35,9 @@ export const session = {
   restored: undefined as Run | undefined,
   paneOpen: false,
   persistArmed: false,
+  /** The HEAD last seen, and the queue that reads it so two reads never overlap. */
+  head: undefined as string | undefined,
+  headRead: Promise.resolve(),
 }
 
 let opts: ProgressOptions = optionsOf({})
@@ -67,7 +69,7 @@ function armPersist($: Dollar) {
 const EXECUTE_PLAN = /(^|:)execute-plan$/
 const HANDBACK = 'SubagentHandback'
 
-type BashResult = { stdout?: unknown; stderr?: unknown; gitOperation?: { commit?: { sha: string; kind: string } } }
+type BashResult = { stdout?: unknown; stderr?: unknown }
 type AgentResult = { status?: string; agentId?: string; content?: { text: string }[] }
 const recordOf = <T,>(value: unknown) => (typeof value === 'object' && value !== null ? (value as T) : undefined)
 
@@ -124,6 +126,7 @@ async function startRun($: Dollar, arg: string): Promise<boolean> {
   const earlier = session.stored.find(r => r.planPath === path)
   session.plan = plan
   session.run = earlier ? withPlan(earlier, plan, Date.now()) : newRun(path, plan, Date.now())
+  await readHead($)
   return true
 }
 
@@ -158,11 +161,34 @@ async function rereadPlan($: Dollar) {
   session.run = withPlan(session.run, plan, Date.now())
 }
 
-async function readCommit($: Dollar) {
-  const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', 'HEAD'])
-  const sha = stdout.trim()
-  if (exitCode !== 0 || sha === '' || !session.run) return
-  session.run = mainCommitted(session.run, sha, Date.now())
+const COMMITS_READ = 20
+
+async function headOf($: Dollar) {
+  const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', '--show-toplevel', 'HEAD'])
+  const [root, sha] = stdout.trim().split('\n')
+  return exitCode === 0 && root && sha ? { root, sha } : undefined
+}
+
+/** Credits every commit since the HEAD last seen; a HEAD that is not a descendant of it only resets the mark. */
+function readHead($: Dollar) {
+  const read = session.headRead.then(async () => {
+    const was = session.head
+    const head = await headOf($)
+    session.head = head?.sha
+    if (was === undefined || head === undefined || head.sha === was || !session.run) return
+    const descends = await $.process.run(['git', 'merge-base', '--is-ancestor', was, head.sha])
+    if (descends.exitCode !== 0) return
+    const log = await $.process.run(['git', 'log', '--name-only', '--format=@%H', `-n${COMMITS_READ}`, `${was}..${head.sha}`])
+    if (log.exitCode !== 0) return
+    const commits = log.stdout.split(/^@/m).filter(c => c.trim() !== '').reverse()
+    for (const commit of commits) {
+      const [sha, ...files] = commit.split('\n').map(l => l.trim()).filter(l => l !== '')
+      const absolute = files.map(f => `${head.root}/${f}`)
+      if (session.run) session.run = mainCommitted(session.run, sha!, absolute, Date.now(), resolvePath)
+    }
+  })
+  session.headRead = read.catch(() => {})
+  return read
 }
 
 function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
@@ -199,13 +225,8 @@ function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
   }
 
   if (e.tool === 'Bash') {
-    const added = gitAddPaths(e.command)
-    let next = added.length > 0 ? mainAdded(run, added, Date.now()) : run
-    const operation = recordOf<BashResult>(result)?.gitOperation
-    if (operation?.commit?.kind === 'committed') next = mainCommitted(next, operation.commit.sha, Date.now())
-    session.run = next
-    // The engine reports a commit only from git's own output, so `git commit -q` leaves no operation.
-    if (operation === undefined && r.isError !== true && makesCommit(e.command)) schedule($, () => readCommit($))
+    // Read after every call, not only `git commit`: heredocs, `-q`, scripts and cherry-picks all move HEAD unseen.
+    schedule($, () => readHead($))
   } else if ((e.tool === 'Edit' || e.tool === 'Write') && resolvePath(e.file_path) === run.planPath) {
     schedule($, () => rereadPlan($))
   } else if (e.tool === 'Agent') {
@@ -255,6 +276,8 @@ export const register: Register = (on, options) => {
     session.restored = undefined
     session.paneOpen = false
     session.persistArmed = false
+    session.head = undefined
+    session.headRead = Promise.resolve()
     if (active()) {
       try {
         session.stored = fromStored(await $.store.get(STORE_KEY))

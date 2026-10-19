@@ -7,7 +7,6 @@ import {
   executorFinished,
   executorMatched,
   executorSpawned,
-  mainAdded,
   mainCommitted,
   newRun,
   tailOf,
@@ -103,36 +102,54 @@ describe('run reducer', () => {
     expect(task(inReview, 2)).toMatchObject({ status: 'executing', attempts: 3 })
   })
 
-  test('commit with one task in review commits it and clears pending adds', async () => {
-    let run = executorFinished(executorSpawned(base(), 'a1', 2, 5), 'a1', review(['a.ts']), 6)
-    run = mainCommitted(mainAdded(run, ['b.ts'], 7), 'abc1234def', 8)
+  test('commit with one task in review commits it', async () => {
+    const run = mainCommitted(executorFinished(executorSpawned(base(), 'a1', 2, 5), 'a1', review(['a.ts']), 6), 'abc1234def', ['a.ts', 'b.ts'], 8)
     expect(task(run, 2)).toMatchObject({ status: 'committed', commitSha: 'abc1234def' })
-    expect(run.pendingAdds).toEqual([])
   })
 
   const twoInReview = () => {
-    let run = executorFinished(executorSpawned(base(), 'a2', 2, 1), 'a2', review(['two.ts']), 2)
-    run = executorFinished(executorSpawned(run, 'a3', 3, 3), 'a3', review(['./three.ts']), 4)
+    let run = executorFinished(executorSpawned(base(), 'a2', 2, 1), 'a2', review(['two.ts', 'shared.json']), 2)
+    run = executorFinished(executorSpawned(run, 'a3', 3, 3), 'a3', review(['./three.ts', 'shared.json']), 4)
     return run
   }
 
-  test('commit with two in review: paths decide', async () => {
-    const run = mainCommitted(mainAdded(twoInReview(), ['three.ts'], 5), 'sha3', 6)
+  test('commit with two in review: files decide', async () => {
+    const run = mainCommitted(twoInReview(), 'sha3', ['three.ts'], 6)
     expect(task(run, 3).status).toBe('committed')
     expect(task(run, 2).status).toBe('review')
   })
 
-  test('commit with two in review: ambiguous overlap', async () => {
-    const both = mainCommitted(mainAdded(twoInReview(), ['two.ts', 'three.ts'], 5), 's', 6)
+  test('commit with two in review: the task whose every ready path it holds wins over a shared file', async () => {
+    const run = mainCommitted(twoInReview(), 'sha2', ['two.ts', 'shared.json'], 6)
+    expect([task(run, 2).status, task(run, 3).status]).toEqual(['committed', 'review'])
+  })
+
+  test('commit with two in review: ambiguous or unrelated files are unassigned', async () => {
+    const both = mainCommitted(twoInReview(), 's', ['shared.json'], 6)
     expect([task(both, 2).status, task(both, 3).status]).toEqual(['review', 'review'])
     expect(both.unassignedCommits).toEqual(['s'])
-    const neither = mainCommitted(mainAdded(twoInReview(), ['x.ts'], 5), 's', 6)
+    const neither = mainCommitted(twoInReview(), 's', ['x.ts'], 6)
     expect([task(neither, 2).status, task(neither, 3).status]).toEqual(['review', 'review'])
     expect(neither.unassignedCommits).toEqual(['s'])
   })
 
+  test('a ready directory or `.` covers the files beneath it', async () => {
+    const dir = executorFinished(executorSpawned(base(), 'a1', 2, 1), 'a1', review(['packages/dash/test/']), 2)
+    expect(task(mainCommitted(dir, 's', ['packages/dash/test/a.test.ts'], 3), 2).status).toBe('committed')
+    expect(task(mainCommitted(dir, 's', ['packages/dash/testing.ts'], 3), 2).status).toBe('review')
+    const all = executorFinished(executorSpawned(base(), 'a1', 2, 1), 'a1', review(['.']), 2)
+    expect(task(mainCommitted(all, 's', ['any/file.ts'], 3), 2).status).toBe('committed')
+  })
+
+  test('the only task in review takes an unclaimed commit only when its report named no paths', async () => {
+    const unnamed = executorFinished(executorSpawned(base(), 'a1', 2, 1), 'a1', review([]), 2)
+    expect(task(mainCommitted(unnamed, 's', ['x.ts'], 3), 2).status).toBe('committed')
+    const named = executorFinished(executorSpawned(base(), 'a1', 2, 1), 'a1', review(['a.ts']), 2)
+    expect(task(mainCommitted(named, 's', ['x.ts'], 3), 2).status).toBe('review')
+  })
+
   test('commit with none in review is unassigned', async () => {
-    const run = mainCommitted(base(), 'abc', 1)
+    const run = mainCommitted(base(), 'abc', [], 1)
     expect(run.unassignedCommits).toEqual(['abc'])
   })
 

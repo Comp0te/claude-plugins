@@ -108,7 +108,8 @@ Measured with a throwaway logging mod on Claude Code 2.1.288 (`claude -p`, toy o
   and `toolStats`.
 - **Commits are observable only when git prints output.** A Bash result carries
   `result.gitOperation.commit = { sha, kind: "committed", branch }` for `git commit -m ...`; the
-  same commit with `-q` leaves `gitOperation` undefined.
+  same commit with `-q` leaves `gitOperation` undefined. The pane therefore reads HEAD after each
+  main-loop Bash call rather than reading either the result or the command.
 - **A mod adds nothing to model context.** In the toy session's transcript JSONL (main file, 62
   rows, plus the executor's subagent file, 25 rows) no row, attachment or hook-context entry came
   from the mod. The `hook_success` and `hook_additional_context` attachments all trace to other

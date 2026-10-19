@@ -154,32 +154,90 @@ describe('observation', () => {
     await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
     expect(status(2)).toBe('review')
 
-    const commit = { result: { stdout: '', stderr: '', gitOperation: { commit: { sha: 'abc1234', kind: 'committed', branch: 'main' } } }, text: 'x' }
-    await h.call('tool.call', { tool: 'Bash', command: 'git add src/a.ts && git commit -m done' }, commit)
+    h.commit('abc1234', ['src/a.ts'])
+    await h.call('tool.call', { tool: 'Bash', command: 'git add src/a.ts && git commit -m done' }, OK)
+    await h.settle()
     expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'abc1234' })
   })
 
-  test('a quiet commit, which carries no git operation, is read from HEAD', async () => {
+  const REPORT_B = REPORT_CLEAN.replaceAll('src/a.ts', 'src/b.ts')
+  const twoInReview = async () => {
     const h = await harnessOf({ ...FILES })
-    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 1 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a2' })
     await h.settle()
     await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
-    const quiet = { result: { stdout: 'lint-staged output', stderr: '' }, text: 'x' }
-    await h.call('tool.call', { tool: 'Bash', command: "git add src/a.ts && git commit -q -F - <<'EOF'\nfix: done\nEOF\ngit log --oneline -1" }, quiet)
+    await h.call('classic.SubagentStop', stop('a2', REPORT_B))
+    return h
+  }
+
+  test('a quiet commit after a heredoc in the same call goes to the task whose files it holds', async () => {
+    const h = await twoInReview()
+    const command = [
+      `cat >> ${PLAN} <<'EOF'`,
+      '- 2026-10-19, Task 2: accepted deviation',
+      'EOF',
+      'git add src/b.ts && git commit -q -m "feat: b" && git log --oneline -1',
+    ].join('\n')
+    h.commit('b0b0b0b', ['src/b.ts'])
+    await h.call('tool.call', { tool: 'Bash', command }, OK)
     await h.settle()
-    expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'f00dfeed' })
+    expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'b0b0b0b' })
+    expect(status(1)).toBe('review')
   })
 
-  test('a failed or amended quiet commit reads nothing', async () => {
+  test('ready paths given absolute match the repository-relative paths git prints', async () => {
+    const h = await harnessOf({ ...FILES })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN.replaceAll('src/a.ts', '/work/src/a.ts')))
+    h.commit('abcabca', ['src/a.ts'])
+    await h.call('tool.call', { tool: 'Bash', command: 'git commit -qam x' }, OK)
+    await h.settle()
+    expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'abcabca' })
+  })
+
+  test('every commit since the last call is attributed, oldest first', async () => {
+    const h = await twoInReview()
+    h.commit('aaaaaaa', ['src/a.ts'])
+    h.commit('bbbbbbb', ['src/b.ts', 'docs/x.md'])
+    await h.call('tool.call', { tool: 'Bash', command: './commit-both.sh' }, OK)
+    await h.settle()
+    expect(task(1)).toMatchObject({ status: 'committed', commitSha: 'aaaaaaa' })
+    expect(task(2)).toMatchObject({ status: 'committed', commitSha: 'bbbbbbb' })
+  })
+
+  test('a commit of files no task in review names is not credited, even to the only one', async () => {
     const h = await harnessOf({ ...FILES })
     await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
     await h.settle()
     await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
-    await h.call('tool.call', { tool: 'Bash', command: 'git add src/a.ts && git commit -q -m done' }, { result: 'Error: Exit code 1\nhusky failed', text: 'x', isError: true })
-    await h.call('tool.call', { tool: 'Bash', command: 'git commit -q --amend --no-edit' }, OK)
-    await h.call('tool.call', { tool: 'Bash', command: 'git log --oneline -1 && git status' }, OK)
+    h.commit('0e0e0e0', ['packages/other/x.ts'])
+    await h.call('tool.call', { tool: 'Bash', command: 'git status' }, OK)
     await h.settle()
-    expect(h.ran).toEqual([])
+    expect(status(2)).toBe('review')
+    expect(session.run?.unassignedCommits).toEqual(['0e0e0e0'])
+  })
+
+  test('a HEAD that does not descend from the last one seen, as after a branch switch, only moves the mark', async () => {
+    const h = await twoInReview()
+    h.head.sha = 'elsewhere'
+    await h.call('tool.call', { tool: 'Bash', command: 'git switch other' }, OK)
+    await h.settle()
+    expect([status(1), status(2)]).toEqual(['review', 'review'])
+    expect(h.ran.some(argv => argv[1] === 'log')).toBe(false)
+  })
+
+  test('a call that leaves HEAD where it was commits nothing, and executors never read HEAD', async () => {
+    const h = await harnessOf({ ...FILES })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Task 2 of ${PLAN}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    await h.call('tool.call', { tool: 'Bash', command: 'npm test', agentId: 'a1' }, OK)
+    await h.call('classic.SubagentStop', stop('a1', REPORT_CLEAN))
+    await h.call('tool.call', { tool: 'Bash', command: 'git add src/a.ts && git commit -q -m done' }, { result: 'Error: Exit code 1\nhusky failed', text: 'x', isError: true })
+    await h.settle()
+    expect(h.ran.every(argv => argv[1] === 'rev-parse')).toBe(true)
+    expect(h.ran).toHaveLength(2)
     expect(status(2)).toBe('review')
   })
 

@@ -7,11 +7,19 @@ const normalize = (command: string) =>
     .replace(/^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, '')
     .replace(/\s+/g, ' ')
 
-/** The command's parts: a heredoc's body is dropped, then it splits at `;`, `&&`, `||`, `|` and newlines. */
+/** The command's parts: heredoc bodies are dropped, then it splits at `;`, `&&`, `||`, `|` and newlines. */
 function partsOf(command: string): string[] {
-  const lines = command.split('\n')
-  const heredoc = lines.findIndex(l => l.includes('<<'))
-  const kept = heredoc < 0 ? lines : [...lines.slice(0, heredoc), lines[heredoc]!.slice(0, lines[heredoc]!.indexOf('<<'))]
+  const kept: string[] = []
+  let delimiter: string | undefined
+  for (const line of command.split('\n')) {
+    if (delimiter !== undefined) {
+      if (line.trim() === delimiter) delimiter = undefined
+      continue
+    }
+    const heredoc = /(?<!<)<<(?!<)-?\s*(['"]?)([\w-]+)\1/.exec(line)
+    delimiter = heredoc?.[2]
+    kept.push(heredoc ? line.slice(0, heredoc.index) : line)
+  }
   return kept.join(';').split(/&&|\|\||;|\|/).map(normalize).filter(p => p !== '')
 }
 
@@ -77,9 +85,6 @@ export function gitAddPaths(command: string): string[] {
       .map(t => t.replace(/^\.\//, ''))
   })
 }
-
-/** Whether the command makes a new commit: a `git commit` part that does not amend. */
-export const makesCommit = (command: string) => partsOf(command).some(p => /^git commit\b/.test(p) && !/\s--amend\b/.test(p))
 
 /** The plan path named in a dispatch prompt, preferring one under `plans/`. */
 export function planPathIn(prompt: string): string | undefined {

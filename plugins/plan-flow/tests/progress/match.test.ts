@@ -63,6 +63,10 @@ describe('checkLabel', () => {
     expect(checkLabel('cd /r; cat > src/services/__tests__/a.test.ts <<\'EOF\'\nyarn test\nEOF', [], PATTERN)).toBeUndefined()
     expect(checkLabel('grep -rn "jest" src', [], PATTERN)).toBeUndefined()
   })
+  test('a heredoc drops only its body: a check after its delimiter still counts', async () => {
+    expect(checkLabel("cat >> notes.md <<'EOF'\nyarn test\nEOF\nyarn test --watch=false", [], PATTERN)).toBe('yarn test --watch=false')
+    expect(checkLabel('grep -c x <<< "$s" && yarn test', [], PATTERN)).toBe('yarn test')
+  })
   test('a check after other commands is labelled with its own part alone', async () => {
     expect(checkLabel('cd /r; cat src/a.ts; yarn jest src/a.test.ts 2>&1 | tail -5', [], PATTERN)).toBe('yarn jest src/a.test.ts 2>&1')
     expect(checkLabel('cd /r; yarn test -- src/a.test.ts | tail -5', ['yarn test'], PATTERN)).toBe('yarn test')

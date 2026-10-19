@@ -27,7 +27,6 @@ export type Run = {
   tasks: TaskRun[]
   /** Executors whose dispatch named no task yet, by agent id. */
   unmatched: Record<string, { toolCalls: number; startedAt: number }>
-  pendingAdds: string[]
   unassignedCommits: string[]
   closedByPerson: boolean
   updatedAt: number
@@ -46,7 +45,7 @@ export const isKnownExecutor = (run: Run, agentId: string) =>
   taskOf(run, agentId) !== undefined || agentId in run.unmatched
 
 export const newRun = (planPath: string, plan: readonly PlanTask[], now: number): Run =>
-  ({ planPath, tasks: plan.map(fresh), unmatched: {}, pendingAdds: [], unassignedCommits: [], closedByPerson: false, updatedAt: now })
+  ({ planPath, tasks: plan.map(fresh), unmatched: {}, unassignedCommits: [], closedByPerson: false, updatedAt: now })
 
 export function withPlan(run: Run, plan: readonly PlanTask[], now: number): Run {
   const kept = plan.map(p => {
@@ -111,16 +110,25 @@ export function executorFinished(run: Run, agentId: string, outcome: ExecutorOut
   })
 }
 
-export const mainAdded = (run: Run, paths: readonly string[], now: number): Run =>
-  touch(run, now, { pendingAdds: [...new Set([...run.pendingAdds, ...paths.map(strip)])] })
+const covers = (ready: string, file: string) => {
+  const p = ready.replace(/\/\.?$/, '')
+  return p === '' || p === '.' || file === p || file.startsWith(`${p}/`)
+}
 
-export function mainCommitted(run: Run, sha: string, now: number): Run {
+/**
+ * Credits a main-loop commit to the task in review whose ready paths its files cover: every ready path when that
+ * singles one out, else any. The only task in review takes it unclaimed only when its report named no paths.
+ * `resolve` puts a ready path in the same form as `files`.
+ */
+export function mainCommitted(run: Run, sha: string, files: readonly string[], now: number, resolve = (p: string) => p): Run {
   const inReview = run.tasks.filter(t => t.status === 'review')
-  const added = new Set(run.pendingAdds.map(strip))
-  const byPaths = inReview.filter(t => t.readyPaths.some(p => added.has(strip(p))))
-  const target = inReview.length === 1 ? inReview[0] : byPaths.length === 1 ? byPaths[0] : undefined
-  if (!target) return touch(run, now, { pendingAdds: [], unassignedCommits: [...run.unassignedCommits, sha] })
-  return touch(run, now, { pendingAdds: [], tasks: mapTask(run, target.number, t => ({ ...t, status: 'committed', commitSha: sha })) })
+  const touched = (p: string) => files.some(f => covers(resolve(strip(p)), f))
+  const any = inReview.filter(t => t.readyPaths.some(touched))
+  const all = any.filter(t => t.readyPaths.every(touched))
+  const unnamed = inReview.length === 1 && inReview[0]!.readyPaths.length === 0 ? inReview[0] : undefined
+  const target = all.length === 1 ? all[0] : any.length === 1 ? any[0] : any.length === 0 ? unnamed : undefined
+  if (!target) return touch(run, now, { unassignedCommits: [...run.unassignedCommits, sha] })
+  return touch(run, now, { tasks: mapTask(run, target.number, t => ({ ...t, status: 'committed', commitSha: sha })) })
 }
 
 export const personClosed = (run: Run): Run => ({ ...run, closedByPerson: true })
