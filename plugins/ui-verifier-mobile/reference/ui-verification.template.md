@@ -23,6 +23,18 @@ project, not a general driving technique — general technique lives in the ship
 
 - `<package>` — `<what the patch changes and why it matters for verification>`
 
+## Deep links
+
+How the agent jumps straight to a screen instead of walking to it. Screens not listed fall back
+to route scripts. A row whose link lands somewhere else is worse than no row.
+
+- URL scheme per build variant: `<scheme>://`
+- Screens that need sign-in first: `<all / list>`
+
+| Screen | URL | Where real IDs come from | Landmark to wait for |
+| ------ | --- | ------------------------ | -------------------- |
+| `<screen>` | `<scheme>://<path>/<id>` | `<seed fixture, script, or API call>` | `<id="screen-header">` |
+
 ## Route scripts
 
 - Directory for saved `.ad` route scripts: `<path>` (default: `.agent-device/` at the repo root)

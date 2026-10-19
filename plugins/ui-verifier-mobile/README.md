@@ -51,12 +51,16 @@ these commands instead of installing anything itself.
 
 The agent looks for `.claude/docs/ui-verification.md` in the target repository (or a path the
 caller names) for what only that project knows: bundle identifiers, build/launch commands,
-patched packages, rebuild-vs-relaunch rules, sandbox exclusions, and app-specific traps that have
-previously caused wrong verdicts.
+patched packages, a `Deep links` table of screens, rebuild-vs-relaunch rules, sandbox exclusions, and
+app-specific traps that have previously caused wrong verdicts.
 
 If the file is absent, the agent discovers what it can, says which facts it had to derive, and
 offers them back as a block ready to paste into that file. `reference/ui-verification.template.md`
 in this plugin is a starting skeleton for authoring one from scratch.
+
+When the facts file lists a deep link for the screen under test, the agent opens it and waits
+on the named landmark before considering a route script; a link that lands anywhere else falls
+back to the route.
 
 The agent also checks `.agent-device/` for a saved `.ad` route script to the screen under test
 before navigating, and records one if none exists — so repeat runs replay the route instead of

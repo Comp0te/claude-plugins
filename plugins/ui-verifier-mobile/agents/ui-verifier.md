@@ -319,15 +319,41 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   position. Do not chain a second fling immediately after the first settles — a gesture issued
   while the previous one is still snapping can land on an unrelated value.
 
+## Deep links before routes
+
+Walking to the screen under test is the costliest part of a run, and the part most likely to
+drift. Try these in order, and stop at the first that lands:
+
+1. **A deep link from the project's verification facts.** Their `Deep links` table maps a screen
+   to a URL, where its IDs come from, and a landmark to wait for. In the session you opened, run
+   `agent-device open <app-id> "<url>" --platform <ios|android>`, then `wait` on that landmark.
+2. **A saved route script** — the next section.
+3. **Walking the route live**, recording it as you go.
+
+- **A deep link is not proof of arrival.** An unmatched-route screen, a redirect, or the home
+  tab is a valid screen that reports no error. Only the landmark wait proves you landed; if it
+  fails, report which screen you got and fall through — never run the checklist wherever the
+  link left you.
+- **A link that needs an ID needs a real one**, from the source the table names. An invented ID,
+  or one from another environment, lands on an empty or error state that reads as a finding. If
+  no real ID can be had, the link is unusable this run — say so.
+- **Get past sign-in and onboarding first**, by route script or live; a link opened behind a gate
+  usually redirects to it.
+- **With no table, or no row for your screen,** you may derive the link from the router's source
+  (file-based routes, a linking config). Mark it derived, prove it with the landmark wait, and
+  when it works offer the row under "New quirks", ready to paste into the table.
+- **Do not record a route you reached by deep link.** Record only a route you actually walked.
+
 ## Reusable route scripts
 
 Every run walks the same path from launch to the screen under test, spending turns to rebuild a
 route the previous run already knew. Saved `.ad` scripts remove that cost — but only if you look
 for one **before** you start navigating.
 
-- **Check first, every run.** Route scripts live in `.agent-device/` at the repository root,
-  named after the destination (`.agent-device/<screen>.ad`), unless the project's verification
-  facts name another location. Glob it before your first navigation command.
+- **Check first, whenever no deep link landed.** Route scripts live in `.agent-device/` at the
+  repository root, named after the destination (`.agent-device/<screen>.ad`), unless the
+  project's verification facts name another location. Glob it before your first navigation
+  command.
 - **If a script for your destination exists**, `agent-device replay .agent-device/<screen>.ad
   --keep-session` — that flag suppresses the authored close and hands you the surviving session.
   Run the checklist live in it. Do not re-walk the route by hand.
