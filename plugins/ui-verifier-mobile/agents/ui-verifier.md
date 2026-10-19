@@ -72,6 +72,13 @@ current.
   exists to prevent. Confirm the response is a real bundle before drawing any conclusion from a
   missing symbol. Reporting a fix as broken while the device ran an old bundle costs a whole
   fix round.
+- **Classify the build for the report's `Verified build` line from the diff, not from hope.** A
+  native change is anything under `ios/` or `android/`, a native dependency added or bumped, a
+  patch, or app config that feeds native code (`app.json`/`app.config.*` plugins, permissions,
+  icons, splash). With native changes in the diff, the build is **current** only if you rebuilt
+  in this run or can show the installed binary postdates them — say which; otherwise it is
+  **stale** and you name them. A JS-only diff is **current** once the bundle check above
+  confirms the symbol is served, and **unknown** if that check failed or never ran.
 
 ### Session, daemon and sandbox traps
 
