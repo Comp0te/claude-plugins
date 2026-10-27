@@ -1,0 +1,81 @@
+{
+  "claudeVersion": "2.1.311",
+  "costUsd": 0.5,
+  "partial": false,
+  "cases": [
+    {
+      "name": "zz",
+      "graders": [],
+      "aggregates": {
+        "score": 1.0
+      },
+      "arms": {
+        "with": [
+          {
+            "score": 1.0,
+            "passed": true,
+            "error": null,
+            "skippedPaidGraders": false,
+            "judgeCostUsd": 0,
+            "graders": [
+              {
+                "name": "g",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              },
+              {
+                "name": "h",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              }
+            ]
+          },
+          {
+            "score": 1.0,
+            "passed": true,
+            "error": null,
+            "skippedPaidGraders": false,
+            "judgeCostUsd": 0,
+            "graders": [
+              {
+                "name": "g",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              },
+              {
+                "name": "h",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              }
+            ]
+          },
+          {
+            "score": 1.0,
+            "passed": true,
+            "error": null,
+            "skippedPaidGraders": false,
+            "judgeCostUsd": 0,
+            "graders": [
+              {
+                "name": "g",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              },
+              {
+                "name": "h",
+                "passed": true,
+                "scored": true,
+                "withOnly": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

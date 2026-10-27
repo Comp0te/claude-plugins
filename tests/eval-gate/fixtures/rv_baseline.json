@@ -1,0 +1,19 @@
+{
+  "recorded": "2026-10-25",
+  "rows": {
+    "01-x/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": 3,
+      "fp_mean": 0.33
+    },
+    "01-x/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.0
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "recorded": "2026-10-25",
+  "claudeVersion": "2.1.288",
+  "cases": {
+    "c1": {
+      "runs": 3,
+      "score": 1.0,
+      "graders": {
+        "g": 3,
+        "h": 3
+      }
+    }
+  }
+}

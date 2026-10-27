@@ -1,0 +1,30 @@
+{
+  "rows": {
+    "01-x/defect": {
+      "total": 3,
+      "valid": 3,
+      "invalid": 0,
+      "unparsed": 0,
+      "parsed": 3,
+      "caught": 3,
+      "scope_ok": 1,
+      "claim_ok": 3,
+      "fp_mean": 0.33,
+      "fp_max": 1,
+      "cost": 0.4
+    },
+    "01-x/clean": {
+      "total": 3,
+      "valid": 3,
+      "invalid": 0,
+      "unparsed": 0,
+      "parsed": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.0,
+      "fp_max": 1,
+      "cost": 0.4
+    }
+  }
+}
