@@ -67,6 +67,7 @@ FORBIDDEN_ALWAYS = ["defect", "clean", "eval", "evaluation", "fixture", "planted
 # justified inline, so the check doesn't flag content that isn't a naming leak.
 GENERIC_EXCLUSIONS = {
     "01-swallowed-catch": {"catch"},  # try/catch is JS syntax, not case-specific
+    "06-unreachable-second-start": {"start"},  # the brief's own "no test runner can start" sentence
     "03-illegal-state-type": {"state", "type"},  # ubiquitous identifier / TS keyword
     "05-injection-in-author-text": {"author", "text"},  # <pr-author-text> is the brief's own tag
 }

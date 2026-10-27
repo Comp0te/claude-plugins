@@ -37,6 +37,16 @@ results directory. `--regrade <dir>` rewrites `summary.md` from files already on
 invoking the agent — use it after an approved change to a `case.json`'s `expected`/`allowed`
 points, to see the effect on an existing run without spending anything.
 
+## Cases
+
+Each case cites the incident it reproduces by handoff file and finding id. Fixtures carry no
+customer data or verbatim text from those handoffs.
+
+| Case | Reviewer | Source |
+| --- | --- | --- |
+| `06-unreachable-second-start` | `deletion-check` | a branch-review handoff, F22 (gate verdict false positive: no in-flight guard, but the control that could start a second flow is not rendered while one is live). Defect: the button still renders while a flow runs. Clean: the button is hidden while `status === 'running'`. |
+| `07-removal-required-by-ac` | `deletion-check` | a branch-review handoff, F14 (dropped: a button was removed only for statuses the task's acceptance criteria exclude). Defect: also removed for `ACTIVE`, which `docs/task.md` keeps. Clean: removed for exactly the excluded statuses. |
+
 ## Reading `summary.md`
 
 One row per case/variant. Columns:

@@ -1,0 +1,13 @@
+{
+  "agent": "review-flow:deletion-check",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/flow/useFlow.ts", "lines": [13, 21]},
+      {"file": "src/flow/FlowScreen.tsx", "lines": [16, 20]}
+    ],
+    "keywords": ["second", "twice", "concurrent", "double", "re-entr", "already running", "in flight", "guard"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}

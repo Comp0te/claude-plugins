@@ -1,0 +1,12 @@
+{
+  "agent": "review-flow:deletion-check",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/case/CaseActions.tsx", "lines": [12, 21]}
+    ],
+    "keywords": ["New message", "button", "removed", "ACTIVE", "acceptance", "missing"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}
