@@ -4,7 +4,7 @@
 
 - Ask before writing code only where the readings of a requirement lead to materially
   different work; otherwise take the reasonable reading and name the assumption in one line.
-- When there's a bug, start by writing a test that reproduces it, then fix it.
+- When there's a bug, start by writing a test that reproduces it, then fix it without editing that test.
 
 ## Code Comments
 
