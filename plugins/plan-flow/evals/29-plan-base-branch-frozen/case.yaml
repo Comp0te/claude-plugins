@@ -1,0 +1,60 @@
+schema_version: "1.1"
+name: 29-plan-base-branch-frozen
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    The rate limiter in `src/limiter.js` resets its counter on wall-clock minute boundaries, so a
+    burst that straddles a boundary gets through at twice the limit. It must become a sliding
+    window. Callers use `createLimiter({ limit })` and `limiter.allow()`; both have to keep working.
+
+    This stacks on PR #41 (`feat/rate-limit-core`, which itself sits on #38 and #35, so it is the
+    top of a three-PR stack). Create the branch `fix/quota-window` from `feat/rate-limit-core` and
+    target the PR at `feat/rate-limit-core`, not at `main`.
+
+    Tests: `npm test`.
+
+    Write the plan to `docs/plans/2026-10-25-quota-window.md`.
+  max_turns: 45
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: regex
+    name: base-branch-frozen
+    target:
+      source: file
+      path: docs/plans/2026-10-25-quota-window.md
+    pattern: '<frozen-after-approval[^>]*>(?:(?!</frozen-after-approval>)[\s\S])*feat/rate-limit-core(?:(?!</frozen-after-approval>)[\s\S])*</frozen-after-approval>'
+    match: contains
+    weight: 1
+  - type: regex
+    name: work-branch-frozen
+    target:
+      source: file
+      path: docs/plans/2026-10-25-quota-window.md
+    pattern: '<frozen-after-approval[^>]*>(?:(?!</frozen-after-approval>)[\s\S])*fix/quota-window(?:(?!</frozen-after-approval>)[\s\S])*</frozen-after-approval>'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: covers-the-request
+    focus:
+      source: file
+      path: docs/plans/2026-10-25-quota-window.md
+    criteria: |
+      One question only: does every requirement below map to at least one task in this plan?
+
+      - a sliding window replaces the fixed minute window in the limiter
+      - the limiter's existing API (`createLimiter({ limit })`, `allow()`) stays callable by its
+        current callers
+      - tests cover a burst straddling a minute boundary
+
+      Go through the list item by item and say, for each, which task covers it — or say it is
+      uncovered. Pass only if every item is covered by a named task.
+
+      Ignore everything else: formatting, section order, length, where branch names appear, and
+      whether the plan is well written. Those are checked by other graders. Judge coverage and
+      nothing else.
+    weight: 1
