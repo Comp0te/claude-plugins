@@ -1,0 +1,295 @@
+{
+  "cases": {
+    "01-rate-limit-multifile": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "handoff-message": 3,
+        "plan-location": 3,
+        "skill-fired": 3
+      }
+    },
+    "02-agreed-approach-followup": {
+      "runs": 3,
+      "score": 0.94,
+      "graders": {
+        "block-labels": 1,
+        "code-map-annotated": 3,
+        "constraint-tiers": 3,
+        "covers-the-request": 3,
+        "exec-header": 3,
+        "frozen-block": 3,
+        "no-placeholders": 3,
+        "skill-fired": 3,
+        "spec-change-log": 3
+      }
+    },
+    "03-dependency-migration": {
+      "runs": 3,
+      "score": 0.97,
+      "graders": {
+        "block-labels": 2,
+        "code-map-annotated": 3,
+        "constraint-tiers": 3,
+        "covers-the-request": 3,
+        "exec-header": 3,
+        "frozen-block": 3,
+        "matrix-present": 3,
+        "no-placeholders": 3,
+        "skill-fired": 3,
+        "verification-commands": 3
+      }
+    },
+    "04-ru-spec-then-plan": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "block-labels": 3,
+        "code-map-annotated": 3,
+        "constraint-tiers": 3,
+        "covers-the-request": 3,
+        "exec-header": 3,
+        "frozen-block": 3,
+        "no-placeholders": 3,
+        "skill-fired": 3,
+        "verification-commands": 3
+      }
+    },
+    "05-observable-ui-feature": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "block-labels": 3,
+        "code-map-annotated": 3,
+        "constraint-tiers": 3,
+        "covers-the-request": 3,
+        "exec-header": 3,
+        "frozen-block": 3,
+        "matrix-present": 3,
+        "no-placeholders": 3,
+        "skill-fired": 3
+      }
+    },
+    "06-neg-one-file-rename": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "answers-directly": 3,
+        "no-plan-file": 3,
+        "no-skill": 3
+      }
+    },
+    "07-neg-explain-question": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "explains-not-plans": 3,
+        "no-plan-file": 3,
+        "no-skill": 3
+      }
+    },
+    "29-plan-base-branch-frozen": {
+      "runs": 3,
+      "score": 0.67,
+      "graders": {
+        "base-branch-frozen": 2,
+        "work-branch-frozen": 2,
+        "skill-fired": 2,
+        "covers-the-request": 2
+      }
+    },
+    "08-exec-never-move-target": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "expectation-intact": 3,
+        "truncates": 3,
+        "frozen-intact": 3,
+        "no-commit": 3
+      }
+    },
+    "09-exec-halt-impossible-contract": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-commit": 3,
+        "no-invention": 3,
+        "no-substitute": 3,
+        "halted": 3
+      }
+    },
+    "11-exec-reference-block": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "signature-held": 3,
+        "no-false-deviation": 3,
+        "no-commit": 3
+      }
+    },
+    "12-exec-comment-budget": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "inline-runs": 3,
+        "budget-respected": 3,
+        "no-commit": 3
+      }
+    },
+    "28-exec-no-git-state-change": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-git-state-change": 3,
+        "user-edit-survives": 3,
+        "clamp-exported": 3,
+        "clamp-tested": 3,
+        "report-not-fixed": 3
+      }
+    },
+    "13-cmd-no-plan-argument": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-dispatch": 3,
+        "nothing-written": 3,
+        "lists-and-asks": 3
+      }
+    },
+    "14-cmd-missing-plan-path": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-dispatch": 3,
+        "no-reconstruction-src": 3,
+        "no-reconstruction-plan": 3,
+        "names-the-path": 3
+      }
+    },
+    "15-cmd-legacy-plan-no-frozen-header": {
+      "runs": 3,
+      "score": 0.83,
+      "graders": {
+        "dispatched": 3,
+        "no-line-range": 2
+      }
+    },
+    "16-cmd-dispatch-hygiene": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "dispatched": 3,
+        "carries-line-range": 3,
+        "no-header-copy": 3,
+        "no-rules-copy": 3
+      }
+    },
+    "17-cmd-unsatisfiable-frozen-contract": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-invention": 3,
+        "plan-unedited": 3,
+        "escalates": 3
+      }
+    },
+    "18-cmt-why-not-what": {
+      "runs": 3,
+      "score": 0.75,
+      "graders": {
+        "no-restating": 3,
+        "renamed-not-annotated": 0,
+        "inline-runs": 3
+      }
+    },
+    "19-cmt-no-scenario-narration": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "constraint-not-scenario": 3,
+        "no-narration-tells": 3,
+        "inline-runs": 3
+      }
+    },
+    "20-cmt-public-private": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "private-members-get-nothing": 3,
+        "rationale-present": 3
+      }
+    },
+    "21-cmt-rationale-once": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "rationale-not-duplicated": 3,
+        "no-rationale-in-consumer": 3,
+        "rationale-on-the-owner": 3
+      }
+    },
+    "22-cmt-no-process-artifacts": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-artifact-tokens": 3,
+        "no-process-artifacts": 3,
+        "no-artifact-comment-anywhere-write": 3,
+        "no-artifact-comment-anywhere-edit": 3
+      }
+    },
+    "23-cmt-not-for-the-reviewer": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "survives-the-merge": 3,
+        "no-change-narration": 3,
+        "no-change-narration-caller": 3
+      }
+    },
+    "24-cmt-never-split": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-split-block": 3,
+        "inline-runs": 3,
+        "one-idea-one-block": 3
+      }
+    },
+    "25-cmt-budget-outranks-neighbour": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "new-comment-in-budget": 3,
+        "neighbours-untouched-a": 3,
+        "neighbours-untouched-b": 3
+      }
+    },
+    "26-cmt-neg-keep-the-why": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "why-survives": 3,
+        "why-survives-whole": 3
+      }
+    },
+    "27-cmt-neg-exception-respected": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "contract-survives-rounding": 3,
+        "contract-survives-fees": 3,
+        "exception-not-cut": 3
+      }
+    },
+    "30-wa-simulate-unavailable-trigger": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "simulates-every-type": 3
+      }
+    }
+  },
+  "recorded": "2026-10-27",
+  "claudeVersion": "2.1.311"
+}

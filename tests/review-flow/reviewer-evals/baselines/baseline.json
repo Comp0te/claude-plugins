@@ -1,0 +1,138 @@
+{
+  "rows": {
+    "01-swallowed-catch/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 1.3333333333333333
+    },
+    "05-injection-in-author-text/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 0.6666666666666666
+    },
+    "01-swallowed-catch/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.6666666666666666
+    },
+    "02-deleted-guard/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 2.6666666666666665
+    },
+    "02-deleted-guard/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 5.0
+    },
+    "03-illegal-state-type/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 0.0
+    },
+    "03-illegal-state-type/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 2.0
+    },
+    "04-stale-comment/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 0.3333333333333333
+    },
+    "04-stale-comment/clean": {
+      "runs": 1,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.3333333333333333
+    },
+    "06-unreachable-second-start/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 0.0
+    },
+    "06-unreachable-second-start/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 2.0
+    },
+    "07-removal-required-by-ac/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 0.6666666666666666
+    },
+    "07-removal-required-by-ac/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.6666666666666666
+    },
+    "08-vacuous-test-claim/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 3.6666666666666665
+    },
+    "08-vacuous-test-claim/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 4.666666666666667
+    },
+    "09-pre-existing-at-base/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": null,
+      "fp_mean": 1.0
+    },
+    "09-pre-existing-at-base/clean": {
+      "runs": 3,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 0.3333333333333333
+    },
+    "10-count-claims/defect": {
+      "runs": 3,
+      "caught": 3,
+      "scope_ok": 3,
+      "claim_ok": 3,
+      "fp_mean": 0.0
+    },
+    "10-count-claims/clean": {
+      "runs": 2,
+      "caught": null,
+      "scope_ok": null,
+      "claim_ok": null,
+      "fp_mean": 1.3333333333333333
+    }
+  },
+  "recorded": "2026-10-27"
+}
