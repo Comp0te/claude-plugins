@@ -164,6 +164,83 @@ class Summary(unittest.TestCase):
         self.assertIn("cost $0.50", stdout)
 
 
+class WriteBaseline(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, True)
+        self.pfb = self.tmp / "pf.json"
+        self.rvb = self.tmp / "sub" / "rv.json"
+
+    def write(self, *extra, pf_name="pf_ok.json", rv_name="rv_ok.json"):
+        return run_main("--write-baseline", "--plan-flow", FX / pf_name, "--reviewer", FX / rv_name,
+                        "--pf-baseline", self.pfb, "--rv-baseline", self.rvb, *extra)
+
+    def test_writes_pf_baseline(self):
+        self.assertEqual(self.write()[0], 0)
+        doc = json.loads(self.pfb.read_text())
+        self.assertEqual(doc["claudeVersion"], "2.1.311")
+        self.assertEqual(doc["cases"]["c1"]["graders"], {"g": 3, "h": 3})
+        self.assertEqual(doc["cases"]["c1"]["runs"], 3)
+        self.assertEqual(doc["cases"]["c1"]["score"], 1.0)
+        self.assertIn("recorded", doc)
+
+    def test_writes_rv_baseline_with_parsed_runs(self):
+        self.assertEqual(self.write(rv_name="rv_unparsed.json")[0], 0)
+        rows = json.loads(self.rvb.read_text())["rows"]
+        self.assertEqual(rows["01-x/defect"], {"runs": 2, "caught": 2, "scope_ok": 2,
+                                               "claim_ok": 2, "fp_mean": 0.33})
+        self.assertEqual(rows["01-x/clean"]["caught"], None)
+        self.assertEqual(rows["01-x/clean"]["runs"], 3)
+
+    def test_written_baseline_gates_its_own_run(self):
+        self.write()
+        code, out, _ = run_main("--plan-flow", FX / "pf_ok.json", "--reviewer", FX / "rv_ok.json",
+                                "--pf-baseline", self.pfb, "--rv-baseline", self.rvb)
+        self.assertEqual(code, 0)
+        self.assertNotIn("unbaselined", out)
+
+    def test_merge_keeps_other_cases_and_replaces_this_run(self):
+        self.pfb.write_text(json.dumps({"recorded": "2020-01-01", "cases": {
+            "other": {"runs": 3, "score": 0.5, "graders": {"x": 1}},
+            "c1": {"runs": 1, "score": 0.0, "graders": {}}}}))
+        self.rvb.parent.mkdir()
+        self.rvb.write_text(json.dumps({"rows": {"zz/defect": {"runs": 3, "caught": 1}}}))
+        self.assertEqual(self.write()[0], 0)
+        cases = json.loads(self.pfb.read_text())["cases"]
+        self.assertEqual(cases["other"], {"runs": 3, "score": 0.5, "graders": {"x": 1}})
+        self.assertEqual(cases["c1"]["runs"], 3)
+        rows = json.loads(self.rvb.read_text())["rows"]
+        self.assertEqual(rows["zz/defect"], {"runs": 3, "caught": 1})
+        self.assertIn("01-x/defect", rows)
+
+    def test_exclude(self):
+        self.assertEqual(self.write("--exclude", "c1", "01-x/clean")[0], 0)
+        self.assertNotIn("c1", json.loads(self.pfb.read_text())["cases"])
+        rows = json.loads(self.rvb.read_text())["rows"]
+        self.assertNotIn("01-x/clean", rows)
+        self.assertIn("01-x/defect", rows)
+
+    def test_harness_writes_nothing_and_names_case(self):
+        code, _, err = self.write(pf_name="pf_invalid.json")
+        self.assertEqual(code, 2)
+        self.assertIn("c1", err)
+        self.assertFalse(self.pfb.exists())
+        self.assertFalse(self.rvb.exists())
+
+    def test_reviewer_harness_writes_nothing(self):
+        code, _, err = self.write(rv_name="rv_invalid.json")
+        self.assertEqual(code, 2)
+        self.assertIn("01-x/defect", err)
+        self.assertFalse(self.pfb.exists())
+        self.assertFalse(self.rvb.exists())
+
+    def test_unreadable_input_writes_nothing(self):
+        code, _, _ = self.write(pf_name="nope.json")
+        self.assertEqual(code, 2)
+        self.assertFalse(self.pfb.exists())
+
+
 class BadInput(unittest.TestCase):
     def test_missing_file(self):
         p = subprocess.run([sys.executable, str(SCRIPT), "--plan-flow", str(FX / "nope.json")],

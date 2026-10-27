@@ -3,11 +3,12 @@
 
     python3 scripts/eval-gate.py [--plan-flow RESULT.json ...] [--reviewer SUMMARY.json ...]
         [--pf-baseline PATH] [--rv-baseline PATH] [--summary OUT.md]
+        [--write-baseline [--exclude NAME ...]]
 
 Exit 0 ok, 1 regression, 2 harness failure or unreadable input. A grader failing every run is
 a regression and one miss in three is variance; an invalid run is a harness failure, never a score.
 """
-import argparse, importlib.util, json, pathlib, sys
+import argparse, datetime, importlib.util, json, pathlib, sys
 from dataclasses import dataclass, field
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -178,6 +179,76 @@ def _apply_harness(verdicts, bad):
     return out
 
 
+def _write_json(path, doc):
+    p = pathlib.Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(doc, indent=2) + "\n")
+
+
+def write_baselines(args):
+    """Merge this run's cases into the baseline files; return an exit code.
+
+    Nothing is written when any non-excluded case is a harness failure. A reviewer row's `runs`
+    is its parsed-run count, the denominator `compare_rv` rates `caught` over.
+    """
+    excluded = set(args.exclude)
+    pf_cases, pf_bad, versions = {}, {}, []
+    rv_rows, rv_bad = {}, {}
+    try:
+        for path in args.plan_flow:
+            result = _read_json(path)
+            for name, reasons in pf_harness(result).items():
+                pf_bad.setdefault(name, []).extend(reasons)
+            if result.get("claudeVersion"):
+                versions.append(result["claudeVersion"])
+            pf_cases.update(pf_metrics(result))
+        for path in args.reviewer:
+            for key, row in _read_json(path).get("rows", {}).items():
+                if row.get("invalid", 0) > 0:
+                    rv_bad[key] = [f"invalid {row['invalid']}/{row.get('total', '?')} runs"]
+                rv_rows[key] = row
+    except InputError as e:
+        print(e, file=sys.stderr)
+        return 2
+
+    bad = {k: v for k, v in {**pf_bad, **rv_bad}.items() if k not in excluded}
+    if bad:
+        for name, reasons in sorted(bad.items()):
+            print(f"eval-gate: harness failure, baseline not written: {name}: {'; '.join(reasons)}",
+                  file=sys.stderr)
+        return 2
+
+    today = datetime.date.today().isoformat()
+    try:
+        if pf_cases:
+            doc = _read_json(args.pf_baseline, missing_ok=True) or {"cases": {}}
+            doc.setdefault("cases", {})
+            for name, m in pf_cases.items():
+                if name not in excluded:
+                    doc["cases"][name] = {"runs": m["runs"], "score": round(m["score"], 2),
+                                          "graders": m["graders"]}
+            doc["recorded"] = today
+            if versions:
+                doc["claudeVersion"] = versions[-1]
+            _write_json(args.pf_baseline, doc)
+            print(f"eval-gate: wrote {args.pf_baseline}")
+        if rv_rows:
+            doc = _read_json(args.rv_baseline, missing_ok=True) or {"rows": {}}
+            doc.setdefault("rows", {})
+            for key, r in rv_rows.items():
+                if key not in excluded:
+                    doc["rows"][key] = {"runs": r.get("parsed", 0), "caught": r.get("caught"),
+                                        "scope_ok": r.get("scope_ok"), "claim_ok": r.get("claim_ok"),
+                                        "fp_mean": r.get("fp_mean", 0.0)}
+            doc["recorded"] = today
+            _write_json(args.rv_baseline, doc)
+            print(f"eval-gate: wrote {args.rv_baseline}")
+    except InputError as e:
+        print(e, file=sys.stderr)
+        return 2
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--plan-flow", nargs="*", default=[], metavar="RESULT.json")
@@ -185,7 +256,13 @@ def main(argv=None):
     ap.add_argument("--pf-baseline", default=str(DEFAULT_PF_BASELINE))
     ap.add_argument("--rv-baseline", default=str(DEFAULT_RV_BASELINE))
     ap.add_argument("--summary")
+    ap.add_argument("--write-baseline", action="store_true",
+                    help="record this run's cases into the baseline files instead of comparing")
+    ap.add_argument("--exclude", nargs="*", default=[], metavar="NAME",
+                    help="with --write-baseline: case names or reviewer rows to leave out")
     args = ap.parse_args(argv)
+    if args.write_baseline:
+        return write_baselines(args)
 
     verdicts, headers = [], []
     try:
