@@ -86,7 +86,7 @@ class DemotionTests(unittest.TestCase):
 
     def test_ineffective(self):
         rs = [rec("k1", "s1"), rec("k2", "s2")]
-        home = {"rung": "reviewer", "target": "t", "text": "x", "landed_on": "2026-10-01"}
+        home = {"rung": "skill", "target": "t", "text": "x", "landed_on": "2026-10-01"}
         led = ledger({"a": {"status": "landed", "homes": [home]}},
                      {"k1": ("a", "2026-10-05"), "k2": ("a", "2026-10-06")})
         self.assertIn(("a", "ineffective"), self.kinds(rs, led))
@@ -364,6 +364,118 @@ class RoutingSupportTests(unittest.TestCase):
              "issue": "`expect` `catch` `null` `as T`"}
         code, out = self.check("Use expect, catch, null and as T carefully.", [r])
         self.assertEqual((code, out.strip()), (0, "clean"))
+
+
+class SecondDryRunTests(unittest.TestCase):
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory()
+        self.t = Path(self._t.name)
+        self.addCleanup(self._t.cleanup)
+
+    def write(self, name, text):
+        p = self.t / name
+        p.write_text(text)
+        return str(p)
+
+    def check(self, text, records):
+        rp = self.write("r.jsonl", "".join(json.dumps(r) + "\n" for r in records))
+        return _run(["check-text", "--records", rp, "--input", self.write("t.md", text)])
+
+    def cli(self, records, led):
+        rp, lp = _env(self.t, records, led)
+        self.lp = lp
+        return ["--records", str(rp), "--ledger", str(lp)]
+
+    def assign(self, base, data, *extra):
+        inp = self.write("a.json", json.dumps(data))
+        return _run(["assign"] + base + ["--input", inp, "--today", "2026-10-27", *extra])
+
+    def test_unclustered_reserved(self):
+        base = self.cli([rec("k1", "s1")], ledger({}, {}))
+        self.assertEqual(self.assign(base, {"assignments": {"k1": "unclustered"}})[0], 0)
+        led = json.loads(self.lp.read_text())
+        self.assertEqual(led["classes"]["unclustered"]["status"], "observing")
+        base = self.cli([rec("k1", "s1")], ledger({}, {}))
+        code = self.assign(base, {"classes": {"unclustered": {"name": "U", "description": "U"}}, "assignments": {}})[0]
+        self.assertEqual(code, 2)
+
+    def test_unclustered_never_candidate(self):
+        rs = [rec(f"k{i}", f"s{i}") for i in range(5)]
+        led = ledger({"unclustered": {}}, {r["key"]: ("unclustered", "2026-10-25") for r in rs})
+        self.assertEqual(rf.candidates(rf.class_stats(rs, led), led), [])
+        base = self.cli(rs, led)
+        _, out = _run(["digest"] + base + ["--agreements", str(self.t / "none.md")])
+        self.assertNotIn("unclustered", out)
+
+    def test_unclustered_offered_back(self):
+        rs = [{**rec("k1", "s1"), "title": "T1", "issue": "i" * 300}, rec("k2", "s2")]
+        base = self.cli(rs, ledger({"unclustered": {}}, {"k1": ("unclustered", "2026-10-25")}))
+        data = json.loads(_run(["unclassified"] + base)[1])
+        self.assertEqual([f["key"] for f in data["findings"]], ["k2"])
+        self.assertEqual(data["unclustered"], [{"key": "k1", "title": "T1", "issue": "i" * 200}])
+        self.assertEqual(data["classes"], [])
+        base = self.cli(rs[:1], ledger({"unclustered": {}}, {"k1": ("unclustered", "2026-10-25")}))
+        self.assertNotIn("unclustered", json.loads(_run(["unclassified"] + base)[1]))
+
+    def test_moving_out_of_unclustered(self):
+        base = self.cli([rec("k1", "s1")], ledger({"unclustered": {}, "x": {}}, {"k1": ("unclustered", "2026-10-01")}))
+        self.assertEqual(self.assign(base, {"assignments": {"k1": "x"}})[0], 0)
+        self.assertEqual(json.loads(self.lp.read_text())["assignments"]["k1"], {"class": "x", "classified_on": "2026-10-01"})
+
+    def test_reviewer_not_ineffective(self):
+        rs = [rec("k1", "s1"), rec("k2", "s2")]
+        home = {"rung": "reviewer", "target": "t", "text": "x", "landed_on": "2026-10-01"}
+        led = ledger({"a": {"status": "landed", "homes": [home]}}, {"k1": ("a", "2026-10-05"), "k2": ("a", "2026-10-06")})
+        self.assertEqual([d for d in rf.demotions(rs, led, 10) if d["kind"] == "ineffective"], [])
+
+    def test_line_count_without_final_newline(self):
+        ag = self.write("wa.md", "x\n" * 54 + "last")
+        add = self.write("add.md", "y\n")
+        out = json.loads(_run(["budget-check", "--agreements", ag, "--add", add])[1])
+        self.assertEqual(out["lines"], 55)
+        self.assertEqual(rf.budget(ag, 60)["lines"], 55)
+
+    def test_replace_last_line(self):
+        ag = self.write("wa.md", "x\n" * 54 + "last")
+        add = self.write("add.md", "y\n")
+        out = json.loads(_run(["budget-check", "--agreements", ag, "--add", add, "--replaces", "55-55"])[1])
+        self.assertEqual(out["after"], 55)
+        self.assertEqual(_run(["budget-check", "--agreements", ag, "--add", add, "--replaces", "56-56"])[0], 2)
+
+    def test_cumulative_budget(self):
+        ag = self.write("wa.md", "x\n" * 54)
+        a, b = self.write("a.txt", "1\n2\n"), self.write("b.txt", "1\n2\n3\n")
+        out = json.loads(_run(["budget-check", "--agreements", ag, "--add", a, "--add", b])[1])
+        self.assertEqual(out["after"], 59)
+
+    def test_path_with_line_suffix(self):
+        r = {**rec("k1", "feature-x", "acme-app"), "file": "src/x/fooPanel.ts:12-30"}
+        for text in ("Edit fooPanel.ts.", "Edit src/x/fooPanel.ts."):
+            code, out = self.check(text, [r])
+            self.assertEqual(code, 1, text)
+            self.assertIn("path:", out)
+
+    def test_ticket_key(self):
+        r = rec("k1", "branch-ABC-123-thing", "acme-app")
+        code, out = self.check("Seen in ABC-123.", [r])
+        self.assertEqual(code, 1)
+        self.assertIn("ticket: ABC-123", out)
+
+    def test_generic_file_names(self):
+        names = ["index.ts", "package.json", "CLAUDE.md", "README.md", "eslint.config.js", "x.test.ts"]
+        rs = [{**rec(f"k{i}", "feature-x", "acme-app"), "file": f"{n}:3", "title": f"Problem in {n}"}
+              for i, n in enumerate(names)]
+        code, out = self.check("Mention " + ", ".join(names) + " freely.", rs)
+        self.assertEqual((code, out.strip()), (0, "clean"))
+
+    def test_generic_file_names_as_backticked_identifiers(self):
+        r = {**rec("k1", "feature-x", "acme-app"),
+             "title": "Edit `index.ts` and `CLAUDE.md`",
+             "issue": "See `package.json`, `README.md`, `eslint.config.js` and `x.test.ts`; also `loadPanelData`."}
+        code, out = self.check("Update CLAUDE.md, index.ts, package.json, README.md, eslint.config.js and x.test.ts.", [r])
+        self.assertEqual((code, out.strip()), (0, "clean"))
+        code, out = self.check("Do not call loadPanelData.", [r])
+        self.assertEqual((code, out.strip()), (1, "identifier: loadPanelData"))
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 The model only classifies; every count, threshold and state change is here.
 
 Usage: recurring-findings.py {unclassified,assign,digest,decide} --records R.jsonl --ledger L.json ...
-       recurring-findings.py budget-check --add FILE [--replaces START-END]
+       recurring-findings.py budget-check --add FILE [--add FILE ...] [--replaces START-END]
        recurring-findings.py check-text --records R.jsonl --input FILE
 """
 import argparse
@@ -25,6 +25,7 @@ DEFAULT_AGREEMENTS = pathlib.Path(__file__).resolve().parents[1] / "plugins/plan
 FINDING_FIELDS = ("key", "project", "subject", "severity", "title", "issue", "found_by", "file")
 STATUSES = {"observing", "proposed", "accepted", "rejected", "deferred", "landed"}
 SEVERITY_ORDER = ("Critical", "High", "Medium", "Low")
+UNCLUSTERED = "unclustered"
 
 
 class LedgerError(Exception):
@@ -47,11 +48,15 @@ def load_ledger(path):
     return data
 
 
+def _line_count(text):
+    return text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+
+
 def budget(agreements_path, limit):
     p = pathlib.Path(agreements_path)
     if not p.exists():
         return {"lines": None, "limit": limit, "over": False}
-    lines = p.read_text().count("\n")
+    lines = _line_count(p.read_text())
     return {"lines": lines, "limit": limit, "over": lines > limit}
 
 
@@ -80,6 +85,8 @@ def candidates(stats, ledger):
     out = []
     for cid, s in sorted(stats.items(), key=lambda kv: (-kv[1]["subjects"], kv[0])):
         c = ledger["classes"][cid]
+        if cid == UNCLUSTERED:
+            continue
         if s["subjects"] < CANDIDATE_SUBJECTS or c["status"] in ("accepted", "landed"):
             continue
         reopened = False
@@ -104,8 +111,13 @@ def demotions(records, ledger, quiet_after):
         after = [k for k, a in ledger["assignments"].items() if a["classified_on"] > first]
         mine = [k for k in after if ledger["assignments"][k]["class"] == cid
                 and by_key.get(k, {}).get("verdict") != "dropped"]
-        if len(mine) >= 2:
-            out.append({"class": cid, "kind": "ineffective", "home": landed[-1]})
+        judged = [h for h in landed if h["rung"] != "reviewer"]
+        if judged:
+            since = min(h["landed_on"] for h in judged)
+            recurring = [k for k, a in ledger["assignments"].items()
+                         if a["class"] == cid and a["classified_on"] > since and by_key.get(k, {}).get("verdict") != "dropped"]
+            if len(recurring) >= 2:
+                out.append({"class": cid, "kind": "ineffective", "home": judged[-1]})
         text_homes = [h for h in landed if h["rung"] in ("agreements", "project")]
         enforced = [h for h in landed if h["rung"] in ("lint", "hook")]
         for h in text_homes:
@@ -145,8 +157,17 @@ def cmd_unclassified(args, records, ledger):
     pending = [{k: r.get(k) for k in FINDING_FIELDS} for r in records
                if r.get("kind") == "finding" and r.get("verdict") != "dropped" and r["key"] not in ledger["assignments"]]
     classes = [{"id": cid, "name": c["name"], "description": c["description"]}
-               for cid, c in sorted(ledger["classes"].items())]
-    print(json.dumps({"classes": classes, "findings": pending}, indent=2, ensure_ascii=False))
+               for cid, c in sorted(ledger["classes"].items()) if cid != UNCLUSTERED]
+    out = {"classes": classes, "findings": pending}
+    if pending:
+        by_key = {r["key"]: r for r in records if r.get("kind") == "finding"}
+        out["unclustered"] = [
+            {"key": k, "title": by_key[k].get("title"), "issue": (by_key[k].get("issue") or "")[:200]}
+            for k, a in ledger["assignments"].items()
+            if a["class"] == UNCLUSTERED and k in by_key and by_key[k].get("verdict") != "dropped"]
+        if not out["unclustered"]:
+            del out["unclustered"]
+    print(json.dumps(out, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -156,15 +177,22 @@ def cmd_assign(args, records, ledger):
     new_classes = data.get("classes", {})
     assignments = data.get("assignments", {})
     for cid in new_classes:
+        if cid == UNCLUSTERED:
+            return _fail(f"{UNCLUSTERED!r} is a reserved class id")
         if not CLASS_ID_RE.match(cid):
             return _fail(f"bad class id: {cid!r}")
     for key, cid in assignments.items():
         if key not in keys:
             return _fail(f"unknown record key: {key}")
-        if cid not in ledger["classes"] and cid not in new_classes:
+        if cid not in ledger["classes"] and cid not in new_classes and cid != UNCLUSTERED:
             return _fail(f"undefined class: {cid}")
-        if key in ledger["assignments"] and not args.reassign:
+        prior = ledger["assignments"].get(key)
+        if prior and prior["class"] != UNCLUSTERED and not args.reassign:
             return _fail(f"already assigned: {key} (use --reassign)")
+    if UNCLUSTERED in assignments.values():
+        ledger["classes"].setdefault(UNCLUSTERED, {
+            "name": "Unclustered", "description": "Findings with no recurring theme yet",
+            "status": "observing", "decided_on": None, "decided_subjects": None, "homes": []})
     for cid, c in new_classes.items():
         ledger["classes"].setdefault(cid, {"name": c["name"], "description": c["description"], "status": "observing",
                                            "decided_on": None, "decided_subjects": None, "homes": []})
@@ -207,15 +235,11 @@ def cmd_digest(args, records, ledger):
     return 0
 
 
-def _line_count(text):
-    return text.count("\n") + (1 if text and not text.endswith("\n") else 0)
-
-
 def cmd_budget_check(args):
     current = budget(args.agreements, args.budget)
     if current["lines"] is None:
         return _fail(f"agreements file not found: {args.agreements}")
-    added = _line_count(pathlib.Path(args.add).read_text())
+    added = sum(_line_count(pathlib.Path(f).read_text()) for f in args.add)
     removed = 0
     if args.replaces:
         m = re.fullmatch(r"(\d+)-(\d+)", args.replaces)
@@ -230,7 +254,12 @@ def cmd_budget_check(args):
     return 0
 
 
-_PATH_TOKEN_RE = re.compile(r"[\w.-]+(?:/[\w.-]+)+|[\w-]+\.(?:tsx?|jsx?|py|md|json|swift|kt|java|go|rb|rs|sh|ya?ml)\b")
+_PATH_TOKEN_RE = re.compile(r"[\w.-]+(?:/[\w.-]+)+|[\w-]+(?:\.[\w-]+)*\.(?:tsx?|jsx?|py|md|json|swift|kt|java|go|rb|rs|sh|ya?ml)\b")
+_LINE_SUFFIX_RE = re.compile(r":\d+(?:-\d+)?$")
+_TICKET_RE = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
+_GENERIC_NAME_RE = re.compile(
+    r"index\.\w+|package(?:-lock)?\.json|tsconfig(?:\.\w+)?\.json|README\.md|CLAUDE\.md|AGENTS\.md|CHANGELOG\.md|SKILL\.md"
+    r"|[\w-]+\.config\.\w+|(?:\w\.)?(?:test|spec)\.\w+|\w\.\w+", re.IGNORECASE)
 _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 _IDENT_RE = re.compile(r"[A-Za-z_]\w*(?:\.\w+)*")
 
@@ -257,17 +286,23 @@ def cmd_check_text(args, records):
             v = r.get(field)
             if v and _word_in(v, text):
                 hit(kind, v)
+        for ticket in _TICKET_RE.findall(r.get("subject") or ""):
+            if _word_in(ticket, text):
+                hit("ticket", ticket)
         paths = set()
         if r.get("file"):
-            paths.add(r["file"])
+            paths.add(_LINE_SUFFIX_RE.sub("", r["file"]))
         paths.update(_PATH_TOKEN_RE.findall(r.get("title") or ""))
         for path in paths:
-            for cand in (path, path.rsplit("/", 1)[-1]):
+            base = path.rsplit("/", 1)[-1]
+            for cand in (path, base):
+                if cand == base and _GENERIC_NAME_RE.fullmatch(base):
+                    continue
                 if cand and cand in text:
                     hit("path", cand)
         for field in ("title", "issue"):
             for tok in _BACKTICK_RE.findall(r.get(field) or ""):
-                if _is_identifier(tok) and tok in text:
+                if _is_identifier(tok) and not _GENERIC_NAME_RE.fullmatch(tok) and tok in text:
                     hit("identifier", tok)
     for kind, value in hits:
         print(f"{kind}: {value}")
@@ -314,7 +349,7 @@ def main(argv=None):
     p = sub.add_parser("budget-check")
     p.add_argument("--agreements", default=str(DEFAULT_AGREEMENTS))
     p.add_argument("--budget", type=int, default=60)
-    p.add_argument("--add", required=True)
+    p.add_argument("--add", required=True, action="append")
     p.add_argument("--replaces")
     p.set_defaults(fn=cmd_budget_check, standalone=True)
     p = sub.add_parser("check-text")
