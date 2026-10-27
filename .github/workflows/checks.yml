@@ -38,6 +38,7 @@ jobs:
       - run: python3 -m unittest discover -s tests/review-flow/reviewer-evals -p 'test_*.py'
       - run: python3 -m unittest discover -s tests/review-flow/roster-stats
       - run: python3 -m unittest discover -s tests/sdlc-metrics
+      - run: python3 -m unittest discover -s tests/recurring-findings
       - run: python3 -m unittest discover -s tests/review-flow/awaiting-reply
 
   claude-cli:

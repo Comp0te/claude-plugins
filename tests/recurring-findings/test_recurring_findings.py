@@ -1,5 +1,7 @@
 """Tests for scripts/recurring-findings.py — one test per matrix row."""
+import contextlib
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -130,6 +132,157 @@ class LedgerAndBudgetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             self.assertEqual(rf.load_ledger(Path(t) / "none.json"),
                              {"version": 1, "classes": {}, "assignments": {}})
+
+
+def _env(t, records, led):
+    rp, lp = Path(t) / "r.jsonl", Path(t) / "l.json"
+    rp.write_text("".join(json.dumps(r) + "\n" for r in records))
+    lp.write_text(json.dumps(led))
+    return rp, lp
+
+
+def _run(argv):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+        code = rf.main(argv)
+    return code, buf.getvalue()
+
+
+class CliTests(unittest.TestCase):
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory()
+        self.t = self._t.name
+        self.addCleanup(self._t.cleanup)
+
+    def env(self, records, led):
+        self.rp, self.lp = _env(self.t, records, led)
+        return ["--records", str(self.rp), "--ledger", str(self.lp)]
+
+    def assign_input(self, data):
+        p = Path(self.t) / "a.json"
+        p.write_text(json.dumps(data))
+        return ["--input", str(p)]
+
+    def saved(self):
+        return json.loads(self.lp.read_text())
+
+    def test_unclassified(self):
+        base = self.env([rec("k1", "s1"), rec("k2", "s2"), rec("k3", "s3", verdict="dropped")],
+                        ledger({"a": {}}, {"k1": ("a", "2026-10-25")}))
+        code, out = _run(["unclassified"] + base)
+        data = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertEqual(data["classes"], [{"id": "a", "name": "a", "description": "a"}])
+        self.assertEqual([f["key"] for f in data["findings"]], ["k2"])
+        self.assertEqual(set(data["findings"][0]), set(rf.FINDING_FIELDS))
+
+    def test_assign_merges(self):
+        base = self.env([rec("k2", "s2")], ledger({}, {}))
+        inp = self.assign_input({"classes": {"new-x": {"name": "N", "description": "D"}},
+                                 "assignments": {"k2": "new-x"}})
+        code, _ = _run(["assign"] + base + inp + ["--today", "2026-10-25"])
+        led = self.saved()
+        self.assertEqual(code, 0)
+        self.assertEqual(led["classes"]["new-x"], {"name": "N", "description": "D", "status": "observing",
+                                                   "decided_on": None, "decided_subjects": None, "homes": []})
+        self.assertEqual(led["assignments"]["k2"], {"class": "new-x", "classified_on": "2026-10-25"})
+
+    def _assert_rejected(self, records, led, data, needle):
+        base = self.env(records, led)
+        before = self.lp.read_bytes()
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(buf):
+            code = rf.main(["assign"] + base + self.assign_input(data))
+        self.assertEqual(code, 2)
+        self.assertIn(needle, buf.getvalue())
+        self.assertEqual(self.lp.read_bytes(), before)
+
+    def test_assign_unknown_key(self):
+        self._assert_rejected([rec("k1", "s1")], ledger({"a": {}}, {}), {"assignments": {"ghost-key": "a"}}, "ghost-key")
+
+    def test_assign_undefined_class(self):
+        self._assert_rejected([rec("k1", "s1")], ledger({}, {}), {"assignments": {"k1": "nope"}}, "nope")
+
+    def test_assign_bad_class_id(self):
+        self._assert_rejected([rec("k1", "s1")], ledger({}, {}),
+                              {"classes": {"Bad Id": {"name": "n", "description": "d"}},
+                               "assignments": {"k1": "Bad Id"}}, "Bad Id")
+
+    def test_assign_reclassification(self):
+        led = ledger({"a": {}, "b": {}}, {"k1": ("a", "2026-10-01")})
+        data = {"assignments": {"k1": "b"}}
+        self._assert_rejected([rec("k1", "s1")], led, data, "k1")
+        code, _ = _run(["assign"] + self.env([rec("k1", "s1")], led) + self.assign_input(data)
+                       + ["--reassign", "--today", "2026-10-25"])
+        self.assertEqual(code, 0)
+        self.assertEqual(self.saved()["assignments"]["k1"], {"class": "b", "classified_on": "2026-10-01"})
+
+    def test_atomic_write(self):
+        base = self.env([rec("k1", "s1"), rec("k2", "s2")], ledger({"a": {}}, {}))
+        before = self.lp.read_bytes()
+        inp = self.assign_input({"assignments": {"k1": "a", "k2": "missing"}})
+        code, _ = _run(["assign"] + base + inp)
+        self.assertEqual(code, 2)
+        self.assertEqual(self.lp.read_bytes(), before)
+        self.assertEqual([p.name for p in Path(self.t).glob("*.tmp")], [])
+
+    def digest_env(self, with_data):
+        if with_data:
+            rs = [rec("k1", "s1"), rec("k2", "s2"), rec("k3", "s3"), rec("k4", "s4"), rec("k5", "s5")]
+            led = ledger({"a": {}, "b": {"status": "landed", "homes": [
+                {"rung": "agreements", "target": "T", "text": "X", "landed_on": "2026-10-01"}]}},
+                {"k1": ("a", "2026-10-25"), "k2": ("a", "2026-10-25"),
+                 "k3": ("b", "2026-10-26"), "k4": ("b", "2026-10-26")})
+        else:
+            rs, led = [], ledger({}, {})
+        base = self.env(rs, led)
+        ag = Path(self.t) / "ag.md"
+        ag.write_text("x\n" * 5)
+        return base + ["--agreements", str(ag), "--budget", "3"]
+
+    def test_digest(self):
+        code, out = _run(["digest"] + self.digest_env(True))
+        self.assertEqual(code, 0)
+        i, j, k = out.index("## Candidates"), out.index("## Demotions"), out.index("## Agreements budget")
+        self.assertTrue(i < j < k)
+        self.assertIn("subjects 2, findings 2, projects p1, agreements-eligible: no", out[i:j])
+        self.assertIn("k1", out[i:j])
+        self.assertIn("k2", out[i:j])
+        self.assertIn("ineffective", out[j:k])
+        self.assertIn("5 of 3 lines, over budget", out[k:])
+
+    def test_digest_empty_sections(self):
+        code, out = _run(["digest"] + self.digest_env(False))
+        self.assertEqual(code, 0)
+        self.assertEqual(out.count("none"), 2)
+        self.assertEqual(out.split("## Demotions")[0].split("## Candidates")[1].strip(), "none")
+
+    def test_decide(self):
+        base = self.env([rec("k1", "s1"), rec("k2", "s2"), rec("k3", "s3")],
+                        ledger({"a": {}}, {r: ("a", "2026-10-25") for r in ("k1", "k2", "k3")}))
+        code, _ = _run(["decide"] + base + ["--class", "a", "--status", "rejected", "--today", "2026-10-26"])
+        a = self.saved()["classes"]["a"]
+        self.assertEqual(code, 0)
+        self.assertEqual((a["status"], a["decided_on"], a["decided_subjects"]), ("rejected", "2026-10-26", 3))
+        for argv in (["--class", "zz", "--status", "rejected"], ["--class", "a", "--status", "bogus"]):
+            self.assertEqual(_run(["decide"] + base + argv)[0], 2)
+
+    def test_decide_landed(self):
+        base = self.env([rec("k1", "s1")], ledger({"a": {}}, {"k1": ("a", "2026-10-25")}))
+        full = ["--class", "a", "--status", "landed", "--rung", "reviewer", "--target", "T", "--text", "X",
+                "--today", "2026-10-27"]
+        before = self.lp.read_bytes()
+        for drop in ("--rung", "--target", "--text"):
+            i = full.index(drop)
+            self.assertEqual(_run(["decide"] + base + full[:i] + full[i + 2:])[0], 2)
+        bad = full[:]
+        bad[bad.index("reviewer")] = "nonsense"
+        self.assertEqual(_run(["decide"] + base + bad)[0], 2)
+        self.assertEqual(self.lp.read_bytes(), before)
+        self.assertEqual(_run(["decide"] + base + full)[0], 0)
+        a = self.saved()["classes"]["a"]
+        self.assertEqual(a["status"], "landed")
+        self.assertEqual(a["homes"], [{"rung": "reviewer", "target": "T", "text": "X", "landed_on": "2026-10-27"}])
 
 
 if __name__ == "__main__":
