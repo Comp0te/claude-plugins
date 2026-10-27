@@ -116,7 +116,7 @@ function schedule($: Dollar, fn: () => Promise<unknown> | unknown) {
 
 async function startRun($: Dollar, arg: string): Promise<boolean> {
   if (session.run) return true
-  const raw = arg.trim().replace(/^["']|["']$/g, '')
+  const raw = arg.trim().replace(/^["']|["']$/g, '').replace(/^(file:(\/\/)?|@)/, '')
   if (raw === '') return false
   const given = resolvePath(raw)
   const path = /\.md$/i.test(given) ? given : `${given.replace(/\/+$/, '')}/plan.md`
@@ -195,7 +195,11 @@ function observeToolCall($: Dollar, e: ToolCallInput, r: ToolCallResult) {
   const run = session.run
   const result: unknown = r.result
   if (!run) {
-    if (e.tool === 'Skill' && EXECUTE_PLAN.test(String(e.skill))) schedule($, () => startRun($, String(e.args ?? '')))
+    if (e.tool === 'Skill' && EXECUTE_PLAN.test(String(e.skill))) {
+      schedule($, async () => {
+        if (await startRun($, String(e.args ?? ''))) openOnStart($)
+      })
+    }
     return
   }
 
@@ -252,7 +256,10 @@ function observeSpawn($: Dollar, e: AgentSpawnInput, r: AgentSpawnResult) {
   const path = planPathIn(e.prompt)
   if (path === undefined) return
   schedule($, async () => {
-    if (await startRun($, path)) apply()
+    if (await startRun($, path)) {
+      apply()
+      openOnStart($)
+    }
   })
 }
 

@@ -5,7 +5,7 @@ import { newRun, type Run } from '../../hooks/progress/run'
 import { parsePlan } from '../../hooks/progress/plan'
 import { fromStored, STORE_KEY, toStored } from '../../hooks/progress/store'
 import { paneLines } from '../../hooks/progress/view'
-import { CWD, PLAN, PLAN_ABS, expansion, harnessOf, planText } from './fixtures'
+import { COMMAND, CWD, EXECUTOR, PLAN, PLAN_ABS, expansion, harnessOf, planText, spawnInput } from './fixtures'
 
 const FILES = { [PLAN]: planText(3) }
 const OPEN = { id: 'plan-progress', title: 'Plan progress' }
@@ -54,6 +54,39 @@ describe('opening', () => {
     expect(h.opened).toEqual([OPEN])
     expect(session.error).toBeUndefined()
     expect(session.run?.closedByPerson).toBe(false)
+  })
+
+  test('auto: a file: or @ argument names the same plan and opens the pane', async () => {
+    for (const arg of [`file:${PLAN_ABS}`, `file://${PLAN_ABS}`, `@${PLAN}`]) {
+      const h = await harnessOf(FILES)
+      await h.call('classic.UserPromptExpansion', expansion(arg))
+      await h.settle()
+      expect(h.opened).toEqual([OPEN])
+      expect(session.run?.planPath).toBe(PLAN_ABS)
+    }
+  })
+
+  test('auto: a run started by a dispatch opens the pane', async () => {
+    const h = await harnessOf(FILES)
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Execute Task 1 of ${PLAN_ABS}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    expect(h.opened).toEqual([OPEN])
+  })
+
+  test('auto: a run started by the skill call opens the pane', async () => {
+    const h = await harnessOf(FILES)
+    await h.call('tool.call', { tool: 'Skill', skill: COMMAND, args: PLAN }, { result: 'ok' })
+    await h.settle()
+    expect(session.run?.planPath).toBe(PLAN_ABS)
+    expect(h.opened).toEqual([OPEN])
+  })
+
+  test('command mode: a dispatch opens nothing', async () => {
+    const h = await harnessOf(FILES, { progressPane: 'command' })
+    await h.call('agent.spawn', spawnInput(EXECUTOR, `Execute Task 1 of ${PLAN_ABS}`), { model: 'm', agentId: 'a1' })
+    await h.settle()
+    expect(session.run).toBeDefined()
+    expect(h.opened).toEqual([])
   })
 
   test('command mode: starting a plan opens nothing', async () => {
