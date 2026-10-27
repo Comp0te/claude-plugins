@@ -246,11 +246,13 @@ def _variant_stats(jobs: list[dict]) -> dict:
     parsed = [j for j in valid if not j["grade"].unparsed]
     caught = [j for j in parsed if j["grade"].caught]
     scope_ok = [j for j in caught if j["grade"].scope_ok]
+    claims = [j["grade"].claim_ok for j in caught if j["grade"].claim_ok is not None]
     fps = [j["grade"].false_positives for j in valid]
     durations = [j["meta"]["duration_s"] for j in jobs]
     return {
         "total": len(jobs),
         "caught": len(caught), "parsed": len(parsed), "scope_ok": len(scope_ok),
+        "claim_ok": sum(1 for c in claims if c) if claims else None,
         "fp_mean": (sum(fps) / len(fps)) if fps else 0.0,
         "fp_max": max(fps) if fps else 0,
         "unparsed": len(unparsed), "valid": len(valid),
@@ -304,8 +306,8 @@ def write_summary(out_dir: Path) -> bool:
         if parent:
             children.setdefault(parent, []).append(name)
 
-    lines.append("| case | variant | runs | caught | scope ok | fp mean | fp max | unparsed | invalid | cost $ | mean s |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    lines.append("| case | variant | runs | caught | scope ok | claim ok | fp mean | fp max | unparsed | invalid | cost $ | mean s |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 
     total_cost = 0.0
     any_invalid = False
@@ -324,7 +326,7 @@ def write_summary(out_dir: Path) -> bool:
             "unparsed": stats["unparsed"], "parsed": stats["parsed"],
             "caught": stats["caught"] if is_defect else None,
             "scope_ok": stats["scope_ok"] if is_defect else None,
-            "claim_ok": stats.get("claim_ok") if is_defect else None,
+            "claim_ok": stats["claim_ok"] if is_defect else None,
             "fp_mean": stats["fp_mean"], "fp_max": stats["fp_max"], "cost": stats["cost"],
         }
         for j in jobs:
@@ -336,8 +338,9 @@ def write_summary(out_dir: Path) -> bool:
 
         caught_col = f'{stats["caught"]}/{stats["parsed"]}' if variant == "defect" else "-"
         scope_col = f'{stats["scope_ok"]}/{stats["caught"]}' if variant == "defect" else "-"
+        claim_col = "-" if stats["claim_ok"] is None else f'{stats["claim_ok"]}/{stats["caught"]}'
         lines.append(
-            f'| {name} | {variant} | {stats["total"]} | {caught_col} | {scope_col} | '
+            f'| {name} | {variant} | {stats["total"]} | {caught_col} | {scope_col} | {claim_col} | '
             f'{stats["fp_mean"]:.2f} | {stats["fp_max"]} | {stats["unparsed"]}/{stats["valid"]} | '
             f'{stats["invalid"]}/{stats["total"]} | {stats["cost"]:.4f} | {stats["mean_s"]:.1f} |'
         )

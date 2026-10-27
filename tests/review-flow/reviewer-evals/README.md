@@ -44,6 +44,10 @@ One row per case/variant. Columns:
 - **caught / scope ok** — only meaningful on `defect`: whether any finding matched one of the
   case's `any_of` points (by citation overlap and keyword), and whether one of those matches
   carried the expected `scope`. `-` on `clean` (there is nothing to catch).
+- **claim ok** — only on a `defect` row whose case lists `expected.forbidden` (regexes, matched
+  case-insensitively): runs whose caught findings match none of them, over runs caught. A caught
+  finding that states a wrong count or quantifier ("five call sites") is caught but not claim ok.
+  `-` when the case has no `forbidden` key.
 - **fp mean / fp max** — findings that matched neither an `any_of` point nor an `allowed` point,
   averaged and maxed across the row's runs. `allowed` entries absorb real, expected-but-off-target
   issues (an incidental deletion, a pre-existing gap) so they don't count against the agent.

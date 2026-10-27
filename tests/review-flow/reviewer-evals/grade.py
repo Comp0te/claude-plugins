@@ -51,6 +51,7 @@ class RunGrade:
     false_positives: int
     unparsed: bool
     findings: int
+    claim_ok: bool | None = None   # None unless caught and the case lists `expected.forbidden`
 
 
 def _resolve_path(path, known_files):
@@ -233,9 +234,13 @@ def grade_run(text: str, known_files: list[str], case: dict, variant: str) -> Ru
                 false_positives += 1
         caught = bool(caught_findings)
         scope_ok = any(f.scope == expected["scope"] for f in caught_findings) if caught else None
+        forbidden = [re.compile(p, re.IGNORECASE) for p in expected.get("forbidden", [])]
+        claim_ok = None
+        if caught and forbidden:
+            claim_ok = not any(rx.search(f.text) for f in caught_findings for rx in forbidden)
         return RunGrade(
             caught=caught, scope_ok=scope_ok, false_positives=false_positives,
-            unparsed=False, findings=len(findings),
+            unparsed=False, findings=len(findings), claim_ok=claim_ok,
         )
 
     # clean: no expectation to catch, only false positives to count.

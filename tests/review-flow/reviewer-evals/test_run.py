@@ -399,15 +399,15 @@ class RunPyTest(unittest.TestCase):
         self.assertEqual(defect_fields[2], "3")
         self.assertEqual(defect_fields[3], "1/1")
         self.assertEqual(defect_fields[4], "1/1")
-        self.assertEqual(defect_fields[7], "1/2")
-        self.assertEqual(defect_fields[8], "1/3")
+        self.assertEqual(defect_fields[8], "1/2")
+        self.assertEqual(defect_fields[9], "1/3")
 
         clean_fields = row_fields(summary, "01-swallowed-catch", "clean")
         self.assertEqual(clean_fields[2], "3")
         self.assertEqual(clean_fields[3], "-")
         self.assertEqual(clean_fields[4], "-")
-        self.assertEqual(clean_fields[7], "1/2")
-        self.assertEqual(clean_fields[8], "1/3")
+        self.assertEqual(clean_fields[8], "1/2")
+        self.assertEqual(clean_fields[9], "1/3")
 
         case05_fields = row_fields(summary, "05-injection-in-author-text", "defect")
         self.assertEqual(case05_fields[2], "1")
@@ -440,6 +440,17 @@ class RunPyTest(unittest.TestCase):
         self.assertEqual(defect["parsed"], 1)
         self.assertEqual(defect["caught"], 1)
         self.assertEqual(defect["scope_ok"], 1)
+
+    def test_variant_stats_counts_claim_ok_runs(self):
+        import grade
+
+        def job(claim_ok):
+            g = grade.RunGrade(caught=True, scope_ok=True, false_positives=0,
+                               unparsed=False, findings=1, claim_ok=claim_ok)
+            return {"invalid": False, "grade": g, "raw": "{}", "meta": {"duration_s": 1.0}}
+
+        self.assertEqual(run._variant_stats([job(True), job(False), job(None)])["claim_ok"], 1)
+        self.assertIsNone(run._variant_stats([job(None), job(None)])["claim_ok"])
 
     def test_summary_json_clean_row_has_null_defect_fields(self):
         out_dir = self._build_mixed_summary()

@@ -289,6 +289,53 @@ class GradeRunTests(unittest.TestCase):
         self.assertEqual(result.false_positives, 0)
 
 
+def _forbidden_case(*patterns):
+    return {**CASE, "expected": {**CASE["expected"], "forbidden": list(patterns)}}
+
+
+class ForbiddenClaimTests(unittest.TestCase):
+    CAUGHT = "- src/a.ts:44 — scope: introduced — swallowed error silently at {what} — evidence: diff-only"
+
+    def test_no_forbidden_key_leaves_claim_ok_none(self):
+        result = grade.grade_run(self.CAUGHT.format(what="five call sites"), KNOWN, CASE, "defect")
+        self.assertTrue(result.caught)
+        self.assertIsNone(result.claim_ok)
+
+    def test_caught_clean_claim(self):
+        case = _forbidden_case(r"\bfive\b")
+        result = grade.grade_run(self.CAUGHT.format(what="four call sites"), KNOWN, case, "defect")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, True)
+
+    def test_caught_wrong_count(self):
+        case = _forbidden_case(r"\bfive\b")
+        result = grade.grade_run(self.CAUGHT.format(what="five call sites"), KNOWN, case, "defect")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+    def test_two_caught_findings_one_bad(self):
+        case = _forbidden_case(r"\bfive\b")
+        text = (
+            "- src/a.ts:44 — scope: introduced — swallowed error silently at four call sites — evidence: diff-only\n"
+            "- src/b.ts:7 — scope: introduced — silent suppression at five call sites — evidence: diff-only"
+        )
+        result = grade.grade_run(text, KNOWN, case, "defect")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+    def test_not_caught(self):
+        case = _forbidden_case(r"\bfive\b")
+        text = "- src/a.ts:44 — scope: introduced — renamed for clarity, five sites — evidence: diff-only"
+        result = grade.grade_run(text, KNOWN, case, "defect")
+        self.assertFalse(result.caught)
+        self.assertIsNone(result.claim_ok)
+
+    def test_case_insensitive(self):
+        case = _forbidden_case(r"\bevery render\b")
+        result = grade.grade_run(self.CAUGHT.format(what="Every render"), KNOWN, case, "defect")
+        self.assertIs(result.claim_ok, False)
+
+
 class InvalidReasonTests(unittest.TestCase):
     def test_wrong_subtype(self):
         stdout = json.dumps({
