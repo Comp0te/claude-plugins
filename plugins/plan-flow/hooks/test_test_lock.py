@@ -310,3 +310,54 @@ class Events(unittest.TestCase):
         self.assertTrue(files)
         for f in files:
             self.assertEqual(folder, os.path.dirname(os.path.realpath(f)))
+
+    def test_partial_line_edit_asks(self):
+        self.locked()
+        self.assertEqual("ask", self.decision(self.edit("src/a.test.ts", "toBe(1", "toBe(1\n+1")))
+
+    def test_multiedit_partial_line_asks(self):
+        self.locked(content="it('a')\nx(1)\n")
+        out = self.multi("src/a.test.ts", [
+            {"old_string": "it('a')", "new_string": "it('a')\nit('b')"},
+            {"old_string": "x(", "new_string": "x(\n0 +"}])
+        self.assertEqual("ask", self.decision(out))
+
+    def test_symlinked_path_is_same_file(self):
+        self.locked()
+        os.symlink(os.path.join(self.repo, "src"), os.path.join(self.repo, "link"))
+        self.assertEqual("ask", self.decision(self.edit("link/a.test.ts", "toBe(1)", "toBe(2)")))
+
+    def test_state_is_private(self):
+        self.write("src/a.test.ts", "x\n")
+        folder = os.path.join(self.tmp.name, "plan-flow-test-lock")
+        self.assertEqual(0o700, os.stat(folder).st_mode & 0o777)
+        self.assertEqual(0o600, os.stat(os.path.join(folder, "S1.json")).st_mode & 0o777)
+
+    def test_loose_state_folder_is_tightened(self):
+        folder = os.path.join(self.tmp.name, "plan-flow-test-lock")
+        os.makedirs(folder)
+        os.chmod(folder, 0o755)
+        self.locked()
+        self.assertEqual(0o700, os.stat(folder).st_mode & 0o777)
+        self.assertEqual("ask", self.decision(self.edit("src/a.test.ts", "toBe(1)", "toBe(2)")))
+
+    def test_symlinked_state_folder_fails_open(self):
+        elsewhere = os.path.join(self.tmp.name, "elsewhere")
+        os.makedirs(elsewhere)
+        os.symlink(elsewhere, os.path.join(self.tmp.name, "plan-flow-test-lock"))
+        self.locked()
+        self.assertIsNone(self.edit("src/a.test.ts", "toBe(1)", "toBe(2)"))
+        self.assertEqual([], os.listdir(elsewhere))
+
+    def test_symlinked_state_files_are_not_followed(self):
+        folder = os.path.join(self.tmp.name, "plan-flow-test-lock")
+        os.makedirs(folder, mode=0o700)
+        victim = os.path.join(self.tmp.name, "victim")
+        with open(victim, "w") as f:
+            f.write("keep")
+        os.symlink(victim, os.path.join(folder, "S1.json"))
+        os.symlink(victim, os.path.join(folder, "S2.json.lock"))
+        self.write("src/a.test.ts", "x\n", sid="S1")
+        self.write("src/b.test.ts", "x\n", sid="S2")
+        with open(victim) as f:
+            self.assertEqual("keep", f.read())

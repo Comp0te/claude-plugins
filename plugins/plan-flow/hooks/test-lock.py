@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test-lock hook: once a test file written this session has been seen failing, an edit that
 changes its existing lines asks the user first. Set PLAN_FLOW_TEST_LOCK=off to disable it."""
-import difflib, fcntl, json, os, re, sys, tempfile
+import difflib, fcntl, json, os, re, stat, sys, tempfile
 
 DEFAULT_FILES = (r"(^|/)(__tests__|tests?)/|\.(test|spec)\.[^/]+$"
                  r"|(^|/)test_[^/]+\.py$|_test\.(py|go)$")
@@ -42,17 +42,26 @@ def only_inserts(old, new):
 def state_path(session_id):
     safe = re.sub(r"[^A-Za-z0-9_-]", "_", session_id)
     folder = os.path.join(tempfile.gettempdir(), "plan-flow-test-lock")
-    os.makedirs(folder, exist_ok=True)
+    try:
+        os.mkdir(folder, 0o700)
+    except FileExistsError:
+        pass
+    st = os.lstat(folder)
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid():
+        raise OSError("state folder is a symlink or not ours: " + folder)
+    if st.st_mode & 0o077:
+        os.chmod(folder, 0o700)
     return os.path.join(folder, safe + ".json")
 
 
 def update(session_id, change):
-    """Apply `change(state)` under an exclusive lock; corrupt or missing state starts empty."""
+    """Apply `change(state)` under an exclusive lock; corrupt or missing state starts empty.
+    State files are never opened through a symlink, since the temp directory may be shared."""
     path = state_path(session_id)
-    with open(path + ".lock", "w") as lock:
+    with open(os.open(path + ".lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
-            with open(path, encoding="utf-8") as f:
+            with open(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), encoding="utf-8") as f:
                 state = json.load(f)
             if not isinstance(state, dict):
                 raise ValueError
@@ -60,8 +69,8 @@ def update(session_id, change):
             state = {}
         state.setdefault("written", []); state.setdefault("locked", []); state.setdefault("pending", {})
         result = change(state)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+        with open(fd, "w", encoding="utf-8") as f:
             json.dump(state, f)
         os.replace(tmp, path)
         return result
@@ -74,25 +83,32 @@ REASON = ("plan-flow test lock: %s was written this session and a test run faile
 
 
 def absolute(path, cwd):
-    return os.path.normpath(os.path.join(cwd or os.getcwd(), path))
+    return os.path.realpath(os.path.join(cwd or os.getcwd(), path))
 
 
 def inserts_only(tool, inp, path):
-    if tool == "Edit":
-        return not inp.get("replace_all") and only_inserts(inp.get("old_string", ""),
-                                                           inp.get("new_string", ""))
-    if tool == "MultiEdit":
-        edits = inp.get("edits") or []
-        return bool(edits) and all(not e.get("replace_all")
-                                   and only_inserts(e.get("old_string", ""), e.get("new_string", ""))
-                                   for e in edits)
+    """Edits are applied to the file on disk first: an old_string covering part of a line can
+    otherwise split that line while looking like a pure insertion."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            before = f.read()
+    except OSError:
+        return False
     if tool == "Write":
-        try:
-            with open(path, encoding="utf-8") as f:
-                return only_inserts(f.read(), inp.get("content", ""))
-        except OSError:
+        return only_inserts(before, inp.get("content", ""))
+    if tool == "Edit":
+        edits = [inp]
+    elif tool == "MultiEdit":
+        edits = inp.get("edits") or []
+    else:
+        return False
+    after = before
+    for e in edits:
+        old = e.get("old_string", "")
+        if e.get("replace_all") or not old or old not in after:
             return False
-    return False
+        after = after.replace(old, e.get("new_string", ""), 1)
+    return bool(edits) and only_inserts(before, after)
 
 
 def main():
