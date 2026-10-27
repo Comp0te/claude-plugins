@@ -54,7 +54,7 @@
       "caught": 3,
       "scope_ok": 3,
       "claim_ok": null,
-      "fp_mean": 0.3333333333333333
+      "fp_mean": 1.0
     },
     "04-stale-comment/clean": {
       "runs": 1,
@@ -134,5 +134,5 @@
       "fp_mean": 1.3333333333333333
     }
   },
-  "recorded": "2026-10-27"
+  "recorded": "2026-10-28"
 }
