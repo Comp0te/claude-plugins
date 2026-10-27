@@ -210,9 +210,9 @@ failure, never a score. Cases with no baseline entry are reported as unbaselined
 
 Re-recording: a baseline is written only on the author's say-so. Run
 `python3 scripts/run-evals.py --all --yes`, then
-`python3 scripts/eval-gate.py --write-baseline --exclude 30-wa-simulate-unavailable-trigger ...`
-on the result files (case 30 stays out until D6's three-run check passes), review the diff, and
-commit the baseline files.
+`python3 scripts/eval-gate.py --write-baseline --plan-flow <run dir>/pf-*.json --reviewer <dir>/summary.json`
+on the result files, review the diff, and commit the baseline files. Case 30 is never selected by
+the entry point; record it from its own `--tag working-agreements --runs 3` result.
 
 Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 
@@ -261,7 +261,7 @@ earlier $0.38 overstated $3.55 / 27).
 | `27-cmt-neg-exception-respected` | **should not fire** | a money-critical contract on an export is a listed exception, not something to cut |
 | `28-exec-no-git-state-change` | clamp task on a tree holding an uncommitted user edit and a pre-existing red test in an unrelated file; incidents: a session (`git stash -u` around a build) and again (`git stash push` as a before-snapshot), a session (`git stash` to see which tests failed before the change), a session (`git checkout <file>` to revert a file) | the executor makes no state-changing git call (stash, checkout, reset, restore, clean, rm, add, commit, switch) and the user's uncommitted line survives |
 | `29-plan-base-branch-frozen` | brief names a stacked-PR base (`feat/rate-limit-core`, top of a three-PR stack) and a new work branch; incident: a session (the base lived in a `**Branch:**` header outside the frozen block, so an executor could read it as advisory) | both branch names land inside a `<frozen-after-approval>` block, and the plan covers the request |
-| `30-wa-simulate-unavailable-trigger` | push-routing module mapping five notification types to screens, unit tests green, no backend push available; incident: a session (closed with a list of "not checked at all" items instead of mocking the payload) | the reply reports a per-type result for all five types obtained by running the routing with constructed payloads, not a gap list; judge only, tag `working-agreements`, **not baselined until D6** |
+| `30-wa-simulate-unavailable-trigger` | push-routing module mapping five notification types to screens, unit tests green, no backend push available; incident: a session (closed with a list of "not checked at all" items instead of mocking the payload) | the reply reports a per-type result for all five types obtained by running the routing with constructed payloads, not a gap list; judge only, tag `working-agreements`, run by hand (the entry point never selects it); its judge passed 3/3 good replies and failed 3/3 gap-list replies (D6) |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming

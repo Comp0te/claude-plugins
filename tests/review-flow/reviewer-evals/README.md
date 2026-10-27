@@ -66,9 +66,9 @@ failure, never a score. Cases with no baseline entry are reported as unbaselined
 
 Re-recording: a baseline is written only on the author's say-so. Run
 `python3 scripts/run-evals.py --all --yes`, then
-`python3 scripts/eval-gate.py --write-baseline --exclude 30-wa-simulate-unavailable-trigger ...`
-on the result files (case 30 stays out until D6's three-run check passes), review the diff, and
-commit the baseline files.
+`python3 scripts/eval-gate.py --write-baseline --plan-flow <run dir>/pf-*.json --reviewer <dir>/summary.json`
+on the result files, review the diff, and commit the baseline files. Case 30 is never selected by
+the entry point; record it from its own `--tag working-agreements --runs 3` result.
 
 Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 
