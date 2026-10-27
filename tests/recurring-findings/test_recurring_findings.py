@@ -285,5 +285,86 @@ class CliTests(unittest.TestCase):
         self.assertEqual(a["homes"], [{"rung": "reviewer", "target": "T", "text": "X", "landed_on": "2026-10-27"}])
 
 
+class RoutingSupportTests(unittest.TestCase):
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory()
+        self.t = Path(self._t.name)
+        self.addCleanup(self._t.cleanup)
+
+    def write(self, name, text):
+        p = self.t / name
+        p.write_text(text)
+        return str(p)
+
+    def test_found_by_stats(self):
+        rs = [{**rec("k1", "s1"), "found_by": ["a"]}, {**rec("k2", "s2"), "found_by": ["a", "b"]},
+              {**rec("k3", "s3", verdict="dropped"), "found_by": ["a"]}]
+        led = ledger({"c": {}}, {r["key"]: ("c", "2026-10-25") for r in rs})
+        self.assertEqual(rf.class_stats(rs, led)["c"]["found_by"], {"a": 2, "b": 1})
+
+    def test_found_by_in_digest(self):
+        rs = [{**rec("k1", "s1"), "found_by": ["a", "b"]}, {**rec("k2", "s2"), "found_by": ["a"]},
+              rec("k3", "s3"), rec("k4", "s4")]
+        led = ledger({"c": {}, "d": {}}, {"k1": ("c", "2026-10-25"), "k2": ("c", "2026-10-25"),
+                                          "k3": ("d", "2026-10-25"), "k4": ("d", "2026-10-25")})
+        rp, lp = _env(self.t, rs, led)
+        _, out = _run(["digest", "--records", str(rp), "--ledger", str(lp), "--agreements", str(self.t / "none.md")])
+        lines = {l.split(" ")[1]: l for l in out.splitlines() if l.startswith("- ")}
+        self.assertTrue(lines["c"].endswith(", found by: a×2, b×1"))
+        self.assertTrue(lines["d"].endswith(", found by: none"))
+
+    def budget(self, agreement_lines, add_lines, *extra):
+        ag = self.write("wa.md", "x\n" * agreement_lines)
+        add = self.write("add.md", "y\n" * add_lines)
+        return _run(["budget-check", "--agreements", ag, "--budget", "60", "--add", add, *extra])
+
+    def test_budget_fits(self):
+        code, out = self.budget(54, 2)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"lines": 54, "after": 56, "limit": 60, "fits": True})
+
+    def test_budget_over(self):
+        code, out = self.budget(59, 2)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"lines": 59, "after": 61, "limit": 60, "fits": False})
+
+    def test_budget_replaces(self):
+        code, out = self.budget(60, 2, "--replaces", "7-8")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"lines": 60, "after": 60, "limit": 60, "fits": True})
+        for bad in ("8-7", "59-61", "0-2", "x"):
+            self.assertEqual(self.budget(60, 2, "--replaces", bad)[0], 2, bad)
+
+    def check(self, text, records):
+        rp = self.write("r.jsonl", "".join(json.dumps(r) + "\n" for r in records))
+        return _run(["check-text", "--records", rp, "--input", self.write("t.md", text)])
+
+    def test_check_text_clean(self):
+        r = {**rec("k1", "feature-x", "acme-app"), "file": "src/widget/panel.ts", "title": "Bad `loadPanelData` call"}
+        code, out = self.check("Validate input at the boundary before use.", [r])
+        self.assertEqual((code, out.strip()), (0, "clean"))
+
+    def test_check_text_hits(self):
+        r = {**rec("k1", "feature-x", "acme-app"), "file": "src/widget/panel.ts",
+             "title": "Bad `loadPanelData` call", "issue": "uses `retry_count` and `cfg.timeoutMs`"}
+        cases = {"project": "Seen in ACME-App code.", "path": "See src/widget/panel.ts.",
+                 "basename": "Edit panel.ts first.", "subject": "On feature-x we saw it.",
+                 "identifier": "Do not call loadPanelData.", "snake": "Reset retry_count.", "dotted": "Read cfg.timeoutMs."}
+        for name, text in cases.items():
+            code, out = self.check(text, [r])
+            self.assertEqual(code, 1, name)
+            self.assertTrue(out.strip(), name)
+        kinds = {l.split(":")[0] for l in self.check(" ".join(cases.values()), [r])[1].splitlines()}
+        self.assertEqual(kinds, {"project", "path", "subject", "identifier"})
+        self.assertIn("project: acme-app", self.check(cases["project"], [r])[1])
+        self.assertEqual(_run(["check-text", "--records", str(self.t / "r.jsonl"), "--input", str(self.t / "gone")])[0], 2)
+
+    def test_check_text_generic_words(self):
+        r = {**rec("k1", "feature-x", "acme-app"), "title": "`expect` and `catch` on `null` via `as T`",
+             "issue": "`expect` `catch` `null` `as T`"}
+        code, out = self.check("Use expect, catch, null and as T carefully.", [r])
+        self.assertEqual((code, out.strip()), (0, "clean"))
+
+
 if __name__ == "__main__":
     unittest.main()

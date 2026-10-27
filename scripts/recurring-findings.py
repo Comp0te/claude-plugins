@@ -3,6 +3,8 @@
 The model only classifies; every count, threshold and state change is here.
 
 Usage: recurring-findings.py {unclassified,assign,digest,decide} --records R.jsonl --ledger L.json ...
+       recurring-findings.py budget-check --add FILE [--replaces START-END]
+       recurring-findings.py check-text --records R.jsonl --input FILE
 """
 import argparse
 import datetime
@@ -60,11 +62,13 @@ def class_stats(records, ledger):
         r = by_key.get(key)
         if r is None or r.get("verdict") == "dropped":
             continue
-        s = stats.setdefault(a["class"], {"findings": 0, "subjects": set(), "projects": set(), "keys": [], "max_severity": None})
+        s = stats.setdefault(a["class"], {"findings": 0, "subjects": set(), "projects": set(), "keys": [], "max_severity": None, "found_by": {}})
         s["findings"] += 1
         s["subjects"].add((r["project"], r["subject"]))
         s["projects"].add(r["project"])
         s["keys"].append(key)
+        for agent in set(r.get("found_by") or []):
+            s["found_by"][agent] = s["found_by"].get(agent, 0) + 1
         sev = r.get("severity")
         if sev in SEVERITY_ORDER and (s["max_severity"] is None or SEVERITY_ORDER.index(sev) < SEVERITY_ORDER.index(s["max_severity"])):
             s["max_severity"] = sev
@@ -179,8 +183,10 @@ def cmd_digest(args, records, ledger):
         name = ledger["classes"][c["class"]]["name"]
         eligible = "yes" if c["agreements_eligible"] else "no"
         tail = ", reopened" if c["reopened"] else ""
+        fb = sorted(stats[c["class"]]["found_by"].items(), key=lambda kv: (-kv[1], kv[0]))
+        found = ", ".join(f"{a}×{n}" for a, n in fb) or "none"
         out.append(f"- {c['class']} — {name}: subjects {c['subjects']}, findings {c['findings']}, "
-                   f"projects {', '.join(c['projects'])}, agreements-eligible: {eligible}{tail}")
+                   f"projects {', '.join(c['projects'])}, agreements-eligible: {eligible}{tail}, found by: {found}")
         out.extend(f"  - {k}" for k in stats[c["class"]]["keys"])
     if not cands:
         out.append("none")
@@ -199,6 +205,75 @@ def cmd_digest(args, records, ledger):
         out.append(f"{b['lines']} of {b['limit']} lines, {'over' if b['over'] else 'within'} budget")
     print("\n".join(out))
     return 0
+
+
+def _line_count(text):
+    return text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+
+
+def cmd_budget_check(args):
+    current = budget(args.agreements, args.budget)
+    if current["lines"] is None:
+        return _fail(f"agreements file not found: {args.agreements}")
+    added = _line_count(pathlib.Path(args.add).read_text())
+    removed = 0
+    if args.replaces:
+        m = re.fullmatch(r"(\d+)-(\d+)", args.replaces)
+        if not m:
+            return _fail(f"bad --replaces range: {args.replaces!r}")
+        start, end = int(m[1]), int(m[2])
+        if start < 1 or start > end or end > current["lines"]:
+            return _fail(f"--replaces range {start}-{end} is outside the file ({current['lines']} lines)")
+        removed = end - start + 1
+    after = current["lines"] + added - removed
+    print(json.dumps({"lines": current["lines"], "after": after, "limit": args.budget, "fits": after <= args.budget}))
+    return 0
+
+
+_PATH_TOKEN_RE = re.compile(r"[\w.-]+(?:/[\w.-]+)+|[\w-]+\.(?:tsx?|jsx?|py|md|json|swift|kt|java|go|rb|rs|sh|ya?ml)\b")
+_BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+_IDENT_RE = re.compile(r"[A-Za-z_]\w*(?:\.\w+)*")
+
+
+def _is_identifier(tok):
+    return (len(tok) >= 6 and _IDENT_RE.fullmatch(tok) is not None
+            and ("_" in tok or "." in tok or re.search(r"[a-z][A-Z]", tok) is not None))
+
+
+def _word_in(needle, text):
+    return re.search(r"(?<![A-Za-z0-9])" + re.escape(needle) + r"(?![A-Za-z0-9])", text, re.IGNORECASE) is not None
+
+
+def cmd_check_text(args, records):
+    text = pathlib.Path(args.input).read_text()
+    hits = []
+
+    def hit(kind, value):
+        if (kind, value) not in hits:
+            hits.append((kind, value))
+
+    for r in records:
+        for field, kind in (("project", "project"), ("subject", "subject")):
+            v = r.get(field)
+            if v and _word_in(v, text):
+                hit(kind, v)
+        paths = set()
+        if r.get("file"):
+            paths.add(r["file"])
+        paths.update(_PATH_TOKEN_RE.findall(r.get("title") or ""))
+        for path in paths:
+            for cand in (path, path.rsplit("/", 1)[-1]):
+                if cand and cand in text:
+                    hit("path", cand)
+        for field in ("title", "issue"):
+            for tok in _BACKTICK_RE.findall(r.get(field) or ""):
+                if _is_identifier(tok) and tok in text:
+                    hit("identifier", tok)
+    for kind, value in hits:
+        print(f"{kind}: {value}")
+    if not hits:
+        print("clean")
+    return 1 if hits else 0
 
 
 def cmd_decide(args, records, ledger):
@@ -236,6 +311,17 @@ def main(argv=None):
     def add_today(p):
         p.add_argument("--today", default=datetime.date.today().isoformat())
 
+    p = sub.add_parser("budget-check")
+    p.add_argument("--agreements", default=str(DEFAULT_AGREEMENTS))
+    p.add_argument("--budget", type=int, default=60)
+    p.add_argument("--add", required=True)
+    p.add_argument("--replaces")
+    p.set_defaults(fn=cmd_budget_check, standalone=True)
+    p = sub.add_parser("check-text")
+    p.add_argument("--records", required=True)
+    p.add_argument("--input", required=True)
+    p.set_defaults(fn=lambda a: cmd_check_text(a, _records(a.records)), standalone=True)
+
     add("unclassified", cmd_unclassified)
     p = add("assign", cmd_assign)
     p.add_argument("--input", required=True)
@@ -255,6 +341,8 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
     try:
+        if getattr(args, "standalone", False):
+            return args.fn(args)
         return args.fn(args, _records(args.records), load_ledger(args.ledger))
     except (LedgerError, json.JSONDecodeError, OSError, KeyError) as e:
         return _fail(f"invalid input: {e}")
