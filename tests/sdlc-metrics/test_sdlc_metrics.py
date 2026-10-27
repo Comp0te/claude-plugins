@@ -103,5 +103,62 @@ class FindingRecordTests(unittest.TestCase):
         self.assertEqual(self.rec(NEW)["F3"]["severity"], "Severe")
 
 
+# Built line by line so this plan's own headings stay unambiguous to anything parsing it.
+PLAN = "\n".join([
+    "# X Implementation Plan",
+    "### Task 1: a",
+    "### Task 2: b",
+    "## Spec Change Log",
+    "<!-- Append-only. -->",
+    "- 2026-10-18, Task 5: matrix row disagreed",
+    "- 2026-10-19, outside the plan: resetSingleChat clears state",
+    "- 2026-10-19, D1 re-decided by the author: list item instead of card",
+    "- 2026-10-18, Task 7 (Ask First, resolved by the user): icon from Figma",
+    "- 2026-10-20: tidy wording",
+    "- 2026-10-21, Task 2: first line",
+    "  continued here",
+]) + "\n"
+
+
+class ChangeRecordTests(unittest.TestCase):
+    def recs(self, text=PLAN):
+        return sm.change_records("proj", "docs/plans/x.md", text)
+
+    def test_task_entry(self):
+        r = self.recs()[0]
+        self.assertEqual((r["origin"], r["task"], r["date"]), ("task", 5, "2026-10-18"))
+        self.assertEqual(r["key"], "proj/docs/plans/x.md#1")
+        self.assertEqual(r["kind"], "plan-change")
+
+    def test_outside_plan(self):
+        r = self.recs()[1]
+        self.assertEqual((r["origin"], r["task"]), ("outside-plan", None))
+
+    def test_author_decision(self):
+        recs = self.recs()
+        self.assertEqual(recs[2]["origin"], "author-decision")
+        self.assertEqual((recs[3]["origin"], recs[3]["task"]), ("author-decision", 7))
+
+    def test_unclassifiable(self):
+        self.assertEqual(self.recs()[4]["origin"], "other")
+
+    def test_no_log_section(self):
+        self.assertEqual(self.recs("# Plan\n### Task 1: a\n"), [])
+
+    def test_template_only(self):
+        self.assertEqual(self.recs("## Spec Change Log\n\n<!-- Append-only. -->\n"), [])
+
+    def test_multi_line_entry(self):
+        r = self.recs()[5]
+        self.assertIn("continued here", r["text"])
+        self.assertEqual(len(self.recs()), 6)
+        long = "## Spec Change Log\n- 2026-10-21, Task 1: " + "y" * 900 + "\n"
+        self.assertEqual(len(self.recs(long)[0]["text"]), 400)
+
+    def test_task_count(self):
+        self.assertEqual(sm.plan_summary("proj", "docs/plans/x.md", PLAN)["tasks"], 2)
+        self.assertEqual(sm.plan_summary("proj", "docs/plans/d.md", "# Design\n")["tasks"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
