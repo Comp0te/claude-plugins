@@ -121,5 +121,11 @@
       "plugins/review-flow/commands/branch-review.md",
       "plugins/review-flow/commands/pr-review.md"
     ]
+  },
+  "gate-exit-status": {
+    "source": "shared/review-flow/gate-exit-status.md",
+    "targets": [
+      "plugins/review-flow/commands/pr-recheck.md"
+    ]
   }
 }

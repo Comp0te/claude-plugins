@@ -120,6 +120,8 @@ Check the size first — `git ls-tree -r --name-only <new_head> | wc -l`. Under 
 
 **Only a local run needs a runnable checkout** — the extracted trees hold source only, and the session's checkout is on some other commit. When route 5 applies, use the environment ladder in section 3 (run in place if `HEAD` already equals `new_head`; otherwise a temporary worktree with `node_modules` symlinked; otherwise not at all) and establish it *here*, before the gate, so the probes later inherit it. When CI supplied the answer, do not build that environment on spec: build it in section 3 — where the probes are re-run — if and when a probe actually needs one.
 
+<!-- shared:gate-exit-status -->
+
 **Capture the gate's real exit status.** If you pipe its output through `tail` or `head` to keep the transcript short, the status you see belongs to the pager, not to the gate — a suite that crashed will report success. Do not rely on remembering this. Run it in this shape:
 
 ```bash
@@ -135,6 +137,8 @@ echo "GATE EXIT=$?"
 The stakes are the reason this is spelled out: the block exists to stop a crashed suite from being read as a pass, and an empty `GATE EXIT=` is the same failure wearing the check's own clothes. If you split the gate into its sub-steps — which is what an environment artifact of the kind below can force — every one of them needs its own `set -o pipefail` and its own `$?` read *immediately* after the pipeline, before any other command overwrites it. A step whose only evidence is *empty output* is reported as "no diagnostics printed", never as "exit 0" — and a step whose exit status came back empty is reported as "status not captured", never as green.
 
 If the gate is red for a reason that is not an environment artifact, stop and ask: verdicts about code that does not build are verdicts about nothing. Environment artifacts — a test runner that needs a flag to start, stale or missing dependencies, a missing native module — are things you can name and re-run past, using that second result. A failure you have merely decided to be relaxed about is not one.
+
+<!-- /shared:gate-exit-status -->
 
 **Collect the author's replies** in the threads of published findings:
 
