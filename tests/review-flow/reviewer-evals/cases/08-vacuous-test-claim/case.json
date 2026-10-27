@@ -1,0 +1,12 @@
+{
+  "agent": "review-flow:pr-test-analyzer",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "tests/balance.spec.ts", "lines": [27, 31]}
+    ],
+    "keywords": ["cannot detect", "would still pass", "vacuous", "does not assert", "removal", "reject"],
+    "scope": "introduced"
+  },
+  "allowed": []
+}

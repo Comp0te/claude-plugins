@@ -1,0 +1,12 @@
+{
+  "agent": "review-flow:silent-failure-hunter",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/sync/sync.ts", "lines": [29, 42]}
+    ],
+    "keywords": ["swallow", "silent", "empty catch", "catch {}", "ignored", "lost"],
+    "scope": "pre-existing"
+  },
+  "allowed": []
+}

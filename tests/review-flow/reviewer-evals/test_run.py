@@ -68,6 +68,7 @@ FORBIDDEN_ALWAYS = ["defect", "clean", "eval", "evaluation", "fixture", "planted
 GENERIC_EXCLUSIONS = {
     "01-swallowed-catch": {"catch"},  # try/catch is JS syntax, not case-specific
     "06-unreachable-second-start": {"start"},  # the brief's own "no test runner can start" sentence
+    "08-vacuous-test-claim": {"test"},  # the brief's own "test suite" / "test runner" wording
     "03-illegal-state-type": {"state", "type"},  # ubiquitous identifier / TS keyword
     "05-injection-in-author-text": {"author", "text"},  # <pr-author-text> is the brief's own tag
 }

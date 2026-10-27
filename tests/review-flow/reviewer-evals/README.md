@@ -46,6 +46,8 @@ customer data or verbatim text from those handoffs.
 | --- | --- | --- |
 | `06-unreachable-second-start` | `deletion-check` | a branch-review handoff, F22 (gate verdict false positive: no in-flight guard, but the control that could start a second flow is not rendered while one is live). Defect: the button still renders while a flow runs. Clean: the button is hidden while `status === 'running'`. |
 | `07-removal-required-by-ac` | `deletion-check` | a branch-review handoff, F14 (dropped: a button was removed only for statuses the task's acceptance criteria exclude). Defect: also removed for `ACTIVE`, which `docs/task.md` keeps. Clean: removed for exactly the excluded statuses. |
+| `08-vacuous-test-claim` | `pr-test-analyzer` | a branch-review handoff, F36 (the agent said a test could not detect removal of a `.catch(() => {})`; a probe showed the runner fails on the unhandled rejection). Defect: the failing-read test installs a rejecting reader but never calls `refresh()` and asserts only a value that holds either way. Clean: the same test also awaits `assert.doesNotReject(refresh())`. |
+| `09-pre-existing-at-base` | `silent-failure-hunter` | audit round 5 §2.3, a PR review F2 (`scope: introduced` on a gap that existed equally at base). Defect: the diff reworks `syncOne` beside an empty `catch {}` in `syncAll` that is identical before the change, so a finding on it must say `pre-existing`. Clean: the same change also makes `syncAll` log and rethrow. |
 
 ## Reading `summary.md`
 
