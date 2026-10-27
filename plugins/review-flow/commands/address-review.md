@@ -184,3 +184,66 @@ verdict: pending
 `C<n>` records use the same keys with `source: check:<name>` and `class:` one of `real`, `flaky`, `infra`, `unknown`, `pending`.
 
 End with the chat report: a table `id | source | class | change | reply lead`, any over-length leads with their reason, the checks table, the gate result, and the line *"nothing has been committed, pushed or posted"*.
+
+## 7. Show the exact payload and stop
+
+Print, verbatim, in four groups:
+
+1. **Commit** — `git diff --stat` of the working tree and the message `Address review on #<N>: A<i>, A<j>, C<k>`, naming every `fix` item and `real` check.
+2. **Push** — `<remote> <headRefName>`. For a cross-repository pull request (`isCrossRepository: true`), `<remote>` is the one whose URL matches `headRepository`; if none matches, ask through the question tool and send nothing until answered.
+3. **Replies** — per item: the id, the target, and the full body assembled from `reply-lead` + `reply-basis` in the section 6 shape, `<details>` fold included, with `<sha>` shown as a placeholder filled after the push. The target is the `in_reply_to` id for a thread. For a review or an issue comment it is a top-level comment that opens with a link to the item's `url` and a `>` quote of the item's first non-empty line, then the lead, so the filter in section 2 sees the item as answered. Under the replies, one line per over-length lead with its reason.
+4. **Re-runs** — per `flaky` or `infra` check: run id and class.
+
+`fix` contributes the change and its reply; `dispute`, `answer`, `clarify` and `defer` contribute replies only. Then list every `needs-user` and `clarify` item that is **not** in the payload, so what stays unanswered is visible.
+
+**Ask for approval with the question tool, not as a closing paragraph.** Anything other than explicit approval — silence, a question, a partial objection — sends nothing: the fixes stay uncommitted and the handoff keeps `verdict: pending`. If the user amends a reply, re-print the whole amended payload and ask again.
+
+## 8. Send
+
+Order is binding, because a reply that cites a SHA the remote does not have yet is a false claim:
+
+1. `git add` the files the fixes touched, then `git commit` with the approved message.
+2. **Re-check freshness.** `gh pr view <N> --json headRefOid -q .headRefOid` against the SHA collected in section 1. The approval wait is long enough for the head to move. If it differs, send nothing further, report both SHAs and offer a fresh run.
+3. `git push <remote> HEAD:<headRefName>`. Never force. A rejected push (non-fast-forward) stops everything after it: report the error, send no replies and no re-runs.
+4. Replies, with the pushed SHA substituted for `<sha>`:
+
+   ```bash
+   gh api repos/{owner}/{repo}/pulls/<N>/comments -f body='<text>' -F in_reply_to=<databaseId>
+   ```
+
+   A review or issue-comment target is a top-level comment instead: `gh api repos/{owner}/{repo}/issues/<N>/comments -f body='<text>'`.
+5. Re-runs: `gh run rerun <run-id> --failed`.
+
+**Read the error before deciding what kind it is.** A transport failure (TLS, proxy reset, DNS, timeout, no HTTP status) means the request may or may not have arrived, and a blind retry is how one reply becomes two. Read back first (`gh api repos/{owner}/{repo}/pulls/<N>/comments`, or the issue comments for a top-level reply) and look for the body; if it landed, record it and do not resend, otherwise resend once and read back again. Never more than one retry. A rejection carries an HTTP status and a message: that reply is not sent, the others continue, and the report names it.
+
+## 9. Record
+
+After each send that returned a URL (a re-run: exit 0), write that item's `verdict:` immediately, before the next send:
+
+- `committed` for a `fix` item, with the commit SHA
+- `replied <url>`
+- `rerun <run-id>`
+- `not-sent — <why>`
+
+A send with no returned URL is `not-sent — <error>`, never `replied`. Then append the round line to `rounds:`:
+
+```markdown
+  - round <k> @ <sha> — sent YYYY-MM-DD — commit <sha>, replies <n>, reruns <m>
+```
+
+On the next invocation, an item whose source id is already `replied` is skipped even when the script returns it, and is never sent again.
+
+## 10. Bounded loop
+
+If anything was pushed or re-run, wait with `gh pr checks <N> --watch --interval 30` under a 600000 ms tool timeout, then return to section 2 for a new round. New comments that arrived meanwhile enter that round's classification. Every round has its own payload and its own approval.
+
+Stop when:
+
+- every check is green and nothing is awaiting;
+- 3 send rounds have run in this invocation: report what is left;
+- a check fails twice with the same failing step and the same first error line: report it as not progressing;
+- the user declines a round.
+
+## 11. Final report
+
+Per round: what was committed, pushed, replied and re-run. Then what is left (`needs-user`, `clarify`, `defer`, `unknown` checks) with the handoff path, and why the loop stopped. End with one line: *"the reviewer's `/review-flow:pr-recheck <N>` reads these replies as the author's argument."*
