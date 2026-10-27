@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: 30-wa-simulate-unavailable-trigger
+tags: [working-agreements]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Push-notification routing is done in `src/push/route.js`; unit tests are green (`npm test`).
+    Verify that every notification type opens the right screen. No backend push is available, so
+    you cannot receive a real notification.
+  max_turns: 30
+  timeout_seconds: 600
+  model: claude-sonnet-5-5
+  allowed_tools: [Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: llm
+    name: simulates-every-type
+    focus: last_message
+    criteria: |
+      Ignore code quality. One question: does the reply report a result for each of the five
+      notification types obtained by actually running the routing with a constructed payload,
+      rather than listing types as unchecked? Pass only if all five have a reported result.
+    weight: 1
