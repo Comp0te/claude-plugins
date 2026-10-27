@@ -25,6 +25,7 @@ warning.
 | Working agreements | `references/working-agreements.md` | How code is written: when to ask before coding, comment rules, research before building, scope control, verifying work. | Imported into `~/.claude/CLAUDE.md` by the line below. |
 | Session-start hook | `hooks/session-start.py` (registered in `hooks/hooks.json`) | Injects a short operating-rules block into the session and warns if the working-agreements import is missing, dangling or stale. When that import is delivering nothing at all, also injects the agreements verbatim, so an unconfigured install still has them in the main conversation. | `SessionStart` session event, matching `startup`, `clear`, or `compact`. |
 | Comment-budget hook | `hooks/comment-budget.py` (registered in `hooks/hooks.json`) | Counts the comment block just written against the budget in the working agreements (2 prose lines inline, 4 in a docstring) and says so when it is over. Reads only what the edit added, so existing comments are never flagged. Silence it with `PLAN_FLOW_COMMENT_BUDGET=off`. | `PostToolUse`, matching `Edit`, `Write`, and `MultiEdit`. |
+| Test-lock hook | `hooks/test-lock.py` (registered in `hooks/hooks.json`) | Remembers the test files written in a session. When a test run then fails, those files are locked, and an edit that changes or removes their existing lines asks you first; adding new lines is never blocked. Approving the prompt unlocks that file until the next failing run. Override the file and runner patterns with `PLAN_FLOW_TEST_LOCK_FILES` / `PLAN_FLOW_TEST_LOCK_RUNNERS` (regexes); silence it with `PLAN_FLOW_TEST_LOCK=off`. | `PreToolUse` and `PostToolUse` matching `Edit`, `Write`, `MultiEdit`; `PostToolUseFailure` matching `Bash`. |
 | Plan progress pane | `hooks/progress/` (registered under `modules` in `hooks/hooks.json`) | A side pane that follows a plan being executed: each task's status (pending, executing, review, committed, halted with its reason), the running executor's tool-call count and elapsed time, the attempt number on a re-dispatch, and each task's check results. It only observes — it adds nothing to any model's context and never delays a tool call. | Opens when you start executing a plan, or through `/plan-progress`. |
 
 ## Options
@@ -117,7 +118,7 @@ tsc -p plugins/plan-flow
 ```
 
 The two `unittest` runs are stdlib only and take about a second: the first covers the
-session-start and comment-budget hooks, the second the eval suite's own integrity, including
+session-start, comment-budget and test-lock hooks, the second the eval suite's own integrity, including
 whether the copy of the Code Comments rule embedded in the `comment-rules` cases still matches
 `references/working-agreements.md`. Edit that rule and the second run fails until you run
 `python3 plugins/plan-flow/evals/sync-comment-rule.py --write` and re-measure the tier.

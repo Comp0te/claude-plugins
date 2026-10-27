@@ -1,5 +1,5 @@
 {
-  "description": "Injects the main-conversation operating rules at the start of any session opened inside a git repository, and warns when the memory-file import that delivers the rest is missing or stale. A second hook checks comment blocks as they are written against the budget in the working agreements. Both emit context only; neither returns a permission decision. Set PLAN_FLOW_COMMENT_BUDGET=off to silence the comment check on its own.",
+  "description": "Injects the main-conversation operating rules at the start of any session opened inside a git repository, and warns when the memory-file import that delivers the rest is missing or stale. A second hook checks comment blocks as they are written against the budget in the working agreements. Those two emit context only; neither returns a permission decision. A third hook locks test files that were written in the session and then seen failing, and asks before an edit changes their existing lines; it returns only ask. Set PLAN_FLOW_COMMENT_BUDGET=off to silence the comment check on its own, and PLAN_FLOW_TEST_LOCK=off to silence the test lock.",
   "hooks": {
     "SessionStart": [
       {
@@ -13,6 +13,18 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test-lock.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -20,6 +32,23 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/comment-budget.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test-lock.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/test-lock.py\"",
             "timeout": 5
           }
         ]
