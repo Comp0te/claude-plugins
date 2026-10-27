@@ -82,8 +82,8 @@ Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 | `--all` (four plan-flow tiers + ten reviewer cases) | about 180 | about $50; 1.5-2 h at `-j 2` |
 
 Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45,
-plan-execution $0.60 (unmeasured), reviewer $0.38 per row-run. Measured reviewer runs on
-2026-10-27 came in at $0.03-0.09 per row-run, well under that estimate.
+plan-execution $0.60 (unmeasured), reviewer $0.10 per row-run (measured 2026-10-27 at $0.03-0.09; the
+earlier $0.38 overstated $3.55 / 27).
 
 ## Cases
 
