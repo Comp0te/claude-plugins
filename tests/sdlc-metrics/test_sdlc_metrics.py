@@ -220,5 +220,112 @@ class ChangeRecordTests(unittest.TestCase):
         self.assertEqual([(r["origin"], r["task"]) for r in recs], [("task", 5), ("task", 11)])
 
 
+def _write(root, rel, text):
+    p = Path(root) / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text)
+
+
+HANDOFF = "# r\nrequirement: docs/plans/a.md\n\n### F1\nseverity: High\nscope: introduced\nverdict: fixed — ok\n"
+PLAN_A = "### Task 1: a\n### Task 2: b\n### Task 3: c\n### Task 4: d\n\n## Spec Change Log\n- 2026-10-01, Task 1: x\n- 2026-10-01, Task 3: y\n- 2026-10-02, Task 3: z\n"
+
+
+class CollectTests(unittest.TestCase):
+    def test_handoff_selection(self):
+        with tempfile.TemporaryDirectory() as t:
+            for name in ("x.md", "x-deferred.md", "x-archive.md", "x-fix-prompt.md", "x-hunks-abc.txt"):
+                _write(t, f".claude/reviews/{name}", HANDOFF)
+            got = sm.collect([Path(t)])
+            self.assertEqual({f["handoff"] for f in got["findings"]}, {".claude/reviews/x.md"})
+
+    def test_plan_selection(self):
+        with tempfile.TemporaryDirectory() as t:
+            for rel in ("docs/plans/a.md", "docs/plans/b/plan.md", "docs/plans/b/references/r.md", "docs/superpowers/plans/c.md"):
+                _write(t, rel, "### Task 1: a\n" + rel)
+            got = {p["plan"] for p in sm.collect([Path(t)])["plans"]}
+            self.assertEqual(got, {"docs/plans/a.md", "docs/plans/b/plan.md", "docs/superpowers/plans/c.md"})
+
+    def test_worktree_dedupe(self):
+        with tempfile.TemporaryDirectory() as t:
+            main = Path(t) / "proj"
+            _write(main, "docs/plans/a.md", PLAN_A)
+            git = ["git", "-c", "user.email=a@b", "-c", "user.name=a"]
+            subprocess.run(git + ["init", "-q", str(main)], check=True)
+            subprocess.run(git + ["-C", str(main), "add", "-A"], check=True)
+            subprocess.run(git + ["-C", str(main), "commit", "-qm", "x"], check=True)
+            wt = Path(t) / "proj-wt"
+            subprocess.run(git + ["-C", str(main), "worktree", "add", "-q", str(wt)], check=True)
+            self.assertEqual(sm.project_identity(main), sm.project_identity(wt))
+            self.assertEqual(len(sm.collect([main, wt])["plans"]), 1)
+
+    def test_no_git(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t) / "plainproj"
+            root.mkdir()
+            self.assertEqual(sm.project_identity(root), "plainproj")
+
+    def test_executed_via_requirement_and_first_pass(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, "docs/plans/a.md", PLAN_A)
+            _write(t, ".claude/reviews/branch-a-abc1234.md", HANDOFF)
+            plan = sm.collect([Path(t)])["plans"][0]
+            self.assertTrue(plan["executed"])
+            self.assertEqual(plan["linked_findings"], 1)
+            self.assertIn("first-pass tasks: 2/4", sm.render(sm.collect([Path(t)])))
+
+    def test_executed_via_log_only(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, "docs/plans/a.md", PLAN_A)
+            out = sm.render(sm.collect([Path(t)]))
+            self.assertTrue(sm.collect([Path(t)])["plans"][0]["executed"])
+            self.assertIn("no linked review", out)
+
+    def test_no_execution_evidence(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, "docs/plans/idle.md", "### Task 1: a\n")
+            got = sm.collect([Path(t)])
+            self.assertFalse(got["plans"][0]["executed"])
+            self.assertIn("no execution evidence", sm.render(got))
+
+    def test_rounds_none(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, ".claude/reviews/pr-1-findings.md", "rounds:\n  - round 1 @ abc — reviewed 2026-10-01\n" + HANDOFF)
+            self.assertIn("no data: no handoff has a re-check round", sm.render(sm.collect([Path(t)])))
+
+    def test_rounds_recheck(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, ".claude/reviews/pr-1-findings.md",
+                   "rounds:\n  - round 1 @ abc — reviewed 2026-10-01\n  - round 2 @ def — rechecked 2026-10-03\n" + HANDOFF)
+            self.assertEqual(sm.collect([Path(t)])["rounds"]["pr-1"], 2)
+
+    def test_rereviewed_branch(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, ".claude/reviews/branch-feat-x-0824280.md", HANDOFF)
+            _write(t, ".claude/reviews/branch-feat-x-fbf1cf9.md", HANDOFF)
+            self.assertEqual(sm.collect([Path(t)])["rounds"]["branch-feat-x"], 2)
+
+    def test_records_dump(self):
+        with tempfile.TemporaryDirectory() as t:
+            _write(t, "docs/plans/a.md", PLAN_A)
+            _write(t, ".claude/reviews/branch-a-abc1234.md", HANDOFF)
+            out = Path(t) / "out.jsonl"
+            self.assertEqual(sm.main(["--records", str(out), t]), 0)
+            rows = [json.loads(l) for l in out.read_text().splitlines()]
+            self.assertEqual([r["key"] for r in rows], sorted(r["key"] for r in rows))
+            self.assertEqual({r["kind"] for r in rows}, {"finding", "plan-change"})
+            self.assertEqual(sm.main(["--records", str(Path(t) / "no/such/dir/x.jsonl"), t]), 2)
+
+    def test_empty_roots(self):
+        with tempfile.TemporaryDirectory() as t:
+            out = sm.render(sm.collect([Path(t)]))
+            self.assertIn("no data:", out)
+            self.assertEqual(sm.main([t]), 0)
+
+    def test_no_roots(self):
+        with self.assertRaises(SystemExit) as cm:
+            sm.main([])
+        self.assertEqual(cm.exception.code, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

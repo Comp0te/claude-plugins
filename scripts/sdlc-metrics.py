@@ -146,3 +146,197 @@ def plan_summary(project, rel_path, text):
     return {"project": project, "plan": rel_path,
             "tasks": len(TASK_HEADING_RE.findall(text)),
             "changes": change_records(project, rel_path, text)}
+
+
+HANDOFF_SKIP_RE = re.compile(r"-(?:deferred|archive|fix-prompt)\.md$")
+PLAN_DIRS = ("docs/plans", "docs/superpowers/plans")
+ROUND_LINE_RE = re.compile(r"^\s*-\s*round\s+(\d+)\s+@", re.MULTILINE)
+
+
+def project_identity(root):
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, check=True).stdout.strip()
+        return pathlib.Path(out).parent.name
+    except (OSError, subprocess.CalledProcessError):
+        return pathlib.Path(root).resolve().name
+
+
+def _handoffs(root):
+    d = root / ".claude/reviews"
+    return sorted(f for f in d.glob("*.md") if not HANDOFF_SKIP_RE.search(f.name)) if d.is_dir() else []
+
+
+def _plans(root):
+    files = []
+    for rel in PLAN_DIRS:
+        d = root / rel
+        if d.is_dir():
+            files += [f for f in d.rglob("*.md") if "references" not in f.relative_to(d).parts]
+    return sorted(files)
+
+
+def collect(roots):
+    seen, findings, plans, rounds = set(), [], [], {}
+    reviews = 0
+    for root in roots:
+        root = pathlib.Path(root)
+        project = project_identity(root)
+        for f in _handoffs(root):
+            text = f.read_text(errors="replace")
+            rel = f.relative_to(root).as_posix()
+            digest = (project, rel, hashlib.sha256(text.encode()).hexdigest())
+            if digest in seen:
+                continue
+            seen.add(digest)
+            findings += finding_records(project, rel, text)
+            reviews += 1
+            subject = _subject(rel)
+            lines = len(ROUND_LINE_RE.findall(text))
+            rounds[subject] = max(lines, 1) if rs._kind(f) == "pr" else rounds.get(subject, 0) + 1
+        for f in _plans(root):
+            text = f.read_text(errors="replace")
+            digest = (project, hashlib.sha256(text.encode()).hexdigest())
+            if digest in seen:
+                continue
+            seen.add(digest)
+            plans.append(plan_summary(project, f.relative_to(root).as_posix(), text))
+    for plan in plans:
+        linked = [r for r in findings if r["project"] == plan["project"] and plan["plan"] in r["requirements"]]
+        plan["linked_findings"] = sum(1 for r in linked if r["verdict"] != "dropped" and r["scope"] == "introduced")
+        plan["executed"] = bool(linked) or bool(plan["changes"])
+        plan["linked"] = bool(linked)
+    return {"findings": findings, "plans": plans, "rounds": rounds, "reviews": reviews}
+
+
+def _plan_row(plan):
+    task_entries = [c for c in plan["changes"] if c["origin"] == "task"]
+    first_pass = plan["tasks"] - len({c["task"] for c in task_entries if c["task"] is not None})
+    return {
+        "first_pass": max(first_pass, 0),
+        "task": len(task_entries),
+        "outside": sum(1 for c in plan["changes"] if c["origin"] == "outside-plan"),
+        "author": sum(1 for c in plan["changes"] if c["origin"] == "author-decision"),
+        "other": sum(1 for c in plan["changes"] if c["origin"] == "other"),
+    }
+
+
+def _median(values):
+    values = sorted(values)
+    n = len(values)
+    return values[n // 2] if n % 2 else (values[n // 2 - 1] + values[n // 2]) / 2
+
+
+def _render_plans(plans):
+    lines = ["## Plan execution"]
+    executed = [p for p in plans if p["executed"] and p["tasks"]]
+    idle = [p for p in plans if not p["executed"]]
+    if not executed:
+        lines += ["leading: no data: no executed plan with tasks",
+                  "lagging: no data: no executed plan with a linked review"]
+    else:
+        rows = [(p, _plan_row(p)) for p in executed]
+        done = sum(r["first_pass"] for _, r in rows)
+        total = sum(p["tasks"] for p, _ in rows)
+        sums = {k: sum(r[k] for _, r in rows) for k in ("task", "outside", "author", "other")}
+        lines.append(
+            f"leading: first-pass tasks: {done}/{total} across {len(rows)} executed plans "
+            f"({round(100 * done / total)}%) · plan-change entries by origin: task {sums['task']}, "
+            f"outside-plan {sums['outside']}, author-decision {sums['author']}, other {sums['other']}")
+        linked = [p for p in executed if p["linked"]]
+        if linked:
+            worst = max(linked, key=lambda p: p["linked_findings"])
+            lines.append(
+                "lagging: introduced findings that reached review per executed plan with a linked review: "
+                f"{_median([p['linked_findings'] for p in linked]):g}, max {worst['linked_findings']} ({worst['plan']})")
+        else:
+            lines.append("lagging: no data: no executed plan has a linked review")
+        lines += ["", "| project | plan | tasks | first-pass | task entries | outside-plan | author-decision | linked findings |",
+                  "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+        for p, r in sorted(rows, key=lambda x: (x[0]["project"], x[0]["plan"])):
+            link = p["linked_findings"] if p["linked"] else "no linked review"
+            lines.append(f"| {p['project']} | {p['plan']} | {p['tasks']} | {r['first_pass']}/{p['tasks']} | "
+                         f"{r['task']} | {r['outside']} | {r['author']} | {link} |")
+    lines.append("")
+    if idle:
+        lines.append(f"no execution evidence: {len(idle)} plans — " + ", ".join(
+            f"{p['project']}/{p['plan']}" for p in sorted(idle, key=lambda p: (p["project"], p["plan"]))))
+    else:
+        lines.append("no execution evidence: 0 plans")
+    return lines
+
+
+def _render_loop(collected):
+    findings, rounds = collected["findings"], collected["rounds"]
+    lines = ["## Review loop"]
+    if not collected["reviews"]:
+        lines += ["leading: no data: no handoffs found", "lagging: no data: no handoff has a re-check round"]
+        return lines
+    sev = {"Critical": 0, "High": 0, "Medium": 0, "other": 0}
+    for r in findings:
+        sev[r["severity"] if r["severity"] in sev else "other"] += 1
+    dropped = sum(1 for r in findings if r["verdict"] == "dropped")
+    lines.append(f"leading: findings per review by severity: Critical {sev['Critical']}, High {sev['High']}, "
+                 f"Medium {sev['Medium']}, other/none {sev['other']} over {collected['reviews']} reviews · dropped {dropped}")
+    again = {s: n for s, n in rounds.items() if n >= 2}
+    if again:
+        worst = max(again, key=lambda s: (again[s], s))
+        lines.append(f"lagging: rounds to clean: {len(again)}/{len(rounds)} · max {again[worst]} ({worst}); "
+                     "re-reviewed: " + ", ".join(sorted(again)))
+    else:
+        lines.append("lagging: no data: no handoff has a re-check round")
+    return lines
+
+
+def _render_signals(findings):
+    lines = ["## Recurring signals (coarse, no semantic grouping)"]
+    classes = {}
+    for r in findings:
+        if r["consequence_class"]:
+            classes[r["consequence_class"]] = classes.get(r["consequence_class"], 0) + 1
+    if classes:
+        lines.append("leading: findings by consequence class: " + ", ".join(
+            f"{c} {n}" for c, n in sorted(classes.items(), key=lambda x: (-x[1], x[0]))))
+    else:
+        lines.append("leading: no data: no handoff records a consequence class")
+    agents = {}
+    for r in findings:
+        for a in r["found_by"]:
+            entry = agents.setdefault(a, [set(), 0])
+            entry[0].add(r["project"])
+            entry[1] += 1
+    multi = sorted(((a, len(p), n) for a, (p, n) in agents.items() if len(p) >= 2), key=lambda x: (-x[1], -x[2], x[0]))
+    if multi:
+        lines.append("lagging: reviewer agents finding issues in ≥2 projects: " + ", ".join(
+            f"{a} {p}/{n}" for a, p, n in multi))
+    else:
+        lines.append("lagging: no data: no reviewer agent found issues in ≥2 projects")
+    return lines
+
+
+def render(collected):
+    sections = [_render_plans(collected["plans"]), _render_loop(collected), _render_signals(collected["findings"])]
+    return "\n\n".join("\n".join(s) for s in sections) + "\n"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Roll up plan execution and review rounds across checkouts.")
+    parser.add_argument("--records", type=pathlib.Path, help="write finding and plan-change records as JSONL")
+    parser.add_argument("roots", metavar="ROOT", nargs="+", type=pathlib.Path)
+    args = parser.parse_args(argv)
+    collected = collect(args.roots)
+    if args.records:
+        rows = collected["findings"] + [c for p in collected["plans"] for c in p["changes"]]
+        try:
+            args.records.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n"
+                                            for r in sorted(rows, key=lambda r: r["key"])))
+        except OSError as e:
+            print(f"cannot write records: {e}", file=sys.stderr)
+            return 2
+    print(render(collected), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
