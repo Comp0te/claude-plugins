@@ -5,7 +5,7 @@
     "any_of": [
       {"file": "src/sync/sync.ts", "lines": [29, 42]}
     ],
-    "keywords": ["swallow", "silent", "empty catch", "catch {}", "ignored", "lost"],
+    "keywords": ["swallow", "silent", "empty catch", "catch {}", "discard", "ignored", "lost"],
     "scope": "pre-existing"
   },
   "allowed": []
