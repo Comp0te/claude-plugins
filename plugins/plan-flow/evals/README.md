@@ -181,6 +181,54 @@ Plan-writing, execution and end-to-end remain unmeasured since.
 Every table below was also recorded on the `sonnet` and `opus` aliases, whose resolved models the
 result JSON does not keep. Cases and judge are pinned to full IDs from 2026-10-04 on.
 
+## Local gate
+
+From the repository root, in your own terminal (`claude plugin eval` and the reviewer's `claude -p`
+children fail with EPERM inside a sandbox):
+
+    python3 scripts/run-evals.py --plugin <name>      # diff against the plugin's last release tag
+    python3 scripts/run-evals.py --since <ref>        # diff against any ref
+    python3 scripts/run-evals.py --all                # every plan-flow tier and every reviewer case
+    python3 scripts/run-evals.py --smoke              # one plan-flow case and one reviewer case
+    python3 scripts/run-evals.py --plugin <name> --dry-run   # print the selection and estimate only
+
+It prints the selection and an API-list estimate before any model call, asks for confirmation above
+$10 (`--yes` skips the prompt; without a TTY it exits 3 instead of running), runs the plan-flow
+tiers with `--ablation none` and `--max-cost-usd` set to 1.5 times the invocation's estimate
+(minimum $2), then gates the results. Exit 0 ok, 1 regression, 2 harness failure or bad input,
+3 needs confirmation. Runs use the `claude` CLI as logged in on the machine and draw on the
+subscription's usage limits; no credential is read or passed.
+
+This suite is selected by the plugin's skills, agents, commands, hooks and working agreements.
+Baseline: `plugins/plan-flow/evals/baseline.json`.
+
+Thresholds (`scripts/eval-gate.py`): a plan-flow case regresses when its mean score drops more
+than 0.20 below baseline, or a grader the baseline passed fails every run (needs 2+ runs). A
+reviewer row regresses when its caught, scope-ok or claim-ok rate drops by more than 0.34
+(one run in three), or its false-positive mean rises by 1.0 or more. An invalid run is a harness
+failure, never a score. Cases with no baseline entry are reported as unbaselined and do not fail.
+
+Re-recording: a baseline is written only on the author's say-so. Run
+`python3 scripts/run-evals.py --all --yes`, then
+`python3 scripts/eval-gate.py --write-baseline --exclude 30-wa-simulate-unavailable-trigger ...`
+on the result files (case 30 stays out until D6's three-run check passes), review the diff, and
+commit the baseline files.
+
+Cost of a run (API-list equivalent; on a subscription it is usage, not money):
+
+| Selection | Runs | Estimate |
+| --------- | ---- | -------- |
+| Smoke | 1 plan-flow + 1 reviewer | about $0.45 |
+| One reviewer agent changed (2-3 cases) | 12-18 | about $5-7 |
+| `execute-plan.md` changed (plan-command) | 15 | about $2 |
+| Working agreements / session-start hook | comment-rules + plan-command, about 45 | about $5 |
+| Plan-writing skill changed | 24 | about $11 |
+| `--all` (four plan-flow tiers + ten reviewer cases) | about 180 | about $50; 1.5-2 h at `-j 2` |
+
+Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45,
+plan-execution $0.60 (unmeasured), reviewer $0.38 per row-run. Measured reviewer runs on
+2026-10-27 came in at $0.03-0.09 per row-run, well under that estimate.
+
 ## The cases
 
 | case | shape | what it measures |

@@ -103,6 +103,14 @@ cache is keyed by version: an edit without a version bump never reaches an insta
 Raise `version` in the plugin's `plugin.json` and in its `marketplace.json` entry whenever its
 content changes.
 
+If the bump changes a skill, agent, command, hook or the working agreements of `plan-flow` or
+`review-flow`, run the evals it affects first and tag only when they pass:
+
+    python3 scripts/run-evals.py --plugin <name>
+
+It diffs against the plugin's last release tag, shows what it will run and roughly what it
+costs, runs it, and exits non-zero on a regression or a run that could not finish.
+
 To release a bump, push it, then tag it and publish its notes:
 
 ```bash
@@ -130,6 +138,15 @@ when a session loads the plugin.
 The model-graded evals and their costs are described in
 [plugins/plan-flow/evals/README.md](plugins/plan-flow/evals/README.md) and
 [tests/review-flow/reviewer-evals/README.md](tests/review-flow/reviewer-evals/README.md).
+
+### Incident → eval
+
+An incident is a plugin behaviour someone had to correct, a review finding the gate refuted or
+the author rejected with a reason, or a measured regression. The change that fixes it also adds
+a case reproducing it — a plan-flow eval case or a reviewer-eval case, whichever harness covers
+the component; a unit test when the behaviour is deterministic; and, for a plugin with no eval
+harness, an entry in that plugin's `TODO.md` naming the incident. The case's README row cites
+where the incident was seen: session id and timestamp, or review handoff and finding id.
 
 ## License
 
