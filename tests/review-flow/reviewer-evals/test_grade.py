@@ -336,6 +336,46 @@ class ForbiddenClaimTests(unittest.TestCase):
         self.assertIs(result.claim_ok, False)
 
 
+class CountClaimsCaseTests(unittest.TestCase):
+    """Rows of case 10-count-claims against its real case.json."""
+
+    CASE_NAME = "10-count-claims"
+    LINE = "- src/store/theme.ts:20 — scope: introduced — swallowed error silently at {what} — evidence: diff-only"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.case = json.loads((CASES_DIR / cls.CASE_NAME / "case.json").read_text())
+        cls.known = _known_files(cls.CASE_NAME)
+
+    def _grade(self, what):
+        return grade.grade_run(self.LINE.format(what=what), self.known, self.case, "defect")
+
+    def test_correct_count(self):
+        result = self._grade("four call sites")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, True)
+
+    def test_miscount_word(self):
+        result = self._grade("five call sites")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+    def test_miscount_digit(self):
+        result = self._grade("6 sites")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+    def test_universalised_every_render(self):
+        result = self._grade("on every render")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+    def test_universalised_every_call(self):
+        result = self._grade("every call")
+        self.assertTrue(result.caught)
+        self.assertIs(result.claim_ok, False)
+
+
 class InvalidReasonTests(unittest.TestCase):
     def test_wrong_subtype(self):
         stdout = json.dumps({

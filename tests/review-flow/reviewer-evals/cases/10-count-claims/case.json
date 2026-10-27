@@ -1,0 +1,16 @@
+{
+  "agent": "review-flow:silent-failure-hunter",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/store/theme.ts", "lines": [1, 21]},
+      {"file": "src/screens/Home.ts", "lines": [1, 6]},
+      {"file": "src/screens/Settings.ts", "lines": [1, 18]},
+      {"file": "src/screens/Profile.ts", "lines": [1, 14]}
+    ],
+    "keywords": ["swallow", "silent", "suppress", "hidden", "ignored", "discard", "empty catch", "lost"],
+    "scope": "introduced",
+    "forbidden": ["\\b(three|five|six|seven|eight)\\b\\s+(call\\s+)?sites?", "\\b(3|5|6|7|8)\\s+(call\\s+)?sites?", "\\bevery\\s+(call|render|dispatch)\\b", "\\ball\\s+dispatch(es)?\\b"]
+  },
+  "allowed": []
+}
