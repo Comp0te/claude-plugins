@@ -159,6 +159,66 @@ class ChangeRecordTests(unittest.TestCase):
         self.assertEqual(sm.plan_summary("proj", "docs/plans/x.md", PLAN)["tasks"], 2)
         self.assertEqual(sm.plan_summary("proj", "docs/plans/d.md", "# Design\n")["tasks"], 0)
 
+    def test_subsection_entry(self):
+        text = "\n".join([
+            "## Spec Change Log",
+            "### 2026-08-30 — Task 4 review: x",
+            "1. **Finding:** a",
+            "2. **Amended:** b",
+        ]) + "\n"
+        recs = self.recs(text)
+        self.assertEqual(len(recs), 1)
+        r = recs[0]
+        self.assertEqual((r["date"], r["task"], r["origin"]), ("2026-08-30", 4, "task"))
+        self.assertEqual(r["text"], "Task 4 review: x 1. **Finding:** a 2. **Amended:** b")
+        long = text + "3. " + "z" * 900 + "\n"
+        self.assertEqual(len(self.recs(long)[0]["text"]), 400)
+
+    def test_mixed_styles(self):
+        text = "\n".join([
+            "## Spec Change Log",
+            "- 2026-10-18, Task 5: a",
+            "### 2026-10-19 — outside the plan: b",
+            "1. c",
+        ]) + "\n"
+        recs = self.recs(text)
+        self.assertEqual([r["key"] for r in recs],
+                         ["proj/docs/plans/x.md#1", "proj/docs/plans/x.md#2"])
+        self.assertEqual([r["origin"] for r in recs], ["task", "outside-plan"])
+
+    def test_bullets_inside_subsection(self):
+        text = "\n".join([
+            "## Spec Change Log",
+            "### 2026-08-24 — D4 reversed",
+            "- Task 1 Step 3: a",
+            "- b",
+            "- 2026-08-25, Task 2: c",
+        ]) + "\n"
+        recs = self.recs(text)
+        self.assertEqual(len(recs), 2)
+        self.assertIn("Task 1 Step 3: a", recs[0]["text"])
+        self.assertIn("b", recs[0]["text"])
+        self.assertEqual((recs[0]["task"], recs[0]["origin"]), (None, "other"))
+        self.assertEqual((recs[1]["date"], recs[1]["task"]), ("2026-08-25", 2))
+
+    def test_author_phrasing(self):
+        leads = [
+            "Amendment by the author: x", "Decision by the author: y",
+            "author-directed revision #2",
+            "made type-checkable (approved by the plan's author)",
+            "Known gap, accepted by the author", "Task 6 halted; two author rulings",
+        ]
+        text = "## Spec Change Log\n" + "".join(f"- 2026-10-01, {l}\n" for l in leads)
+        recs = self.recs(text)
+        self.assertEqual([r["origin"] for r in recs], ["author-decision"] * 6)
+        self.assertEqual(recs[5]["task"], 6)
+
+    def test_plural_tasks(self):
+        text = ("## Spec Change Log\n- 2026-10-01, Tasks 5 and 6 deviations, accepted\n"
+                "- 2026-10-02, amends Tasks 11\u201313\n")
+        recs = self.recs(text)
+        self.assertEqual([(r["origin"], r["task"]) for r in recs], [("task", 5), ("task", 11)])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -80,34 +80,51 @@ def finding_records(project, rel_path, text):
 TASK_HEADING_RE = re.compile(r"^###\s*Task\s+\d+\b", re.MULTILINE)
 LOG_HEADING_RE = re.compile(r"^##\s*Spec Change Log\s*$", re.MULTILINE)
 ENTRY_RE = re.compile(r"^-\s+(?:(\d{4}-\d{2}-\d{2})[,:]?\s*)?(.*)$")
-LEAD_TASK_RE = re.compile(r"\bTask\s+(\d+)\b")
+LEAD_TASK_RE = re.compile(r"\bTasks?\s+(\d+)\b")
 AUTHOR_RE = re.compile(
     r"\b(author|user)\b.*\b(decid|re-decid|resolved)"
-    r"|\b(decid|re-decid|resolved)\w*\b.*\b(author|user)\b|^author decision",
+    r"|\b(decid|re-decid|resolved)\w*\b.*\b(author|user)\b|^author decision"
+    r"|\bauthor\b.*\b(approv|accept|ruling|direct|amend)"
+    r"|\b(approv|accept|ruling|amend|decision)\w*\b.*\bauthor\b",
     re.IGNORECASE)
 
 
+DATED_ITEM_RE = re.compile(r"^-\s+\d{4}-\d{2}-\d{2}\b")
+SUBSECTION_RE = re.compile(r"^###\s+(\d{4}-\d{2}-\d{2})\s*[—–-]+\s*(.*)$")
+
+
 def _entries(text):
+    """Log entries in file order as [date, lead-source, text] lists."""
     m = LOG_HEADING_RE.search(text)
     if not m:
         return []
     entries = []
+    current = None
+    in_sub = False
     for line in text[m.end():].splitlines():
         if re.match(r"^#{1,2}\s", line):
             break
-        if line.startswith("- "):
-            entries.append(line)
-        elif entries and line.startswith((" ", "\t")) and line.strip():
-            entries[-1] += " " + line.strip()
+        sub = SUBSECTION_RE.match(line)
+        if sub:
+            current = [sub.group(1), sub.group(2), sub.group(2)]
+            in_sub = True
+            entries.append(current)
+        elif line.startswith("###"):
+            current = None
+        elif line.startswith("- ") and (current is None or not in_sub or DATED_ITEM_RE.match(line)):
+            in_sub = False
+            em = ENTRY_RE.match(line)
+            current = [em.group(1), em.group(2), em.group(2)]
+            entries.append(current)
+        elif current and line.strip() and not line.lstrip().startswith("<!--"):
+            current[2] += " " + line.strip()
     return entries
 
 
 def change_records(project, rel_path, text):
     records = []
-    for n, entry in enumerate(_entries(text), 1):
-        m = ENTRY_RE.match(entry)
-        date, body = m.group(1), m.group(2)
-        lead = body.split(":", 1)[0]
+    for n, (date, head, body) in enumerate(_entries(text), 1):
+        lead = head.split(":", 1)[0]
         task = LEAD_TASK_RE.search(lead)
         if AUTHOR_RE.search(lead):
             origin = "author-decision"
