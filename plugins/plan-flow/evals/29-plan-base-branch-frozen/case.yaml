@@ -38,6 +38,11 @@ graders:
     pattern: '<frozen-after-approval[^>]*>(?:(?!</frozen-after-approval>)[\s\S])*fix/quota-window(?:(?!</frozen-after-approval>)[\s\S])*</frozen-after-approval>'
     match: contains
     weight: 0.5
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
   - type: llm
     name: covers-the-request
     focus:
