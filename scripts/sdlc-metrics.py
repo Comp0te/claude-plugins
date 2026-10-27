@@ -21,6 +21,7 @@ _spec.loader.exec_module(rs)
 ISSUE_LIMIT = 400
 ROUND_RE = re.compile(r"^##\s*ROUND\s+(\d+)\b", re.IGNORECASE | re.MULTILINE)
 TITLE_RE = re.compile(r"^###\s*F\d+\s*[—-]\s*(.+)$", re.MULTILINE)
+PATH_TITLE_RE = re.compile(r"^`([^`\s]*[/.][^`\s]*)`$")
 DOC_PATH_RE = re.compile(r"docs/[^\s`,;)]+\.md")
 SUBJECT_SHA_RE = re.compile(r"-(?:findings|[0-9a-f]{7,40})$")
 CLASS_RE = re.compile(r"^([a-z][a-z-]*)\s+—")
@@ -55,6 +56,10 @@ def finding_records(project, rel_path, text):
         consequence = rs.line_value(block, "consequence")
         verdict = rs.line_value(block, "verdict")
         issue = rs.line_value(block, "issue")
+        file_value = rs.line_value(block, r"file(?::line)?")
+        if file_value is None and title:
+            path_only = PATH_TITLE_RE.match(title.group(1).strip())
+            file_value = path_only.group(1) if path_only else None
         records.append({
             "kind": "finding",
             "key": f"{project}/{rel_path}#{m.group(1)}",
@@ -65,7 +70,7 @@ def finding_records(project, rel_path, text):
             "round": max([n for pos, n in rounds if pos < m.start()], default=1),
             "id": m.group(1),
             "title": title.group(1).strip() if title else None,
-            "file": rs.line_value(block, r"file(?::line)?"),
+            "file": file_value,
             "severity": rs.line_value(block, "severity") or None,
             "scope": rs.line_value(block, "scope") or None,
             "consequence_class": (CLASS_RE.match(consequence).group(1) if consequence and CLASS_RE.match(consequence) else None),

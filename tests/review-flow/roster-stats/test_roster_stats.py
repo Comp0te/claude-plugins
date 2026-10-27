@@ -204,5 +204,16 @@ class MainTests(unittest.TestCase):
             self.assertNotEqual(err.getvalue().strip(), "")
 
 
+class LineValueBoldTests(unittest.TestCase):
+    def test_colon_inside_bold(self):
+        self.assertEqual(rs.line_value("- **severity:** High", "severity"), "High")
+
+    def test_colon_outside_bold(self):
+        self.assertEqual(rs.line_value("- **severity**: High", "severity"), "High")
+
+    def test_plain_key(self):
+        self.assertEqual(rs.line_value("severity: High", "severity"), "High")
+
+
 if __name__ == "__main__":
     unittest.main()

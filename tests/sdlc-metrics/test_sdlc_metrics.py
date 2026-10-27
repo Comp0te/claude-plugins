@@ -327,5 +327,21 @@ class CollectTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
 
 
+class PathOnlyHeadingTests(unittest.TestCase):
+    def _file(self, body):
+        text = "# PR review\n\n## Findings\n\n" + body
+        return sm.finding_records("proj", "docs/review/x.md", text)[0]["file"]
+
+    def test_path_only_heading(self):
+        self.assertEqual(self._file("### F1 — `src/a.ts:12`\n- **severity:** High\n"), "src/a.ts:12")
+
+    def test_file_line_wins(self):
+        body = "### F1 — `src/a.ts:12`\n- **file:** src/b.ts:3\n"
+        self.assertEqual(self._file(body), "src/b.ts:3")
+
+    def test_prose_heading(self):
+        self.assertIsNone(self._file("### F2 — Fee read swallows errors\n- **severity:** High\n"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -80,7 +80,7 @@ def bucket(files_changed):
 def line_value(text, key_pattern):
     """First `key: value` line matching `key_pattern` (a regex fragment, not a
     literal), tolerating a leading list bullet and bold markers around the key."""
-    pattern = re.compile(rf"^[-*\s]*\**{key_pattern}\**\s*:\s*(.*)$", re.IGNORECASE | re.MULTILINE)
+    pattern = re.compile(rf"^[-*\s]*\**{key_pattern}(?::\**|\**\s*:)\s*(.*)$", re.IGNORECASE | re.MULTILINE)
     m = pattern.search(text)
     return m.group(1).strip() if m else None
 
