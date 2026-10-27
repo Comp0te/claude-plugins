@@ -1,9 +1,10 @@
 # review-flow
 
-Read-only review of a GitHub pull request or the current branch. Each command dispatches
-focused reviewer agents matched to the diff, runs the built-in passes in the main loop while
-they work, verifies findings against the source, and produces one ranked report in chat.
-Nothing is posted to a PR without explicit approval of the exact payload.
+Review of a GitHub pull request or the current branch, from both sides. The reviewer commands
+dispatch focused reviewer agents matched to the diff, run the built-in passes in the main loop
+while they work, verify findings against the source, and produce one ranked report in chat; they
+are read-only. `address-review` is the author's side and the one command that edits code and
+pushes. Nothing is posted, committed or pushed without explicit approval of the exact payload.
 
 ## Commands
 
@@ -13,8 +14,10 @@ Nothing is posted to a PR without explicit approval of the exact payload.
 | `/review-flow:pr-review <pr-number\|pr-url>` | Read-only review of a GitHub PR. Never posts anything. |
 | `/review-flow:pr-publish <pr-number>` | Publishes a subset of a `pr-review`'s findings as inline PR comments. Re-verifies every finding not backed by an executed check against the PR's source, shows the exact payload, and posts only after approval. |
 | `/review-flow:pr-recheck <pr-number>` | After the PR's author pushes in response to published comments: judges which findings the new commits closed, reviews the incremental diff, and updates the handoff. Separates the author's work from a base branch that moved underneath a stacked PR. Never posts anything. |
+| `/review-flow:address-review <pr-number>` | Author side: collects review comments and failing checks still waiting on you, verifies each against the code, fixes the justified ones locally and drafts replies for the rest. Commits, pushes and replies only after you approve the exact payload. |
 
-The usual order on a PR is `pr-review` → `pr-publish` → `pr-recheck`. What the review left
+The usual order on a PR is `pr-review` → `pr-publish` → `pr-recheck`. The author's side is
+`address-review`, whose replies `pr-recheck` reads. What the review left
 unposted — pre-existing problems and deferred work — is what
 [`pr-tickets`](../pr-tickets/README.md) turns into Jira issues.
 
@@ -31,6 +34,7 @@ The commands pass state through files under `.claude/reviews/` in the reviewed r
 - `pr-<N>-findings.md` — every finding from `pr-review`, with what was posted and what the
   re-check concluded.
 - `pr-<N>-deferred.md` — work the review deferred rather than reported against the PR.
+- `pr-<N>-address.md` — `address-review`'s state: what was collected, verified, fixed and replied.
 - `branch-<slug>-<shortsha>.md` and `branch-<slug>-<shortsha>-deferred.md` — the same for
   `branch-review`.
 

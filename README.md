@@ -11,8 +11,9 @@ application.
   intent, a tested edge-case matrix and an annotated code map, then executes them task by task,
   each in a context scoped to that one task. Ships working agreements for how code is written,
   delivered through a one-line import you add to `~/.claude/CLAUDE.md` by hand.
-- **[review-flow](plugins/review-flow/README.md)** — read-only review of a GitHub pull request
-  or the current branch. Dispatches focused reviewer agents matched to the diff, verifies every
+- **[review-flow](plugins/review-flow/README.md)** — review of a GitHub pull request
+  or the current branch, plus an author-side pass that fixes and answers the feedback you
+  received. Dispatches focused reviewer agents matched to the diff, verifies every
   finding against the source before it is reported, and publishes an approved subset as inline
   PR comments. Requires the [GitHub CLI](https://cli.github.com/) (`gh`), authenticated.
 - **[pr-tickets](plugins/pr-tickets/README.md)** — triages the findings a review deliberately
@@ -79,6 +80,7 @@ Commands and skills resolve under their plugin's prefix, and only under it:
 /plan-flow:execute-plan
 /review-flow:pr-review     /review-flow:branch-review
 /review-flow:pr-publish    /review-flow:pr-recheck
+/review-flow:address-review
 /pr-tickets:jira
 /dependabot-triage:dependabot-triage
 ```
