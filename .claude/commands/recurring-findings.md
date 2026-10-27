@@ -38,12 +38,16 @@ python3 scripts/sdlc-metrics.py --records "$RECORDS" <roots>
 python3 scripts/recurring-findings.py unclassified --records "$RECORDS" --ledger "$LEDGER"
 ```
 
-It prints JSON with the existing `classes` and the `findings` that have no class yet. If
-`findings` is empty, skip to step 3 and do no classification.
+It prints JSON with the existing `classes`, the `findings` that have no class yet and, when there
+are such findings, an `unclustered` list of earlier one-offs. If `findings` is empty, skip to
+step 3 and do no classification.
 
 Otherwise group those findings into classes. A class is a defect pattern, stated stack-neutrally
-where the evidence allows. Reuse an existing class id whenever one fits. A one-off finding gets
-its own class. Class ids match `^[a-z0-9][a-z0-9-]*$`.
+where the evidence allows. Reuse an existing class id whenever one fits. A finding that matches no
+other finding goes to the reserved class `unclustered`, which needs no definition. Compare the
+`unclustered` list with the new findings: where a new finding matches an earlier one-off, make a
+class for them and assign both keys to it (moving a key out of `unclustered` needs no
+`--reassign`). Class ids match `^[a-z0-9][a-z0-9-]*$`.
 
 Write `$WORK/rf-assign.json`:
 
@@ -56,7 +60,8 @@ Write `$WORK/rf-assign.json`:
 
 `classes` lists only new ids; `assignments` maps every finding key from the output to a class id.
 Class breadth: a class is drawn so that one rule, checklist line or hook would stop every
-finding in it; findings that would need different rules are different classes.
+finding in it; findings that would need different rules are different classes. A finding that
+fits two classes goes to the one whose rule would have stopped it earliest.
 
 Then run:
 
@@ -86,19 +91,19 @@ load only when relevant, the last two load every session.
 
 1. **lint** — the defect is recognisable from code shape alone (a forbidden call, an empty
    catch, a missing wrapper), another contributor would write it too, and the affected
-   project(s) run a linter or static analyser that does not already catch it (read the config;
-   never assume). Home: that config, created when the project runs the tool without one.
-   Proposal: the rule, and a positive and negative example drawn from the evidence.
+   project(s) have a lint or static-analysis config that does not already catch it (read the
+   config; never assume). Home: that config. Proposal: the rule, and a positive and negative
+   example drawn from the evidence.
 2. **hook** — the behaviour must always hold and is checkable at edit or commit time from a path
    or a file's content, but not as a code-shape rule (an edit under a path the active plan marks
    Ask First; a generated file edited by hand). Home: a hook in the project, or in a plugin of
    this repository when it applies across projects. Proposal: the trigger, the check, and the
    message the hook prints.
 3. **reviewer** — a defect class a reviewer agent owns or should own (test quality, error
-   handling, type design, comment rot, a project's own domain reviewer), unless that agent is
-   already in the class's `found by`: a reviewer that already catches it needs no new line, the
-   recurrence is in authoring, so continue down the ladder. Home: that agent's checklist.
-   Proposal: one checklist line plus a companion eval-case sketch.
+   handling, type design, comment rot, a project's own domain reviewer). Home: that agent's
+   checklist. Proposal: one checklist line plus a companion eval-case sketch. When that agent is
+   already in the class's `found by`, the class is covered at review: the proposal quotes the
+   part of the agent's brief that catches it and, on approval, is recorded as landed with no edit.
 4. **skill** — behaviour that belongs to a workflow step rather than to code review (how a plan
    is written, how a task is executed, how verification is reported). Home: that skill's
    reference file. Proposal: the line, the section it goes in, and a companion eval-case sketch.
@@ -106,7 +111,8 @@ load only when relevant, the last two load every session.
    own instructions file. Proposal: one line.
 6. **agreements** — only when the script marks the class `agreements-eligible` **and** the
    behaviour does not depend on one stack **and** no rung above fits **and** `budget-check` on the
-   proposed text reports that it fits — otherwise the proposal names the existing line it
+   proposed text, together with every rung 6 text approved earlier in the session, reports that
+   it fits — otherwise the proposal names the existing line it
    replaces or shortens, passed to `budget-check --replaces`. One or two lines in the file's own
    style, plus a companion eval-case sketch.
 7. **none** — recurring by label only (unrelated bugs that share a shape), or not worth a home.
@@ -114,7 +120,10 @@ load only when relevant, the last two load every session.
    reason, and recorded with `decide --status rejected` once the human confirms the list.
 
 **Class breadth:** a class is drawn so that one rule, checklist line or hook would stop every
-finding in it; findings that would need different rules are different classes.
+finding in it; findings that would need different rules are different classes. A finding that
+fits two classes goes to the one whose rule would have stopped it earliest. A finding that matches
+no other finding goes to the reserved class `unclustered`, which is never a candidate; it is
+moved into a class when a later finding matches it.
 
 **Fit:** a rung fits when it stops most of the class's findings; the proposal names the rest,
 which are routed on their own if they recur. When the home already holds text that covers the
@@ -133,8 +142,9 @@ the cheapest rung that still covers it (rung 3–5) instead of deleting it.
 Mechanics:
 
 - Rung 3 reads the `found by: a×n, ...` list at the end of the class's digest line.
-- Rung 6: write the proposed text to a file in `$WORK`, then
-  `python3 scripts/recurring-findings.py budget-check --add <file> [--replaces <start>-<end>]`
+- Rung 6: write the proposed text to a file in `$WORK` and keep every approved rung 6 text there
+  for the session. Pass all of them plus the new one as repeated `--add`:
+  `python3 scripts/recurring-findings.py budget-check --add <approved> --add <new> [--replaces <start>-<end>]`
   (optional `--agreements <path>`, `--budget <lines>`). It prints JSON with `fits`.
 - `check-text` takes the records and a file holding the change text and eval sketch:
   `python3 scripts/recurring-findings.py check-text --records "$RECORDS" --input <file>`.
@@ -161,9 +171,11 @@ One proposal at a time, in this format, then wait for approve / reject / defer:
 
 ```text
 ### <class id> — <name>
-evidence: <n> findings · <n> subjects · projects: <a, b>
-  - <record key> — <title or first clause of issue>      (at most 5 keys, then "+N more")
+evidence: <n> findings · <n> subjects · projects: <a, b>      (counts and projects from the digest line)
+found by: <agent×n, ...>      (from the digest line)
+  - <record key> — <title, or the issue's first clause when the title is only a path>      (at most 5 keys, then "+N more")
 rung: <number>. <name> → <target file(s) or project(s)>
+remainder: <findings the rung does not stop>      (only on a partial fit)
 why not cheaper: <one sentence per skipped rung above this one>
 change:
   <exact text, rule, or hook spec>
