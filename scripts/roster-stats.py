@@ -77,7 +77,7 @@ def bucket(files_changed):
     return ">30"
 
 
-def _line_value(text, key_pattern):
+def line_value(text, key_pattern):
     """First `key: value` line matching `key_pattern` (a regex fragment, not a
     literal), tolerating a leading list bullet and bold markers around the key."""
     pattern = re.compile(rf"^[-*\s]*\**{key_pattern}\**\s*:\s*(.*)$", re.IGNORECASE | re.MULTILINE)
@@ -103,7 +103,7 @@ def _checks_section_paragraph(text):
 
 
 def _dispatched(text):
-    value = _line_value(text, re.escape("checks that ran"))
+    value = line_value(text, re.escape("checks that ran"))
     if value is None:
         value = _checks_section_paragraph(text)
     if value is None:
@@ -118,10 +118,10 @@ def _findings(text):
         next_heading = NEXT_HEADING_RE.search(text, m.end())
         block = text[m.end():next_heading.start() if next_heading else len(text)]
 
-        found_by_value = _line_value(block, "found[- ]by")
+        found_by_value = line_value(block, "found[- ]by")
         found_by, unnormalised = normalise_agents(found_by_value) if found_by_value is not None else ((), ())
 
-        verdict_value = _line_value(block, "verdict")
+        verdict_value = line_value(block, "verdict")
         dropped = verdict_value is not None and verdict_value.strip().lower().startswith("dropped")
 
         rows.append(FindingRow(id=m.group(1), found_by=found_by, unnormalised=unnormalised, dropped=dropped))
@@ -129,7 +129,7 @@ def _findings(text):
 
 
 def parse_handoff(text):
-    files_changed_value = _line_value(text, re.escape("files changed"))
+    files_changed_value = line_value(text, re.escape("files changed"))
     files_changed = parse_files_changed(files_changed_value) if files_changed_value is not None else None
     dispatched, dispatched_unnormalised = _dispatched(text)
     return Handoff(
