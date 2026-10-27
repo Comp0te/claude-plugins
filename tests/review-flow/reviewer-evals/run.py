@@ -284,8 +284,8 @@ def _row_order(case_names: list[str], cases: dict, children: dict) -> list[tuple
 
 
 def write_summary(out_dir: Path) -> bool:
-    """Rewrites `summary.md` from every raw/meta pair under `out_dir`. Returns whether
-    any run was invalid (the exit-code signal)."""
+    """Rewrites `summary.md` and `summary.json` from every raw/meta pair under `out_dir`.
+    Returns whether any run was invalid (the exit-code signal)."""
     case_names = sorted(
         p.name for p in out_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
     )
@@ -294,6 +294,7 @@ def write_summary(out_dir: Path) -> bool:
     if not case_names:
         lines.append("No runs.")
         (out_dir / "summary.md").write_text("\n".join(lines) + "\n")
+        (out_dir / "summary.json").write_text(json.dumps({"rows": {}}, indent=2) + "\n")
         return False
 
     cases = {name: load_case(CASES_DIR / name) for name in case_names}
@@ -309,6 +310,7 @@ def write_summary(out_dir: Path) -> bool:
     total_cost = 0.0
     any_invalid = False
     bad_files: list[str] = []
+    rows_json: dict[str, dict] = {}
     for name, variant in _row_order(case_names, cases, children):
         case, trees = cases[name]
         known_files = known_files_for(trees)
@@ -316,6 +318,15 @@ def write_summary(out_dir: Path) -> bool:
                 for j in _load_jobs(out_dir / name) if j["variant"] == variant]
         stats = _variant_stats(jobs)
         total_cost += stats["cost"]
+        is_defect = variant == "defect"
+        rows_json[f"{name}/{variant}"] = {
+            "total": stats["total"], "valid": stats["valid"], "invalid": stats["invalid"],
+            "unparsed": stats["unparsed"], "parsed": stats["parsed"],
+            "caught": stats["caught"] if is_defect else None,
+            "scope_ok": stats["scope_ok"] if is_defect else None,
+            "claim_ok": stats.get("claim_ok") if is_defect else None,
+            "fp_mean": stats["fp_mean"], "fp_max": stats["fp_max"], "cost": stats["cost"],
+        }
         for j in jobs:
             if j["invalid"]:
                 any_invalid = True
@@ -341,6 +352,7 @@ def write_summary(out_dir: Path) -> bool:
         lines.append("- none")
 
     (out_dir / "summary.md").write_text("\n".join(lines) + "\n")
+    (out_dir / "summary.json").write_text(json.dumps({"rows": rows_json}, indent=2) + "\n")
     return any_invalid
 
 

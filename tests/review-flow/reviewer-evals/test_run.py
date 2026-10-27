@@ -419,6 +419,41 @@ class RunPyTest(unittest.TestCase):
         self.assertIn("01-swallowed-catch/defect-", bad_section)
         self.assertIn("01-swallowed-catch/clean-", bad_section)
 
+    # --- summary.json --------------------------------------------------------------
+
+    def test_summary_json_rows_carry_the_per_row_statistics(self):
+        out_dir = self._build_mixed_summary()
+        rows = json.loads((out_dir / "summary.json").read_text())["rows"]
+
+        self.assertIn("01-swallowed-catch/defect", rows)
+        self.assertIn("01-swallowed-catch/clean", rows)
+        defect = rows["01-swallowed-catch/defect"]
+        self.assertEqual(
+            set(defect),
+            {"total", "valid", "invalid", "unparsed", "parsed", "caught", "scope_ok",
+             "claim_ok", "fp_mean", "fp_max", "cost"},
+        )
+        self.assertEqual(defect["total"], 3)
+        self.assertEqual(defect["valid"], 2)
+        self.assertEqual(defect["invalid"], 1)
+        self.assertEqual(defect["unparsed"], 1)
+        self.assertEqual(defect["parsed"], 1)
+        self.assertEqual(defect["caught"], 1)
+        self.assertEqual(defect["scope_ok"], 1)
+
+    def test_summary_json_clean_row_has_null_defect_fields(self):
+        out_dir = self._build_mixed_summary()
+        clean = json.loads((out_dir / "summary.json").read_text())["rows"]["01-swallowed-catch/clean"]
+        for key in ("caught", "scope_ok", "claim_ok"):
+            self.assertIsNone(clean[key], key)
+        self.assertEqual(clean["total"], 3)
+
+    def test_summary_json_for_empty_directory_has_no_rows(self):
+        out_dir = self._tmp() / "out"
+        out_dir.mkdir()
+        run.write_summary(out_dir)
+        self.assertEqual(json.loads((out_dir / "summary.json").read_text()), {"rows": {}})
+
     # --- exit code -----------------------------------------------------------------
 
     def test_exit_code_reflects_invalid_runs(self):
@@ -451,6 +486,15 @@ class RunPyTest(unittest.TestCase):
 
         after = (out_dir / "summary.md").read_text()
         self.assertEqual(after, before)
+
+    def test_regrade_rewrites_summary_json_too(self):
+        out_dir = self._build_mixed_summary()
+        before = (out_dir / "summary.json").read_text()
+        (out_dir / "summary.json").unlink()
+
+        run_cli(["--regrade", str(out_dir), "--claude", "/no/such/claude-binary"])
+
+        self.assertEqual((out_dir / "summary.json").read_text(), before)
 
     # --- case filter -------------------------------------------------------------
 
