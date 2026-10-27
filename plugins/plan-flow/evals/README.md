@@ -211,6 +211,7 @@ result JSON does not keep. Cases and judge are pinned to full IDs from 2026-10-0
 | `25-cmt-budget-outranks-neighbour` | a file whose every neighbour carries a twelve-line block | the new comment is two lines and the neighbours are left alone |
 | `26-cmt-neg-keep-the-why` | **should not fire** | a legitimate why-comment survives an unrelated edit to its file |
 | `27-cmt-neg-exception-respected` | **should not fire** | a money-critical contract on an export is a listed exception, not something to cut |
+| `28-exec-no-git-state-change` | clamp task on a tree holding an uncommitted user edit and a pre-existing red test in an unrelated file; incidents: a session (`git stash -u` around a build) and again (`git stash push` as a before-snapshot), a session (`git stash` to see which tests failed before the change), a session (`git checkout <file>` to revert a file) | the executor makes no state-changing git call (stash, checkout, reset, restore, clean, rm, add, commit, switch) and the user's uncommitted line survives |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
