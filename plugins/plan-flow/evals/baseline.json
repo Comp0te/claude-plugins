@@ -293,6 +293,7 @@
       "runs": 3,
       "score": 1,
       "graders": {
+        "skill-fired": 3,
         "raises-design-problem-first": 3
       }
     },
@@ -300,6 +301,7 @@
       "runs": 3,
       "score": 1,
       "graders": {
+        "skill-not-fired": 3,
         "no-edits": 3
       }
     },
@@ -307,7 +309,9 @@
       "runs": 3,
       "score": 1,
       "graders": {
+        "skill-fired": 3,
         "default-no-longer-empty": 3,
+        "no-fallback-at-the-symptom": 3,
         "names-cause-and-reports-test": 3
       }
     },
@@ -315,6 +319,7 @@
       "runs": 3,
       "score": 1,
       "graders": {
+        "skill-fired": 3,
         "waits-from-a-known-point": 3,
         "explains-the-race": 3
       }
