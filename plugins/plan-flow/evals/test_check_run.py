@@ -39,6 +39,14 @@ class Usable(unittest.TestCase):
         """A case with only regex graders spends nothing on a judge; that is not a failure."""
         self.assertEqual(0, verdict(result(FREE, [run(judge=0, names=("matched",))])))
 
+    def test_a_judge_with_no_file_to_read_is_a_measured_failure(self):
+        """The run never wrote the file the judge grades; that fails the case, it is no artifact."""
+        missing = run(judge=0)
+        missing["graders"] = [{"name": "judged", "passed": False, "explanation":
+                               'grader threw: case "a-case" grader focus file "docs/spec.md": '
+                               'path "docs/spec.md" does not exist'}]
+        self.assertEqual(0, verdict(result(JUDGED, [missing])))
+
     def test_both_arms_are_checked(self):
         res = result(JUDGED, [run()])
         res["cases"][0]["arms"]["without"] = [run(error="exit 1: boom")]
@@ -56,6 +64,12 @@ class NotMeasurements(unittest.TestCase):
         bare = run()
         del bare["judgeCostUsd"]
         self.assertEqual(1, verdict(result(JUDGED, [bare])))
+
+    def test_a_judge_that_threw_for_another_reason_still_fails(self):
+        thrown = run(judge=0)
+        thrown["graders"] = [{"name": "judged", "passed": False,
+                              "explanation": "grader threw: judge request timed out"}]
+        self.assertEqual(1, verdict(result(JUDGED, [thrown])))
 
     def test_skipped_paid_graders_fail(self):
         self.assertEqual(1, verdict(result(JUDGED, [run(skipped=True)])))

@@ -8,9 +8,10 @@ real before anyone reads them.
 
     python3 evals/check-run.py <result.json>     exit 1 if any run is unusable
 """
-import json, pathlib, sys
+import json, pathlib, re, sys
 
 PAID = ("llm", "baseline")
+NO_FOCUS_FILE = re.compile(r'grader focus file "[^"]*": path "[^"]*" does not exist')
 
 
 def verdicts(result):
@@ -26,7 +27,9 @@ def verdicts(result):
                 elif run.get("skippedPaidGraders"):
                     bad.append((case["name"], arm, i, "paid graders skipped (cost ceiling)"))
                 elif paid and not run.get("judgeCostUsd"):
-                    scored = {g["name"] for g in run.get("graders", [])} & paid
+                    # A judge whose focus file was never written has nothing to read: a real fail.
+                    scored = {g["name"] for g in run.get("graders", [])
+                              if not NO_FOCUS_FILE.search(g.get("explanation", ""))} & paid
                     if scored:
                         bad.append((case["name"], arm, i,
                                     "judge cost is zero but %s is an llm grader — it did not run"
