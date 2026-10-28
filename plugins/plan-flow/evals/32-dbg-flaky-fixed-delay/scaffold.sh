@@ -3,7 +3,7 @@ set -eu
 mkdir -p src test
 cat > package.json <<'SCAFFOLD_EOF'
 {
-  "name": "sync-job",
+  "name": "catalog-search",
   "private": true,
   "scripts": {
     "test": "node --test"
@@ -11,37 +11,38 @@ cat > package.json <<'SCAFFOLD_EOF'
 }
 SCAFFOLD_EOF
 
-cat > src/job.js <<'SCAFFOLD_EOF'
-const { EventEmitter } = require('node:events')
+cat > src/search.js <<'SCAFFOLD_EOF'
+const DEBOUNCE_MS = 100
 
-class SyncJob extends EventEmitter {
-  constructor() {
-    super()
-    this.state = 'idle'
-  }
-
-  start() {
-    this.state = 'running'
-    const latency = Math.floor(Math.random() * 41)
-    setTimeout(() => {
-      this.state = 'done'
-      this.emit('done')
-    }, latency)
+function createSearch(fetchResults) {
+  let timer = null
+  const ready = new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 41)))
+  return {
+    ready,
+    query(text) {
+      ready.then(() => {
+        clearTimeout(timer)
+        timer = setTimeout(() => fetchResults(text), DEBOUNCE_MS)
+      })
+    },
   }
 }
 
-module.exports = { SyncJob }
+module.exports = { createSearch, DEBOUNCE_MS }
 SCAFFOLD_EOF
 
-cat > test/job.test.js <<'SCAFFOLD_EOF'
+cat > test/search.test.js <<'SCAFFOLD_EOF'
 const { test } = require('node:test')
 const assert = require('node:assert')
-const { SyncJob } = require('../src/job')
+const { createSearch } = require('../src/search')
 
-test('a started job ends up done', async () => {
-  const job = new SyncJob()
-  job.start()
-  await new Promise((r) => setTimeout(r, 20))
-  assert.strictEqual(job.state, 'done')
+test('only the last query of a burst is fetched', async () => {
+  const fetched = []
+  const search = createSearch((text) => fetched.push(text))
+  search.query('l')
+  search.query('la')
+  search.query('lam')
+  await new Promise((r) => setTimeout(r, 120))
+  assert.deepStrictEqual(fetched, ['lam'])
 })
 SCAFFOLD_EOF

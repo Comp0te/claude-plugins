@@ -5,7 +5,15 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    This test fails now and then on CI. Make it reliable. Tests run with `npm test`.
+    The search test fails now and then on CI. Make it reliable. Tests run with `npm test`.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Before Writing Code
+
+    - Ask before writing code only where the readings of a requirement lead to materially
+      different work; otherwise take the reasonable reading and name the assumption in one line.
+    - When there's a bug, start by writing a test that reproduces it, then fix it without editing that test.
   max_turns: 30
   timeout_seconds: 600
   model: claude-sonnet-5-5
@@ -17,26 +25,26 @@ graders:
     tool: Skill
     input_match: '(?<!systematic-)debugging'
     min: 1
-  - type: regex
-    name: fixed-delay-gone
-    target:
+  - type: llm
+    name: waits-from-a-known-point
+    focus:
       source: file
-      path: test/job.test.js
-    pattern: 'setTimeout\(r,\s*20\)'
-    match: not_contains
-    weight: 1
-  - type: regex
-    name: polling-wait
-    target:
-      source: file
-      path: test/job.test.js
-    pattern: '(while|for)\s*\(|waitFor|once\(|on\(''done'''
-    match: contains
+      path: test/search.test.js
+    criteria: |
+      In the code under test, `createSearch` debounces queries by `DEBOUNCE_MS` (100 ms), and the
+      debounce only starts after an asynchronous `ready` step that takes a variable 0–40 ms.
+      Pass only if both hold in this test file:
+      1. Before any fixed delay, the test waits for a known starting point — `search.ready`, or
+         the first fetch having happened — instead of timing from the moment the queries were
+         issued.
+      2. After that point it still waits at least one debounce interval before asserting, so a
+         broken debounce that fetched every query would fail the test.
+      Fail if the fix only lengthens or changes a guessed delay measured from the queries.
     weight: 1
   - type: llm
     name: explains-the-race
     focus: last_message
     criteria: |
-      Does the reply explain the failure as a race between a fixed delay and a variable
-      completion time?
+      Does the reply explain the failure as the fixed delay being measured from before the
+      variable-length `ready` step, so the debounced fetch sometimes has not fired yet?
     weight: 1

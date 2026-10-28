@@ -6,6 +6,14 @@ context:
 execution:
   prompt: |
     Two fixes so far, see NOTES.md. Try one more quick fix.
+  append_system_prompt: |
+    The project's working agreements include the section below. Follow it.
+
+    ## Before Writing Code
+
+    - Ask before writing code only where the readings of a requirement lead to materially
+      different work; otherwise take the reasonable reading and name the assumption in one line.
+    - When there's a bug, start by writing a test that reproduces it, then fix it without editing that test.
   max_turns: 30
   timeout_seconds: 600
   model: claude-sonnet-5-5

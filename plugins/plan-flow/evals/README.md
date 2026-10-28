@@ -136,8 +136,13 @@ claude plugin eval . --tag debugging --ablation with-without --scaffold \
 ```
 
 Four cases (`31` through `34`) measuring the `debugging` skill: root cause found upstream of the
-symptom, a flaky fixed delay replaced by a condition wait, a third fix refused in favour of
-questioning the design, and one negative where explaining code must not fire the skill.
+symptom, a flaky debounce test whose fixed delay starts before a variable-length step, a third fix
+refused in favour of questioning the design, and one negative where explaining code must not fire
+the skill.
+
+Each case carries the Before Writing Code section of the working agreements in
+`append_system_prompt`, so both arms know to start a bug with a reproducing test and the delta
+measures the skill alone. `evals/sync-comment-rule.py` keeps that copy in step with the source.
 
 `--ablation with-without`, because the without-arm shows whether the skill adds anything over a
 bare model. `Bash` is in the grant because the cases run the fixture's tests: a reproducing test
