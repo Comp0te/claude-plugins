@@ -142,26 +142,31 @@ class Arms(unittest.TestCase):
         self.assertIn("- Why.", self.block("04-cmt-a"))
 
 
-class RcvCases(unittest.TestCase):
-    """Structure of the real review-reception cases."""
-    DIRS = sorted(d for d in HERE.glob("*-rcv-*") if d.is_dir())
+class CaseStructure:
+    """Shape checks shared by the real cases of a working-agreements tier."""
+    PATTERN = TAG = COUNT = None
+    PATH_SOURCE = "scaffold.sh"
 
-    def test_four_cases_exist(self):
-        self.assertEqual(4, len(self.DIRS))
+    @classmethod
+    def dirs(cls):
+        return sorted(d for d in HERE.glob(cls.PATTERN) if d.is_dir())
+
+    def test_expected_number_of_cases_exist(self):
+        self.assertEqual(self.COUNT, len(self.dirs()))
 
     def test_every_case_has_the_required_shape(self):
-        for d in self.DIRS:
+        for d in self.dirs():
             with self.subTest(case=d.name):
                 scaffold = (d / "scaffold.sh").read_text()
                 case = (d / "case.yaml").read_text()
                 self.assertNotIn("git init", scaffold)
-                self.assertRegex(case, r"(?m)^tags: \[review-reception\]$")
+                self.assertRegex(case, r"(?m)^tags: \[%s\]$" % self.TAG)
                 self.assertRegex(case, r"(?m)^runs: 3$")
                 self.assertIn("  append_system_prompt: |\n", case)
                 self.assertRegex(case, r"(?m)^  allowed_tools: \[[^\]]*\bBash\b")
 
     def test_block_scalars_have_indented_text_and_no_fused_keys(self):
-        for d in self.DIRS:
+        for d in self.dirs():
             lines = (d / "case.yaml").read_text().splitlines()
             for i, line in enumerate(lines):
                 with self.subTest(case=d.name, line=i + 1):
@@ -172,11 +177,62 @@ class RcvCases(unittest.TestCase):
                     self.assertIsNone(re.search(r"\S +(weight|min|max): ", line))
 
     def test_every_grader_path_is_written_by_the_scaffold(self):
-        for d in self.DIRS:
-            scaffold = (d / "scaffold.sh").read_text()
+        for d in self.dirs():
+            source = (d / self.PATH_SOURCE).read_text()
+            if self.PATH_SOURCE == "case.yaml":
+                source = source.split("  append_system_prompt:")[0]
             for path in re.findall(r"(?m)^\s+path: (\S+)", (d / "case.yaml").read_text()):
                 with self.subTest(case=d.name, path=path):
-                    self.assertIn(path, scaffold)
+                    self.assertIn(path, source)
+
+
+class RcvCases(CaseStructure, unittest.TestCase):
+    """Structure of the real review-reception cases."""
+    PATTERN, TAG, COUNT = "*-rcv-*", "review-reception", 4
+
+
+class TstCases(CaseStructure, unittest.TestCase):
+    """Structure of the real test-writing cases."""
+    PATTERN, TAG, COUNT = "*-tst-*", "test-rules", 3
+    # The agent writes the graded test file, so the task prompt must name it.
+    PATH_SOURCE = "case.yaml"
+
+
+def grader_pattern(case_dir, name):
+    text = (HERE / case_dir / "case.yaml").read_text()
+    m = re.search(r"(?m)^    name: %s\n(?:    .*\n)*?    pattern: '([^'\n]*)'" % re.escape(name), text)
+    assert m, name
+    return re.compile(m.group(1))
+
+
+class TstRegexGraders(unittest.TestCase):
+    """The not_contains patterns must match node:assert style, and only the forbidden shape."""
+
+    def test_35_flags_assertions_whose_subject_is_the_constant(self):
+        pat = grader_pattern("35-tst-retry-policy", "no-constant-assertion")
+        for line in ("assert.equal(MAX_RETRIES, 3)", "assert.strictEqual(retry.MAX_RETRIES, 3)",
+                     "strictEqual(MAX_RETRIES, 3)", "assert.ok(MAX_RETRIES)"):
+            with self.subTest(line=line):
+                self.assertTrue(pat.search(line))
+
+    def test_35_allows_using_the_constant_as_the_expected_call_count(self):
+        # Comparing observed behaviour to the constant is not an assertion on its value.
+        pat = grader_pattern("35-tst-retry-policy", "no-constant-assertion")
+        self.assertFalse(pat.search("assert.equal(calls, MAX_RETRIES)"))
+
+    def test_36_flags_buildquery_as_the_expected_argument(self):
+        pat = grader_pattern("36-tst-query-builder", "no-buildquery-as-expected")
+        for line in ("assert.equal(out, buildQuery({a: 1}))",
+                     "assert.strictEqual(buildQuery(f), buildQuery(f))"):
+            with self.subTest(line=line):
+                self.assertTrue(pat.search(line))
+
+    def test_36_allows_buildquery_as_the_actual_argument(self):
+        pat = grader_pattern("36-tst-query-builder", "no-buildquery-as-expected")
+        for line in ("assert.equal(buildQuery({a: 'x'}), \"a = 'x'\")",
+                     "assert.strictEqual(buildQuery({}), '')"):
+            with self.subTest(line=line):
+                self.assertFalse(pat.search(line))
 
 
 if __name__ == "__main__":
