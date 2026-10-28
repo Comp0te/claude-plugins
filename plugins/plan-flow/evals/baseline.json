@@ -302,6 +302,22 @@
       "graders": {
         "no-edits": 3
       }
+    },
+    "31-dbg-root-cause-upstream": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "default-no-longer-empty": 3,
+        "names-cause-and-reports-test": 3
+      }
+    },
+    "32-dbg-flaky-fixed-delay": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "waits-from-a-known-point": 3,
+        "explains-the-race": 3
+      }
     }
   },
   "recorded": "2026-10-28",
