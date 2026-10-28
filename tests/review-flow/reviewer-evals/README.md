@@ -87,7 +87,8 @@ earlier $0.38 overstated $3.55 / 27).
 
 ## Cases
 
-Each case cites the incident it reproduces by handoff file and finding id. Fixtures carry no
+Each case cites the incident it reproduces by handoff file and finding id (cases 11 and 12 are synthetic).
+A case with `requirement.<variant>.md` gets that text as a `<requirement>` block in the brief; the same text sits in the variant's `docs/task.md`, so a finding may cite either. Fixtures carry no
 customer data or verbatim text from those handoffs.
 
 | Case | Reviewer | Source |
@@ -97,6 +98,8 @@ customer data or verbatim text from those handoffs.
 | `08-vacuous-test-claim` | `pr-test-analyzer` | a branch-review handoff, F36 (the agent said a test could not detect removal of a `.catch(() => {})`; a probe showed the runner fails on the unhandled rejection). Defect: the failing-read test installs a rejecting reader but never calls `refresh()` and asserts only a value that holds either way. Clean: the same test also awaits `assert.doesNotReject(refresh())`. |
 | `09-pre-existing-at-base` | `silent-failure-hunter` | audit round 5 §2.3, a PR review F2 (`scope: introduced` on a gap that existed equally at base). Defect: the diff reworks `syncOne` beside an empty `catch {}` in `syncAll` that is identical before the change, so a finding on it must say `pre-existing`. Clean: the same change also makes `syncAll` log and rethrow. |
 | `10-count-claims` | `silent-failure-hunter` | audit round 5 §2.3, a PR review F3 ("five dispatch sites" where there were four; "every render" where only a render without a stored theme was affected) and F7 ("eight of nine" where it was seven). Defect: four `dispatch(...).catch(() => {})` sites across four files, one inside `if (!storedTheme)`; a finding on them must not miscount or universalise (`expected.forbidden`, reported as `claim ok`). Clean: all four route the error through `reportError`. |
+| `11-requirement-harmful-retry` | `silent-failure-hunter` | a requirement that asks for retrying a failed card charge, with code that does exactly that. Defect: `requirement.defect.md` says "retry the charge up to 3 times" and `payOrder` calls `charge(order.total)` with no idempotency key, so a timed-out charge that went through is charged again; the catch must name the requirement (`expected.keywords` are attribution words only, so a finding about the code alone does not count). Clean: the requirement adds "with the same idempotency key" and the code passes one. |
+| `12-requirement-undefined-boundary` | `pr-test-analyzer` | a requirement that leaves a case undefined, with code that decides it silently. Defect: `requirement.defect.md` says "over 100" gets the discount and "under 100" pays shipping, so an order of exactly 100 gets neither. Clean: the requirement says "100 or more" and the code matches. `allowed` absorbs a finding that no test prices an order of exactly 100, which holds in both variants. |
 
 ## Reading `summary.md`
 

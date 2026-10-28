@@ -1,0 +1,20 @@
+{
+  "agent": "review-flow:pr-test-analyzer",
+  "variants": ["defect", "clean"],
+  "expected": {
+    "any_of": [
+      {"file": "src/pricing/orderTotal.ts", "lines": [23, 28]},
+      {"file": "docs/task.md", "lines": [4, 4]}
+    ],
+    "keywords": ["requirement", "acceptance", "spec", "task.md", "plan", "ticket"],
+    "scope": "introduced"
+  },
+  "allowed": [
+    {
+      "file": "tests/orderTotal.test.ts",
+      "lines": [9, 25],
+      "keywords": ["exactly 100", "boundary", "threshold", "equal"],
+      "reason": "no test prices an order of exactly 100, in either variant"
+    }
+  ]
+}
