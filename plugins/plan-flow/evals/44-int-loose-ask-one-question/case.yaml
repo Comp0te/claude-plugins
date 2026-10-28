@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: 44-int-loose-ask-one-question
+tags: [intent]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    People keep asking for a way to get their notes out of the app. Can you sort that out?
+  max_turns: 20
+  timeout_seconds: 600
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Agent, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: shaping-intent
+    min: 1
+    weight: 0.5
+  - type: tool_used
+    name: no-write
+    tool: Write
+    min: 0
+    max: 0
+    weight: 0.5
+  - type: tool_used
+    name: no-edit
+    tool: Edit
+    min: 0
+    max: 0
+    weight: 0.5
+  - type: llm
+    name: one-question
+    focus: last_message
+    criteria: |
+      The user asked, loosely, for a way to get their notes out of an app, and said nothing about
+      the format, who needs it, or why now.
+
+      One question only: does the reply end by asking the user a single question about what they
+      want or why — one question, not a list of them — without proposing an implementation, a
+      plan or code?
+
+      A one-line offer to skip the questions does not count as a second question. Ignore tone,
+      length and formatting.
+    weight: 1

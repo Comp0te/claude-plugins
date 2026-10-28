@@ -1,0 +1,69 @@
+schema_version: "1.1"
+name: 46-int-spec-for-another-planner
+tags: [intent]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Members need to download their notes as a CSV file: one row per note with title, body and
+    created date, archived notes left out, a download from the notes screen, nothing scheduled,
+    no PDF. Admins export only their own notes, like everyone else. Dana (product owner) has
+    approved all of this.
+
+    Skip the questions. Priya on the team will write the implementation plan and build it, so
+    set it up for Priya. Folder: docs/plans/2026-11-02-notes-export/.
+  max_turns: 40
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Agent, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: shaping-intent
+    min: 1
+    weight: 0.5
+  - type: file_exists
+    name: intent-written
+    path: docs/plans/2026-11-02-notes-export/intent.md
+    exists: true
+    weight: 0.5
+  - type: file_exists
+    name: spec-written
+    path: docs/plans/2026-11-02-notes-export/spec.md
+    exists: true
+    weight: 1
+  - type: file_exists
+    name: no-plan
+    path: docs/plans/2026-11-02-notes-export/plan.md
+    exists: false
+    weight: 0.5
+  - type: regex
+    name: fixed-choices
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/spec.md
+    pattern: '##\s+Fixed choices'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: left-to-planner
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/spec.md
+    pattern: '##\s+Left to the planner'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: fixed-versus-open
+    focus:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/spec.md
+    criteria: |
+      One question only: does this document separate the technical choices that are fixed from
+      the ones left to whoever writes the plan, without breaking the work into tasks, an order
+      of work, or a list of files to change? Pass only if both hold.
+
+      Ignore whether the choices are good ones, and ignore formatting and length.
+    weight: 1

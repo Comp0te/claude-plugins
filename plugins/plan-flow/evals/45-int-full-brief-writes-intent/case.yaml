@@ -1,0 +1,93 @@
+schema_version: "1.1"
+name: 45-int-full-brief-writes-intent
+tags: [intent]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    We want members to be able to download their notes as a file — people keep asking to get
+    their data out, and Dana (product owner) has agreed it goes in this quarter. Dana's calls so
+    far: CSV, not JSON, because the people asking open it in a spreadsheet; one row per note with
+    title, body and created date; archived notes stay out. It's a download from the notes screen,
+    nothing scheduled, and no PDF. Admins need it too, for the quarterly audit.
+
+    Skip the questions — everything I know is above. Write it up in
+    docs/plans/2026-11-02-notes-export/ for Dana to approve.
+  max_turns: 40
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Agent, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: shaping-intent
+    min: 1
+    weight: 0.5
+  - type: file_exists
+    name: intent-written
+    path: docs/plans/2026-11-02-notes-export/intent.md
+    exists: true
+    weight: 0.5
+  - type: file_exists
+    name: no-plan-before-approval
+    path: docs/plans/2026-11-02-notes-export/plan.md
+    exists: false
+    weight: 0.5
+  - type: file_exists
+    name: no-spec-without-trigger
+    path: docs/plans/2026-11-02-notes-export/spec.md
+    exists: false
+    weight: 0.5
+  - type: regex
+    name: status-unapproved
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/intent.md
+    pattern: '(?m)^Status:\s*(draft|sent for approval)'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: expected-behavior
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/intent.md
+    pattern: '##\s+Expected behavior'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: decisions-attributed
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/intent.md
+    pattern: '\*\*DECIDED \((Dana|my call)'
+    match: contains
+    weight: 0.5
+  - type: tool_used
+    name: reader-dispatched
+    tool: Agent
+    input_match: 'intent-reader'
+    min: 1
+    weight: 0.5
+  - type: tool_used
+    name: reader-gets-path-only
+    tool: Agent
+    input_match: 'intent-reader[\s\S]*(Dana|quarterly audit|spreadsheet)|(Dana|quarterly audit|spreadsheet)[\s\S]*intent-reader'
+    min: 0
+    max: 0
+    weight: 0.5
+  - type: llm
+    name: raises-admin-scope
+    focus: last_message
+    criteria: |
+      The brief says admins need the export "for the quarterly audit" without saying whether an
+      admin's file holds only their own notes or everyone's, and the project's rules forbid
+      returning another user's note bodies.
+
+      One question only: does the reply put that open point to the user — whether an admin's
+      export may include other users' notes, or that doing so would conflict with the project's
+      rule — as something the user has to answer?
+
+      Ignore everything else in the reply, including how the rest of the document was described.
+    weight: 1
