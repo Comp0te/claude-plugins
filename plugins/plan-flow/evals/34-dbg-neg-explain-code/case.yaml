@@ -21,4 +21,5 @@ graders:
   - type: tool_used
     name: no-edits
     tool: Edit
+    min: 0
     max: 0
