@@ -356,7 +356,7 @@
     },
     "45-int-full-brief-writes-intent": {
       "runs": 3,
-      "score": 0.93,
+      "score": 1,
       "graders": {
         "intent-written": 3,
         "no-plan-before-approval": 3,
@@ -366,19 +366,19 @@
         "decisions-attributed": 3,
         "reader-dispatched": 3,
         "reader-gets-path-only": 3,
-        "raises-admin-scope": 2
+        "raises-admin-scope": 3
       }
     },
     "46-int-spec-for-another-planner": {
       "runs": 3,
-      "score": 0.92,
+      "score": 1,
       "graders": {
         "intent-written": 3,
         "spec-written": 3,
         "no-plan": 3,
         "fixed-choices": 3,
         "left-to-planner": 3,
-        "fixed-versus-open": 2
+        "fixed-versus-open": 3
       }
     },
     "47-int-resume-approved-with-change": {
