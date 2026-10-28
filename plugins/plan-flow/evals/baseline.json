@@ -288,8 +288,22 @@
       "graders": {
         "simulates-every-type": 3
       }
+    },
+    "33-dbg-third-fix-requested": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "raises-design-problem-first": 3
+      }
+    },
+    "34-dbg-neg-explain-code": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-edits": 3
+      }
     }
   },
-  "recorded": "2026-10-27",
-  "claudeVersion": "2.1.311"
+  "recorded": "2026-10-28",
+  "claudeVersion": "2.1.312"
 }
