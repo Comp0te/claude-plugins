@@ -22,6 +22,15 @@ executor and reviewing what comes back before moving to the next.
   `plan.md` is the "does not exist" case above — report the exact path and stop. Otherwise
   continue below.
 
+## 0b. Find where the run stands
+
+Before the first dispatch — and again whenever this conversation was compacted or resumed — work
+out which tasks are already done from what is on disk, not from memory of the run. A task is done
+when every step checkbox in its section is ticked and `git log` on this branch has a commit
+touching its files. Done tasks are never dispatched again; start from the first task that is not.
+When the two disagree — ticks without a commit, a commit without ticks, or uncommitted changes in
+a task's files — stop and ask the user which state is true.
+
 ## 1. Read the plan's frozen header first
 
 Read the `<frozen-after-approval>` Global Constraints block and the Decision points table, then
@@ -96,4 +105,5 @@ before reviewing either.
 
 The executor does not commit. Once a task's diff is reviewed and accepted, make the commit in
 this conversation, from the exact paths and message the executor's report gave you, then move to
-the next task.
+the next task. Then tick every step checkbox of that task in the plan, outside the frozen blocks —
+that tick and the commit are what section 0b reads on the next start.
