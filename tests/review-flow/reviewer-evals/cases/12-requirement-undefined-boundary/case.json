@@ -6,7 +6,7 @@
       {"file": "src/pricing/orderTotal.ts", "lines": [23, 28]},
       {"file": "docs/task.md", "lines": [4, 4]}
     ],
-    "keywords": ["requirement itself", "requirement, not the code", "requirement never says", "requirement is incomplete", "requirement is wrong", "requirement leaves", "change the requirement"],
+    "keywords": ["requirement itself", "requirement, not the code", "requirement never says", "requirement is incomplete", "requirement is wrong", "requirement leaves", "change the requirement", "undefined in the spec", "undefined in the requirement", "requirement is ambiguous", "requirement is underspecified", "requirement is silent"],
     "scope": "introduced"
   },
   "allowed": [
