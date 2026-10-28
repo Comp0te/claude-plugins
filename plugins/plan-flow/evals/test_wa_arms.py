@@ -2,7 +2,7 @@
 
 Run: python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_wa_arms.py'
 """
-import contextlib, importlib.util, io, pathlib, shutil, tempfile, unittest
+import contextlib, importlib.util, io, pathlib, re, shutil, tempfile, unittest
 
 HERE = pathlib.Path(__file__).resolve().parent
 _spec = importlib.util.spec_from_file_location("sync_comment_rule", HERE / "sync-comment-rule.py")
@@ -118,6 +118,12 @@ class Arms(unittest.TestCase):
         self.run_sync("--write", "--tier", "rcv", "--arm", "without")
         self.assertEqual(indent(PREAMBLE + AGREEMENTS), self.block("01-rcv-a"))
 
+    def test_source_without_trailing_newline_keeps_next_field_on_its_own_line(self):
+        self.source.write_text(AGREEMENTS.rstrip("\n"))
+        self.run_sync("--write", "--tier", "rcv", "--arm", "without")
+        self.assertTrue(sync.split((self.tmp / "01-rcv-a" / "case.yaml").read_text())[2].startswith("graders:\n"))
+        self.assertEqual(0, self.run_sync("--check", "--tier", "rcv", "--arm", "without")[0])
+
     def test_unknown_tier_prints_usage_and_exits_2(self):
         code, out = self.run_sync("--check", "--tier", "xyz", "--arm", "with")
         self.assertEqual(2, code)
@@ -134,6 +140,43 @@ class Arms(unittest.TestCase):
         self.run_sync("--write")
         self.assertEqual(before, self.block("01-rcv-a"))
         self.assertIn("- Why.", self.block("04-cmt-a"))
+
+
+class RcvCases(unittest.TestCase):
+    """Structure of the real review-reception cases."""
+    DIRS = sorted(d for d in HERE.glob("*-rcv-*") if d.is_dir())
+
+    def test_four_cases_exist(self):
+        self.assertEqual(4, len(self.DIRS))
+
+    def test_every_case_has_the_required_shape(self):
+        for d in self.DIRS:
+            with self.subTest(case=d.name):
+                scaffold = (d / "scaffold.sh").read_text()
+                case = (d / "case.yaml").read_text()
+                self.assertNotIn("git init", scaffold)
+                self.assertRegex(case, r"(?m)^tags: \[review-reception\]$")
+                self.assertRegex(case, r"(?m)^runs: 3$")
+                self.assertIn("  append_system_prompt: |\n", case)
+                self.assertRegex(case, r"(?m)^  allowed_tools: \[[^\]]*\bBash\b")
+
+    def test_block_scalars_have_indented_text_and_no_fused_keys(self):
+        for d in self.DIRS:
+            lines = (d / "case.yaml").read_text().splitlines()
+            for i, line in enumerate(lines):
+                with self.subTest(case=d.name, line=i + 1):
+                    block = re.match(r"^( *)[a-z_]+: \|$", line)
+                    if block:
+                        nxt = lines[i + 1]
+                        self.assertGreater(len(nxt) - len(nxt.lstrip()), len(block.group(1)))
+                    self.assertIsNone(re.search(r"\S +(weight|min|max): ", line))
+
+    def test_every_grader_path_is_written_by_the_scaffold(self):
+        for d in self.DIRS:
+            scaffold = (d / "scaffold.sh").read_text()
+            for path in re.findall(r"(?m)^\s+path: (\S+)", (d / "case.yaml").read_text()):
+                with self.subTest(case=d.name, path=path):
+                    self.assertIn(path, scaffold)
 
 
 if __name__ == "__main__":

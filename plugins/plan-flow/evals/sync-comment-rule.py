@@ -110,7 +110,7 @@ def main(argv):
         print(__doc__)
         return 2
     if tier:
-        text = indented(TIER_PREAMBLE + agreements(tier, arm))
+        text = indented(TIER_PREAMBLE + agreements(tier, arm).rstrip("\n") + "\n")
         targets = [(p, text) for p in sorted(ROOT.glob(tier["glob"]))]
     else:
         targets = [(p, expected(h)) for p, h in cases()]
