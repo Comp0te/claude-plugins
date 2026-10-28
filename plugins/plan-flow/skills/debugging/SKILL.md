@@ -1,6 +1,6 @@
 ---
 name: debugging
-description: Use when something behaves differently from how it should and needs fixing — a bug report, wrong output, a failing or flaky test, a build failure — before proposing a fix, and again when a fix already tried did not hold.
+description: Use when a bug, a failing or flaky test, a build failure, or behavior nobody expected needs fixing — before proposing a fix, and again when a fix already tried did not hold.
 ---
 
 # Debugging
