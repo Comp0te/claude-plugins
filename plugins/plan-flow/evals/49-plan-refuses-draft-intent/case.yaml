@@ -1,0 +1,31 @@
+schema_version: "1.1"
+name: 49-plan-refuses-draft-intent
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Write the implementation plan for docs/plans/2026-11-02-notes-export/intent.md.
+  max_turns: 20
+  timeout_seconds: 600
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: file_exists
+    name: no-plan-from-draft
+    path: docs/plans/2026-11-02-notes-export/plan.md
+    exists: false
+    weight: 1
+  - type: llm
+    name: asks-before-planning
+    focus: last_message
+    criteria: |
+      The user asked for a plan from an intent document whose status line says it is still a
+      draft.
+
+      One question only: does the reply say the intent has not been approved yet and ask the user
+      whether to go ahead, instead of presenting a plan?
+
+      Ignore tone, length and anything else the reply says.
+    weight: 1

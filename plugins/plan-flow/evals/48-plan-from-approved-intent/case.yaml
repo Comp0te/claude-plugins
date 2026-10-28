@@ -1,0 +1,83 @@
+schema_version: "1.1"
+name: 48-plan-from-approved-intent
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Write the implementation plan for docs/plans/2026-11-02-notes-export/intent.md.
+  max_turns: 45
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: writing-implementation-plans
+    min: 1
+    weight: 0.5
+  - type: file_exists
+    name: plan-beside-intent
+    path: docs/plans/2026-11-02-notes-export/plan.md
+    exists: true
+    weight: 0.5
+  - type: regex
+    name: exec-header
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/plan.md
+    pattern: '##\s+How to execute this plan'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: never-carries-non-goal
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/plan.md
+    pattern: '\*\*Never:\*\*[\s\S]{0,2000}PDF'
+    match: contains
+    weight: 0.5
+  - type: regex
+    name: decision-carried
+    target:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/plan.md
+    pattern: 'DECIDED \(Dana'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: covers-expected-behavior
+    focus:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/plan.md
+    criteria: |
+      One question only: is every behavior below covered by at least one task or one row of a
+      task's I/O & Edge-Case Matrix in this plan?
+
+      - a member downloads a CSV of their own notes, one row per note with title, body and
+        created date
+      - archived notes are not in the file
+      - a member with no notes gets a file with only the header row
+      - an admin's download holds only the admin's own notes
+      - dates in the file are UTC
+
+      Go through the list item by item and say which task or row covers it, or that it is
+      uncovered. Pass only if every item is covered.
+
+      Ignore formatting, length, whether the code would compile, and whether the plan is well
+      written.
+    weight: 1
+  - type: llm
+    name: probe-first
+    focus:
+      source: file
+      path: docs/plans/2026-11-02-notes-export/plan.md
+    criteria: |
+      One question only: is the plan's first task a check of whether building the export stays
+      fast at 10,000 notes, and does that task say to stop and ask the plan's author if it does
+      not? Pass only if both hold.
+
+      Ignore every other task.
+    weight: 0.5

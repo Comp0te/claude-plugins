@@ -56,7 +56,7 @@ claude plugin eval . --tag plan-writing --ablation with-without --scaffold \
 Every flag is load-bearing:
 
 - `--tag plan-writing` — selects the five plan-producing cases plus the two negative cases,
-  cases `01` through `07`.
+  cases `01` through `07`, plus `29`, `48` and `49`.
 - `--scaffold` — the five fire cases build a small real repo before the run. Without it they run
   against an empty workspace and score near zero in both arms.
 - `--allow-tools Write Edit` — the skill's frontmatter grants itself no tools, so the operator has
@@ -127,6 +127,16 @@ The hook is live in these runs, and it only knows about the budget. For the eigh
 measure something other than line count it is inert, so those measure the rule text cleanly. The
 budget-adjacent ones (`24`, `25`) measure rule and hook together; `12-exec-comment-budget` remains
 the hook's own case.
+
+### Intent tier
+
+```bash
+claude plugin eval . --tag intent --ablation with-without --scaffold \
+  --allow-tools Write Edit --judge-model claude-opus-5-5 --no-publish
+```
+
+`Agent` is in the cases' `allowed_tools` because cases 45-47 dispatch the intent reader. No
+baseline exists until the first validated run.
 
 ### Debugging tier
 
@@ -242,10 +252,11 @@ Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 | One reviewer agent changed (2-3 cases) | 12-18 | about $5-7 |
 | `execute-plan.md` changed (plan-command) | 15 | about $2 |
 | Working agreements / session-start hook | comment-rules + plan-command, about 45 | about $5 |
-| Plan-writing skill changed | 24 | about $11 |
+| Plan-writing skill changed | 30 | about $14 |
+| Intent skill or reader changed | 18 | about $9 |
 | `--all` (four plan-flow tiers + ten reviewer cases) | about 180 | about $50; 1.5-2 h at `-j 2` |
 
-Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45,
+Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45, intent $0.50 (unmeasured),
 plan-execution $0.60 (unmeasured), reviewer $0.10 per row-run (measured 2026-10-27 at $0.03-0.09; the
 earlier $0.38 overstated $3.55 / 27).
 
@@ -282,6 +293,14 @@ earlier $0.38 overstated $3.55 / 27).
 | `28-exec-no-git-state-change` | clamp task on a tree holding an uncommitted user edit and a pre-existing red test in an unrelated file; incidents: a session (`git stash -u` around a build) and again (`git stash push` as a before-snapshot), a session (`git stash` to see which tests failed before the change), a session (`git checkout <file>` to revert a file) | the executor makes no state-changing git call (stash, checkout, reset, restore, clean, rm, add, commit, switch) and the user's uncommitted line survives |
 | `29-plan-base-branch-frozen` | brief names a stacked-PR base (`feat/rate-limit-core`, top of a three-PR stack) and a new work branch; incident: a session (the base lived in a `**Branch:**` header outside the frozen block, so an executor could read it as advisory) | both branch names land inside a `<frozen-after-approval>` block, and the plan covers the request |
 | `30-wa-simulate-unavailable-trigger` | push-routing module mapping five notification types to screens, unit tests green, no backend push available; incident: a session (closed with a list of "not checked at all" items instead of mocking the payload) | the reply reports a per-type result for all five types obtained by running the routing with constructed payloads, not a gap list; judge only, tag `working-agreements`, run by hand (the entry point never selects it); its judge passed 3/3 good replies and failed 3/3 gap-list replies (D6) |
+| `44-int-loose-ask-one-question` | loose ask, no format, audience or reason given | the reply asks one question before anything is built or planned |
+| `45-int-full-brief-writes-intent` | full brief with the questions skipped; one point (an admin's export scope) left open against a project rule | an `intent.md` with status unapproved and attributed decisions, no plan and no spec; the reader is dispatched with the path only; the open point is put to the user |
+| `46-int-spec-for-another-planner` | settled brief, another person writes the plan | a `spec.md` beside the intent separates fixed choices from what is left to the planner, without tasks or a file list |
+| `47-int-resume-approved-with-change` | intent sent for approval; the approver's answer arrives in a new session | status becomes approved by the approver, the change is attributed and logged in Revisions, and planning starts with the plan beside the intent |
+| `48-plan-from-approved-intent` | approved intent with non-goals, attributed decisions and an open question needing a probe | the plan lands beside the intent, carries the non-goal into Never and the decisions with their owner, covers every expected behavior, and starts with the probe |
+| `49-plan-refuses-draft-intent` | the same intent still in draft | no plan; the reply says it is unapproved and asks |
+| `50-int-neg-settled-small-change` | **should not write an intent** | a one-file change with everything specified is made, with no planning documents |
+| `51-int-neg-explain-question` | **should not fire** | a question about current code is answered, not shaped |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming
