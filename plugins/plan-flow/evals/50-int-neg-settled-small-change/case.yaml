@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    `getNotes` in `src/notes/routes.ts` returns archived notes too. Leave them out — a note with
+    /plan-flow:shaping-intent `getNotes` in `src/notes/routes.ts` returns archived notes too. Leave them out — a note with
     `archived: true` should not be in the list. Add a case for it to `test/notes.test.ts`.
   max_turns: 20
   timeout_seconds: 600

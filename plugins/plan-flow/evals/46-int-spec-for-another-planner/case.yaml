@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    Members need to download their notes as a CSV file: one row per note with title, body and
+    /plan-flow:shaping-intent Members need to download their notes as a CSV file: one row per note with title, body and
     created date, archived notes left out, a download from the notes screen, nothing scheduled,
     no PDF. Admins export only their own notes, like everyone else. Dana (product owner) has
     approved all of this.
@@ -18,12 +18,6 @@ execution:
   allowed_tools: [Skill, Agent, Read, Glob, Grep, Write, Edit]
 runs: 3
 graders:
-  - type: tool_used
-    name: skill-fired
-    tool: Skill
-    input_match: shaping-intent
-    min: 1
-    weight: 0.5
   - type: file_exists
     name: intent-written
     path: docs/plans/2026-11-02-notes-export/intent.md

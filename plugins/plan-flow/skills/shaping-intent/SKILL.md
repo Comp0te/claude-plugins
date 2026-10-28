@@ -1,6 +1,8 @@
 ---
 name: shaping-intent
 description: Use when someone wants something built or changed but what they want, or why, is not settled yet — a feature idea, a loose request, a stakeholder's ask, a ticket that leaves the behavior open — before any plan or code. Also when an intent.md sent for approval comes back with an answer.
+disable-model-invocation: true
+argument-hint: "<request, or path to an intent.md with the approver's answer>"
 ---
 
 # Shaping Intent
@@ -68,12 +70,15 @@ something they agreed to: a default they never heard is one they could not rejec
 
 ## When a spec is needed
 
-Usually it is not — the plan carries the design. Write `spec.md` beside the intent only when
-one of these holds, and say which:
+Write `spec.md` beside the intent when one of these holds, and say which. The condition
+decides, not how small the technical choices look: a choice too small for its own file is still
+one the planner should not have to make alone.
 
 1. Someone else will write the plan, and should decide the how within choices fixed now.
 2. Someone technical other than the requester has to approve the solution before work starts.
 3. The work lands as several plans, or in several repositories, that must agree on a contract.
+
+Without one of these there is no spec — the plan carries the design.
 
 When one does, read `references/spec-template.md`. If one becomes true after the plan exists,
 hand over the intent and the plan instead: the plan already holds the design.

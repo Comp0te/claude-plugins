@@ -253,7 +253,7 @@ Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 | `execute-plan.md` changed (plan-command) | 15 | about $2 |
 | Working agreements / session-start hook | comment-rules + plan-command, about 45 | about $5 |
 | Plan-writing skill changed | 30 | about $14 |
-| Intent skill or reader changed | 18 | about $9 |
+| Intent skill or reader changed | 15 | about $8 |
 | `--all` (four plan-flow tiers + ten reviewer cases) | about 180 | about $50; 1.5-2 h at `-j 2` |
 
 Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45, intent $0.50 (unmeasured),
@@ -299,8 +299,7 @@ earlier $0.38 overstated $3.55 / 27).
 | `47-int-resume-approved-with-change` | intent sent for approval; the approver's answer arrives in a new session | status becomes approved by the approver, the change is attributed and logged in Revisions, and planning starts with the plan beside the intent |
 | `48-plan-from-approved-intent` | approved intent with non-goals, attributed decisions and an open question needing a probe | the plan lands beside the intent, carries the non-goal into Never and the decisions with their owner, covers every expected behavior, and starts with the probe |
 | `49-plan-refuses-draft-intent` | the same intent still in draft | no plan; the reply says it is unapproved and asks |
-| `50-int-neg-settled-small-change` | **should not write an intent** | a one-file change with everything specified is made, with no planning documents |
-| `51-int-neg-explain-question` | **should not fire** | a question about current code is answered, not shaped |
+| `50-int-neg-settled-small-change` | **command on a settled change** | a one-file change with everything specified is made, with no planning documents |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 
 Only `01` leaves the destination path unspecified — that is the case that tests the naming

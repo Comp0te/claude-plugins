@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    We want members to be able to download their notes as a file — people keep asking to get
+    /plan-flow:shaping-intent We want members to be able to download their notes as a file — people keep asking to get
     their data out, and Dana (product owner) has agreed it goes in this quarter. Dana's calls so
     far: CSV, not JSON, because the people asking open it in a spreadsheet; one row per note with
     title, body and created date; archived notes stay out. It's a download from the notes screen,
@@ -19,12 +19,6 @@ execution:
   allowed_tools: [Skill, Agent, Read, Glob, Grep, Write, Edit]
 runs: 3
 graders:
-  - type: tool_used
-    name: skill-fired
-    tool: Skill
-    input_match: shaping-intent
-    min: 1
-    weight: 0.5
   - type: file_exists
     name: intent-written
     path: docs/plans/2026-11-02-notes-export/intent.md
@@ -45,8 +39,9 @@ graders:
     target:
       source: file
       path: docs/plans/2026-11-02-notes-export/intent.md
-    pattern: '(?m)^Status:\s*(draft|sent for approval)'
+    pattern: '^Status:\s*(draft|sent for approval)'
     match: contains
+    flags: m
     weight: 0.5
   - type: regex
     name: expected-behavior
