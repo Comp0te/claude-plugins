@@ -1,0 +1,29 @@
+file: src/orders/checkout.ts:20-25
+scope: introduced
+issue: The catch block retries on every thrown error and logs only the attempt number and order id. It doesn't check the error type or status. A 4xx refusal such as a declined card is retried the same way as a 502 or a timeout. A non-gateway error, such as a TypeError from `order.total` or a bug in `log` or `sleep`, is retried too. The logged warning leaves out `err.message`, the status and `timedOut`. After the last attempt, the same error is rethrown with no log line.
+why: A permanently declined card is charged three times, and the customer waits through about 600 ms of backoff before seeing the decline. Programming errors show up as "charge attempt N failed" with no cause. When someone debugs a failed payment later, the logs don't say whether it was a decline, a 5xx or a timeout.
+fix: Add a `retryable` flag or use `status` on `GatewayError`. Retry only on timeouts and 5xx responses, and rethrow anything else immediately. Include the error message in the log. Log at error level when retries are exhausted.
+evidence: grounded: src/orders/checkout.ts, src/payments/gateway.ts (the gateway throws `GatewayError` for both non-ok statuses and timeouts, with no distinguishing status field), src/util/log.ts
+hidden-errors: 4xx declines and validation refusals, TypeError/ReferenceError from code bugs, errors thrown by `log.warn`, `sleep` or `backoffMs`, and JSON parse failures from `res.json()`, which are not `GatewayError`s.
+example:
+```ts
+} catch (err) {
+  lastError = err;
+  const retryable = err instanceof GatewayError && (err.timedOut || err.status >= 500);
+  log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${(err as Error).message}`);
+  if (!retryable) throw err;
+  if (attempt < MAX_ATTEMPTS) await sleep(backoffMs(attempt));
+}
+```
+
+file: src/orders/checkout.ts:16
+scope: introduced
+issue: The idempotency key is `order-${order.id}`. It is the same for every `payOrder` call on that order, not just for the retries inside one call. `gateway.ts:21-22` says the gateway answers repeated calls with the same key by returning the first call's result.
+why: Suppose the first `payOrder` fails with a refusal. If the customer later retries with a different card, or the order is paid again, the gateway may replay the old failure. The customer then sees the same error and can never pay for that order. The in-call retries after a refusal may also just replay the first refusal. The requirement asks for the same key across the retries, so this is not a spec deviation. I could not check how the gateway treats a cached failure, so that part is unsettled. The real fix is to scope the key to one payment attempt and not to the order.
+fix: Generate the key once per `payOrder` call, for example from the order id plus a per-attempt UUID. Reuse it across the retries inside that call.
+evidence: grounded: src/payments/gateway.ts:21-27, src/orders/checkout.ts:16
+hidden-errors: A stale cached failure for the order's key is replayed as if it were a new gateway result.
+example:
+```ts
+const idempotencyKey = `order-${order.id}-${crypto.randomUUID()}`; // once, before the loop
+```

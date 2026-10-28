@@ -1,0 +1,50 @@
+**Summary:** I found two coverage gaps in the new pricing rule, and one behaviour that needs a decision. The new `tests/orderTotal.test.ts` covers the shipping and discount cases well, including both sides of 100 (99 and 101), and `summaryText`'s line formatting. But no test uses an order of exactly 100, and the tests can't tell which rounding rule the code uses. There is no `package.json` or test runner in the tree, and the runnable slot is `none`, so nothing here is `verified`. Each finding is either `grounded` or a `proposed-probe`.
+
+What I searched: `orderTotal|subtotal|breakdown|summaryText|DISCOUNT_RATE|THRESHOLD|SHIPPING` across the repo. The only matches are `src/pricing/orderTotal.ts`, `src/orders/summary.ts`, `src/pricing/rates.ts` and `tests/orderTotal.test.ts`. `git ls-files` lists just those four files plus `docs/task.md`, and the test file is new in this diff, so nothing tested these rules before this change.
+
+## Gaps
+
+### Regression gaps
+
+file: src/pricing/orderTotal.ts:24-28
+scope: introduced
+issue: No test uses an order of exactly 100, where the rule switches between shipping and discount. The requirement ("over 100" gets the discount, "under 100" pays shipping) means an order of exactly 100 gets neither. The code does that, but nothing checks it.
+why: If someone changes `>` to `>=`, or turns the `else if` into a plain `else`, a 100-unit order quietly gets a 10-unit discount or a 7-unit shipping charge. No test fails.
+fix: In `describe("breakdown")`, add `expect(breakdown([line(100)])).toEqual({ subtotal: 100, discount: 0, shipping: 0, total: 100 })`. In `describe("summaryText")`, add `expect(summaryText([line(100)])).toBe("Subtotal: 100\nTotal: 100")`.
+evidence: proposed-probe: src/pricing/orderTotal.ts:24, change `base > THRESHOLD` to `base >= THRESHOLD`. Expected: some test fails because 100 now gets a discount of 10. Actual: every test should still pass. Second probe: line 26, change `} else if (base < THRESHOLD) {` to `} else {`. Expected: a failure because 100 now pays shipping. Actual: every test should still pass.
+consumer: `breakdown` at src/pricing/orderTotal.ts:20, used by `orderTotal` (src/pricing/orderTotal.ts:33) and `summaryText` (src/orders/summary.ts:4), where the order of exactly 100 decides whether the `Discount:` and `Shipping:` lines appear (summary.ts:6-11).
+test-evidence: The boundary tests use 99 (tests/orderTotal.test.ts:13, checks only `.shipping` is 7) and 101 (tests/orderTotal.test.ts:21, checks only `.discount` is 10). The other inputs are 50, 200, 300 (from `line(150, 2)`) and 140 (from `line(60,2)+line(5,4)`). None of them is 100.
+demonstration: With `>=`, `breakdown([line(100)])` returns discount 10 and total 90. With a plain `else`, it returns shipping 7 and total 107. Both changes only affect a subtotal of exactly 100, and no test uses that value.
+
+file: src/pricing/orderTotal.ts:25
+scope: introduced
+issue: The tests can't tell which rounding rule is used for the discount. Every discount they check is a whole number before rounding (20, 30, 14), except 101 → 10.1, which gives 10 whether you round to nearest or round down. The requirement says "whole currency units" but doesn't say which way to round.
+why: If `Math.round` becomes `Math.floor` (or `Math.trunc`), an order of 105–109 gets 1 unit less discount than now, and no test notices.
+fix: Add `expect(breakdown([line(105)])).toEqual({ subtotal: 105, discount: 11, shipping: 0, total: 94 })`. Also confirm with the requirement owner that halves should round up. The requirement doesn't settle that, so the test would be recording a decision rather than checking a stated rule.
+evidence: proposed-probe: src/pricing/orderTotal.ts:25, change `Math.round(base * DISCOUNT_RATE)` to `Math.floor(base * DISCOUNT_RATE)`. Expected: a failure. Actual: every test should still pass. The checked discounts would be floor(10.1)=10, floor(20)=20, floor(30)=30 and floor(14)=14 (the 126 total at :31), the same values `Math.round` gives.
+consumer: `breakdown(...).discount` and `.total`, used by `orderTotal` (src/pricing/orderTotal.ts:33) and printed as `Discount: -${b.discount}` in src/orders/summary.ts:7.
+test-evidence: tests/orderTotal.test.ts:17 (discount 20), :21 (discount 10 from 10.1), :26-27 (discount 30, total 270) and :31 (total 126, i.e. discount 14 on 140). None of these produces a fraction of .5 or more.
+demonstration: Change to `Math.floor`, and `breakdown([line(105)]).discount` goes from 11 to 10. The tests use only inputs where the two rules give the same answer.
+
+### Unsettled behaviour (left open, not counted as a gap)
+
+file: src/pricing/orderTotal.ts:26-27
+scope: introduced
+issue: An empty order (`[]`) has subtotal 0, which is under 100, so it gets charged 7 for shipping and its total is 7. The requirement's "under 100 pay shipping" literally includes this. No test covers the empty order, and I can't tell from the repo whether this is intended.
+why: If any caller ever prices an empty cart, it will show "Total: 7" for no items.
+fix: Decide what an empty order should cost and write a test for it, e.g. `expect(breakdown([])).toEqual({ subtotal: 0, discount: 0, shipping: 0, total: 0 })` if empty orders should be free.
+evidence: grounded: src/pricing/orderTotal.ts, src/orders/summary.ts, tests/orderTotal.test.ts. Unsettled: I can't show this is reachable. Nothing in the tree calls `summaryText` or `orderTotal` except the tests, so I can't name a path that produces an empty order.
+consumer: `summaryText` at src/orders/summary.ts:3, which would print "Subtotal: 0\nShipping: 7\nTotal: 7".
+test-evidence: Every test input has at least one line with a positive price (tests/orderTotal.test.ts:9-41).
+demonstration: `summaryText([])` returns "Subtotal: 0\nShipping: 7\nTotal: 7" today, and no test checks or rules out that output.
+
+## Test Quality Issues
+
+None found.
+
+## Positive Observations
+
+- The tests check outputs with full `toEqual` on the whole result (tests/orderTotal.test.ts:9, :17). That covers subtotal, discount, shipping and the `base - discount + shipping` sum together, so getting the sign wrong or dropping a field would make a test fail.
+- The `summaryText` tests compare the whole output string (:37, :41). They check the line order and that the discount and shipping lines appear only in their own cases.
+- There are tests just either side of the threshold (99 and 101) and a multi-line order (:31), so they cover the threshold and summing several lines, just not exactly 100.
+- Changing what `orderTotal` returns (it now includes discount and shipping) has no hidden effect elsewhere. Besides the test, its only caller in the tree is the new `summaryText`.

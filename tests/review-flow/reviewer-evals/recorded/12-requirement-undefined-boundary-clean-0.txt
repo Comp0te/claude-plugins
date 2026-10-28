@@ -1,0 +1,56 @@
+**Summary**
+
+The new tests in `tests/orderTotal.test.ts` cover both pricing branches and both `summaryText` layouts, and their assertions check the real return values, not mocks. Three gaps remain:
+
+- **The threshold value itself is never tested.** The tests check 99 and 101 but never exactly 100, so changing `>=` to `>` would leave every test passing. The requirement says "100 or more" counts.
+- **Rounding of fractional discounts is not pinned down.** Swapping `Math.round` for `Math.floor` would also leave every test passing.
+- **Nothing in the tree can run these tests.** There is no `package.json` and no vitest config.
+
+I read every file in the tree (`git ls-files`: `docs/task.md`, `src/orders/summary.ts`, `src/pricing/orderTotal.ts`, `src/pricing/rates.ts`, `tests/orderTotal.test.ts`). I also grepped the whole repo for `THRESHOLD|SHIPPING|DISCOUNT_RATE|breakdown|orderTotal|summaryText|subtotal`. Your brief named no runnable directory, so I ran nothing; every finding below is `grounded` or `proposed-probe`.
+
+**Gaps**
+
+*Regression gap*
+
+file: src/pricing/orderTotal.ts:24
+scope: introduced
+issue: No test checks an order whose subtotal is exactly `THRESHOLD` (100). The "just under" test (`tests/orderTotal.test.ts:12-14`) uses 99 and the "just over" test (`:20-22`) uses 101, so the comparison operator itself is never tested.
+why: If someone changes `>=` to `>`, a customer whose order comes to exactly 100 loses the discount and pays shipping. They are charged 107 instead of 90, against the stated rule "Orders of 100 or more get a 10% discount", and the suite stays green.
+fix: Add `expect(breakdown([line(100)])).toEqual({ subtotal: 100, discount: 10, shipping: 0, total: 90 })` to the `breakdown` describe block. Optionally add the matching `summaryText([line(100)])` string check.
+evidence: proposed-probe: in `src/pricing/orderTotal.ts:24`, change `if (base >= THRESHOLD)` to `if (base > THRESHOLD)` and run `tests/orderTotal.test.ts`. The tests should fail and don't. Worked by hand: 50→shipping, 99→shipping, 101→discount 10, 200→discount 20, 300→discount 30 / total 270, 140→discount 14 / total 126. Every assertion still holds.
+consumer: `breakdown` at `src/pricing/orderTotal.ts:20`, used by `orderTotal` (`src/pricing/orderTotal.ts:32-33`) and `summaryText` (`src/orders/summary.ts:4`).
+test-evidence: The closest assertions are `tests/orderTotal.test.ts:13` (`breakdown([line(99)]).shipping` is 7) and `:21` (`breakdown([line(101)]).discount` is 10). Grepping for `THRESHOLD` and `breakdown` finds no other test input between 99 and 101.
+demonstration: Change `>=` to `>`. `breakdown([line(100)])` then returns `{subtotal:100, discount:0, shipping:7, total:107}` instead of `{…discount:10, shipping:0, total:90}`. No test uses 100 as input, so nothing fails.
+
+file: src/pricing/orderTotal.ts:25
+scope: introduced
+issue: How a fractional discount is rounded is never checked. Every discounted test subtotal (101, 140, 200, 300) gives a discount whose fraction is below .5, so `Math.round`, `Math.floor` and `Math.trunc` all give the same result.
+why: Changing the rounding mode would silently change totals by one unit on orders like 105 (`round` gives 11, `floor` gives 10). The requirement only says "whole currency units" and doesn't name a rounding direction. So I can't tell whether `Math.round` is the intended rule; that question is unsettled. Either way, the chosen rule isn't recorded in any test.
+fix: Pick the rule and pin it with a half-unit case, e.g. `expect(breakdown([line(105)]).discount).toBe(11)` (if round-half-up is intended). If a different rule is meant, also state it in `docs/task.md`.
+evidence: proposed-probe: in `src/pricing/orderTotal.ts:25`, change `Math.round(base * DISCOUNT_RATE)` to `Math.floor(base * DISCOUNT_RATE)` and run `tests/orderTotal.test.ts`. The tests should fail and don't. By hand: 101×0.1=10.1→10; 140×0.1=14.000000000000002→14; 200×0.1=20; 300×0.1=30.000000000000004→30. All are unchanged under `floor`.
+consumer: The `discount` and `total` values in `breakdown` (`src/pricing/orderTotal.ts:29`), shown by `summaryText` at `src/orders/summary.ts:7` and `:12`.
+test-evidence: The discount assertions are at `tests/orderTotal.test.ts:17` (20), `:21` (10), `:26-27` (30 / 270) and `:31` (total 126, discount 14). None of them has a fractional part of .5 or more.
+demonstration: Change `round` to `floor`. `breakdown([line(105)])` returns discount 10 / total 95 instead of 11 / 94. No test uses a subtotal whose 10% has a fraction of .5 or more.
+
+*Broken-verification gap*
+
+file: tests/orderTotal.test.ts:1
+scope: introduced
+issue: The test file imports from `vitest`, but the repo has no `package.json`, no vitest config and no lockfile. `git ls-files` lists only the five files above. Nothing in the tree declares a way to run these tests, and the gate was "not run".
+why: Neither the new tests nor the existing pricing behaviour can be run from this tree. None of the coverage described above is actually enforced until a runner is set up.
+fix: Add a `package.json` with `vitest` as a devDependency and a `test` script, or confirm that a parent workspace or CI step runs `tests/` and link it from this repo.
+evidence: grounded: `git ls-files` output; `vitest.config.*` glob found nothing; `package.json` / `CLAUDE.md` were absent (`cat` returned nothing).
+consumer: All of `tests/orderTotal.test.ts:7-43`.
+test-evidence: The file has eight `it` blocks with real assertions, but no runner is configured anywhere I could find in this tree.
+demonstration: Any regression to `breakdown`, `orderTotal` or `summaryText` goes unnoticed, because nothing in this tree runs the suite.
+
+**Test Quality Issues**
+
+None besides the ones above. The "just under / just over the threshold" names suggest the boundary is covered when it isn't; adding the test for exactly 100 fixes that too.
+
+**Positive Observations**
+
+- The `toEqual` checks on the whole result (`tests/orderTotal.test.ts:9`, `:17`) fix all four `Breakdown` fields for one case in each branch.
+- `:24-28` uses quantity > 1. That catches a regression where the discount is taken per unit price instead of on the line subtotal.
+- `:30-32` uses several lines and crosses the threshold, so it checks that lines are summed before pricing.
+- `summaryText` gets an exact-string check for both layouts (`:37`, `:41`). That fixes line order, the `-` prefix on the discount, and leaving out zero-value lines.

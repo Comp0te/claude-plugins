@@ -1,0 +1,42 @@
+file: src/orders/checkout.ts:18-26
+scope: introduced
+issue: `payOrder` retries every thrown error and calls `charge(order.total)` with no `idempotencyKey`. The gateway treats a call without a key as a new charge. A `GatewayError` with `timedOut = true` means the request got no answer, so the charge may already have been applied. The retry loop makes a second and a third charge in that case. The loop also doesn't separate declined or refused charges, non-`GatewayError` bugs, and timeouts. All of them get the same retries.
+why: A customer whose first charge went through but whose response timed out (5s abort) can be charged up to 3 times for one order. Only the last error is reported, so the earlier attempts leave no trace except a generic warning. The failures that were retried look like transient errors, so nothing flags the duplicate charges.
+fix: Generate one idempotency key per order, for example from `order.id`, and pass it on every attempt: `charge(order.total, { idempotencyKey: order.id })`. Only retry errors that are safe to retry. Rethrow immediately anything that is not a `GatewayError`.
+evidence: grounded: src/payments/gateway.ts (the `charge` signature and the comment on idempotency keys, the `timedOut` flag, and the `catch` that converts any fetch failure into a timed-out `GatewayError`), src/orders/checkout.ts
+hidden-errors: Timeouts where the charge succeeded server-side (duplicate charges). Non-gateway errors such as a TypeError from a bug or a malformed `receipt`. Permanent refusals such as a 4xx decline, which are retried pointlessly.
+example:
+```ts
+catch (err) {
+  lastError = err;
+  log.warn(`charge attempt ${attempt} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+  if (!(err instanceof GatewayError) || attempt === MAX_ATTEMPTS) break;
+  await sleep(backoffMs(attempt));
+}
+// ...
+await charge(order.total, { idempotencyKey: order.id });
+```
+
+file: src/orders/checkout.ts:20-21
+scope: introduced
+issue: The retry warning log records only the attempt number and order id. It leaves out the error message, the status, and whether the failure was a timeout. The `err` is stored in `lastError` and nothing else is done with it.
+why: Attempts 1 and 2 are only visible in the log. If the later attempt then fails with a different error, or succeeds, the cause of the first failure is lost. That makes it hard to tell a gateway outage from a decline. It is also the only evidence of a possible duplicate charge.
+fix: Include `err.message` and `timedOut` in the log line.
+evidence: grounded: src/orders/checkout.ts, src/util/log.ts (`log.warn` takes only a string)
+hidden-errors: The reason for each non-final failure (502s, timeouts, declines).
+example:
+```ts
+log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+```
+
+file: tests/checkout.test.ts:1-55
+scope: introduced
+issue: The tests don't cover a timeout, a non-`GatewayError`, or the idempotency key passed to `charge`. Every case uses `GatewayError("Charge refused (502)")`. The "waits between attempts" test only counts calls to `sleep`.
+why: The duplicate-charge behavior in `payOrder` can't be caught by this suite, so a regression there won't fail any test.
+fix: Add a test where `charge` rejects with `new GatewayError("...", true)` and assert that every attempt uses the same `idempotencyKey`. Add a test that a non-gateway error is not retried.
+evidence: grounded: tests/checkout.test.ts, src/payments/gateway.ts
+hidden-errors: Not applicable (test coverage gap).
+example:
+```ts
+expect(charge).toHaveBeenNthCalledWith(1, 4200, { idempotencyKey: "o-1" });
+```

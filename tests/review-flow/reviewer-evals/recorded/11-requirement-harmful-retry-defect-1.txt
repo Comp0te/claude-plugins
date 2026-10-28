@@ -1,0 +1,45 @@
+file: src/orders/checkout.ts:19-27
+scope: introduced
+issue: The retry loop calls `charge(order.total)` with no `idempotencyKey`. `gateway.ts` says a call without a key is always a new charge. The catch block retries on every error, including a timeout (`GatewayError.timedOut === true`). A timeout does not mean the charge failed. The gateway may have captured the money and the response was lost or slow.
+why: When a charge times out after the gateway has already processed it, the retry creates a second real charge. A customer can be charged up to 3 times for one order. If a later attempt succeeds, the order is marked paid with only that receipt, and the earlier captured charges are never recorded or refunded. If every attempt times out, the customer sees an error while they may already have been charged.
+fix: Generate one idempotency key per `payOrder` call, for example derived from the order id, and pass it on every attempt. Retry only errors that are safe to retry. If a timeout is retried without a key, treat it as unsafe.
+evidence: grounded: src/payments/gateway.ts:21-37 (idempotency semantics, the timedOut flag, and the catch that maps every fetch failure to a timeout), src/orders/checkout.ts
+hidden-errors: A timeout or aborted request where the charge was actually captured. Non-retryable declines such as a refused card (4xx), which are also retried 3 times. TypeErrors or programming errors thrown from `charge` or from the receipt handling, which are logged as a charge failure and retried.
+example:
+```ts
+const idempotencyKey = `order-${order.id}`;
+...
+const receipt = await charge(order.total, { idempotencyKey });
+...
+} catch (err) {
+  lastError = err;
+  log.warn(`charge attempt ${attempt} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+  if (!(err instanceof GatewayError) || attempt === MAX_ATTEMPTS) break;
+  await sleep(backoffMs(attempt));
+}
+```
+
+file: src/orders/checkout.ts:22-25
+scope: introduced
+issue: The warn log records only the attempt number and order id. It omits the error message, the status, and whether the error was a timeout. The catch is also not specific to `GatewayError`.
+why: When an operator investigates a customer who was charged twice or a failed checkout, the logs cannot show why each attempt failed. They cannot tell a 502 from a timeout. Non-gateway bugs look the same as declines.
+fix: Include `err.message` and the `timedOut` flag in the log. Rethrow immediately for errors that are not `GatewayError`.
+evidence: grounded: src/orders/checkout.ts, src/util/log.ts (the only helper is `log.warn(message)`), src/payments/gateway.ts
+hidden-errors: Any non-gateway exception, such as a TypeError, is retried with backoff and logged only as "charge attempt N failed".
+example:
+```ts
+log.warn(`charge attempt ${attempt} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+```
+
+file: tests/checkout.test.ts:1-55
+scope: introduced
+issue: No test covers a timeout (`timedOut=true`) or checks that `charge` receives an idempotency key. `charge` is mocked, so the double-charge risk is untestable with the current assertions.
+why: The test suite passes while the retry behaviour can create duplicate charges.
+fix: Add a test that asserts every `charge` call carries the same `idempotencyKey`. Add a test for the timeout path.
+evidence: grounded: tests/checkout.test.ts, src/payments/gateway.ts
+hidden-errors: n/a
+example:
+```ts
+expect(charge).toHaveBeenNthCalledWith(1, 4200, { idempotencyKey: "order-o-1" });
+expect(charge).toHaveBeenNthCalledWith(2, 4200, { idempotencyKey: "order-o-1" });
+```

@@ -1,0 +1,33 @@
+file: src/orders/checkout.ts:20-22
+scope: introduced
+issue: The catch block logs only the attempt number and order id. It drops `err`, so the gateway message, the HTTP status and the `GatewayError.timedOut` flag never reach the log. Intermediate failures are not recorded anywhere. Only the last error is rethrown.
+why: Suppose attempts 1 and 2 fail with a timeout and attempt 3 fails with a 502. The log then says "attempt N failed" three times, and the caller sees only the 502. Nobody debugging a payment incident can tell that the earlier attempts timed out. A timeout means the charge may have been accepted. Nothing in the log marks the order as one to reconcile.
+fix: Include the error's message and `timedOut` in the warn call. Use the existing `log.warn(string)` signature, since no richer helper exists.
+evidence: grounded: src/orders/checkout.ts, src/payments/gateway.ts, src/util/log.ts
+hidden-errors: GatewayError timeouts (`timedOut=true`) and refusals (non-2xx, with status); any TypeError or bug thrown from `charge`; JSON parse failure from `res.json()`, which is also retried.
+example:
+```ts
+} catch (err) {
+  lastError = err;
+  const detail = err instanceof Error ? err.message : String(err);
+  const timedOut = err instanceof GatewayError && err.timedOut;
+  log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${detail}${timedOut ? " (timed out, charge state unknown)" : ""}`);
+```
+
+file: src/orders/checkout.ts:16-26
+scope: introduced
+issue: The catch retries every error, with no check of the error type. That includes definitive refusals, which are never classified as retryable, and non-gateway errors such as TypeError or `res.json()` parse failures. The key `order-${order.id}` is fixed per order, not per payment attempt. The gateway replays the first call's result for a repeated key.
+why: Because of the replay, retries after a definitive failure just return the same failure. In the best case the customer waits about 600ms of backoff for nothing. A later `payOrder` on the same order, for example with a corrected card, may be answered with the cached first failure. That would leave the order unable to be paid. I could not confirm from the repo whether the gateway caches failures, so that part is unsettled. A bug in our own code is also retried three times and then rethrown as if it were a payment failure.
+fix: Retry only errors that are plausibly transient: `GatewayError` with `timedOut`, or a 5xx status. That needs the status exposed on `GatewayError`. Rethrow other errors immediately. Consider deriving the key from the order and one payment attempt, not the order alone.
+evidence: grounded: src/payments/gateway.ts (comment on idempotency replay semantics; `GatewayError` has no status field), src/orders/checkout.ts
+hidden-errors: Card declines (4xx), non-GatewayError exceptions (TypeError, JSON parse errors), and programming errors inside `charge`.
+example:
+```ts
+} catch (err) {
+  lastError = err;
+  const retryable = err instanceof GatewayError && (err.timedOut || (err.status ?? 500) >= 500);
+  log.warn(`charge attempt ${attempt} failed for order ${order.id}: ${String(err)}`);
+  if (!retryable) throw err;
+  if (attempt < MAX_ATTEMPTS) await sleep(backoffMs(attempt));
+}
+```

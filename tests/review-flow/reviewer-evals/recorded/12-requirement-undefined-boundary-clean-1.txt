@@ -1,0 +1,56 @@
+**Summary**
+
+The tests in `tests/orderTotal.test.ts` cover both pricing branches and both `summaryText` layouts with exact-value assertions, and they use boundary-style inputs (99, 101). But they have three gaps:
+
+- **The 100 threshold itself is never tested.** The tests check 99 and 101 but not 100, so flipping the comparison would not be caught.
+- **The rounding mode is never pinned.** No test uses a subtotal where rounding down and rounding to nearest give different answers.
+- **Nothing in the repo can run the test file.** It imports `vitest`, but the repo has no runner set up, and the gate was not run.
+
+How I checked: `git ls-files` lists only five files. I grepped the repo for `orderTotal|subtotal|breakdown|summaryText|DISCOUNT_RATE|THRESHOLD|SHIPPING`. The only callers outside `src/pricing` are `src/orders/summary.ts:4` and the new test file. There is no `CLAUDE.md`. No runnable directory was named, so every finding below is `grounded` or `proposed-probe`, never `verified`.
+
+**Gaps**
+
+*Regression gaps*
+
+file: src/pricing/orderTotal.ts:24
+scope: introduced
+issue: The threshold comparison `base >= THRESHOLD` has no test at the boundary itself (subtotal exactly 100). The tests use 99 (`tests/orderTotal.test.ts:13`) and 101 (`:21`), and both give the same result whether the code says `>=` or `>`.
+why: The requirement says "Orders of 100 or more get a 10% discount". If the comparison drifts to `>`, a customer with a 100 order is charged 107 instead of 90, and the suite stays green.
+fix: Add `expect(breakdown([line(100)])).toEqual({ subtotal: 100, discount: 10, shipping: 0, total: 90 })` to the `breakdown` describe block.
+evidence: proposed-probe: in src/pricing/orderTotal.ts:24 change `base >= THRESHOLD` to `base > THRESHOLD`. Expected: a test fails. Predicted from reading: all 8 tests pass. 99 still gets shipping, and 101/150×2/200 still get discounts.
+consumer: `orderTotal` (src/pricing/orderTotal.ts:33) and `summaryText` (src/orders/summary.ts:4), which renders the discount/shipping lines.
+test-evidence: tests/orderTotal.test.ts:13 asserts only `.shipping === 7` for 99. :21 asserts `.discount === 10` for 101. :9, :17, :25–27, :31, :37 and :41 use subtotals of 50, 200, 300, 140, 50 and 200. None of them is 100.
+demonstration: Change `>=` to `>`. A 100 order becomes subtotal 100, shipping 7, total 107, and every test I read still passes, because no test input lands on 100.
+
+file: src/pricing/orderTotal.ts:25
+scope: introduced
+issue: No test fixes the rounding mode of `Math.round(base * DISCOUNT_RATE)`. Every discounted subtotal in the tests (101, 140, 200, 300) gives the same discount under `Math.round` and `Math.floor`.
+why: Under `Math.round`, subtotals ending in 5–9 (e.g. 105, 109) get a discount 1 unit higher than under `Math.floor`. A switch to floor (or truncating with `| 0`) would silently change customer totals.
+fix: Add a case with a fractional half or above, e.g. `expect(breakdown([line(109)]).discount).toBe(11)` (10.9 rounds to 11). The requirement doesn't state a rounding rule, so first decide whether round-half-up is the intended rule, then pin it.
+evidence: proposed-probe: in src/pricing/orderTotal.ts:25 replace `Math.round` with `Math.floor`. Expected: a test fails. Predicted: all pass. 101 gives 10.1, which floors to 10 and matches `:21`. 200 → 20, 300 → 30 and 140 → 14 are already whole numbers.
+consumer: `breakdown().discount`, shown as `Discount: -N` by src/orders/summary.ts:7 and folded into `orderTotal` at src/pricing/orderTotal.ts:33.
+test-evidence: The only discount with a fractional part is `:21` (101 → 10.1 → 10). That input catches `Math.ceil` and removal of rounding altogether (10.100000000000001 ≠ 10), but not `Math.floor`.
+demonstration: With `Math.floor`, a 109 order is discounted 10 instead of 11 (total 99 instead of 98), and no test I read checks a subtotal with a fractional part of .5 or more.
+
+*Broken-verification gap*
+
+file: tests/orderTotal.test.ts:1
+scope: introduced
+issue: The test file imports from `vitest`, but the repo contains no `package.json`, no vitest config and no lockfile. `git ls-files` shows only `docs/task.md`, the three `src` files and this test. In this tree nothing can install or run the suite, and the gate for this change is recorded as "not run".
+why: None of the assertions above protect anything until a runner actually executes them. A regression in `breakdown` would go unnoticed regardless of how good the tests are.
+fix: Add a `package.json` with `vitest` as a dev dependency and a `test` script (plus a `tsconfig` if needed), and make sure the gate runs it. Alternatively, confirm this tree is an extract and the real repo already wires these up.
+evidence: grounded: `git ls-files` output in the review tree, plus a Glob/Grep over the tree. I could not settle whether this tree is a bare source extract of a larger repo that does have a runner.
+consumer: All of tests/orderTotal.test.ts:7–43.
+test-evidence: No runner configuration exists in the tree I was given.
+demonstration: Any mutation to src/pricing/orderTotal.ts goes undetected because no test executes. I couldn't confirm whether a runner exists outside this tree.
+
+**Test Quality Issues**
+
+None. The `toEqual` on the whole breakdown at `:9`/`:17` and the exact-string checks at `:37`/`:41` test observable output, not implementation details.
+
+**Positive Observations**
+
+- Both branches are pinned on every field via whole-object `toEqual` (`:9`, `:17`). Dropping shipping, dropping the discount or getting the total arithmetic wrong would each fail.
+- `:31` checks multi-line, multi-quantity summing (60×2 + 5×4 = 140, which becomes 126 after the discount) through `orderTotal`, the public entry point.
+- The `summaryText` tests check exact line order and the conditional lines for both branches, so swapping or dropping a line would fail.
+- The code matches the requirement on 99 vs 101 behaviour. I found no place where the code and the requirement disagree, apart from the unspecified rounding rule noted above.

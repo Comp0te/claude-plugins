@@ -6,7 +6,7 @@
       {"file": "src/pricing/orderTotal.ts", "lines": [23, 28]},
       {"file": "docs/task.md", "lines": [4, 4]}
     ],
-    "keywords": ["requirement", "acceptance", "spec", "task.md", "plan", "ticket"],
+    "keywords": ["requirement itself", "requirement, not the code", "requirement never says", "requirement is incomplete", "requirement is wrong", "requirement leaves", "change the requirement"],
     "scope": "introduced"
   },
   "allowed": [

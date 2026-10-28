@@ -1,0 +1,30 @@
+file: src/orders/checkout.ts:18-27
+scope: introduced
+issue: The retry loop calls `charge(order.total)` without an `idempotencyKey`. `gateway.ts` says a call without a key is always a new charge. A timeout (`GatewayError.timedOut === true`) doesn't mean the charge failed, because the gateway may have processed it. The loop retries after a timeout anyway, as a fresh charge.
+why: If the gateway captures the charge but the response takes longer than 5s, the retry charges the customer again. That can happen up to 3 times. The order is then marked paid with only the last receipt, and the earlier receipts are lost. Nothing logs the ambiguity, because the warn line doesn't record `timedOut`. The customer is double or triple charged with no trace on the order.
+fix: Generate one idempotency key per `payOrder` call, for example derived from `order.id`, and pass it on every attempt. Alternatively, don't retry when `timedOut` is true.
+evidence: grounded: src/payments/gateway.ts:21-43 and src/orders/checkout.ts. I read both and did not run anything.
+hidden-errors: Timeouts where the charge was actually captured. Any other error type thrown inside the try, such as a TypeError or a bug in `receipt.id` access, is also retried as if it were a gateway failure.
+example:
+```ts
+const idempotencyKey = `order-${order.id}`;
+...
+const receipt = await charge(order.total, { idempotencyKey });
+```
+
+file: src/orders/checkout.ts:20-27
+scope: introduced
+issue: The catch block retries every error without checking the type. A non-transient refusal, such as a declined card, is retried 3 times with backoff. The log line also leaves out the error message, status and `timedOut`.
+why: The code can't tell a retryable failure (a 502 or a timeout) from a permanent one (a decline). It re-charges cards that were definitively refused, and it delays the customer's failure message by about 600ms of backoff. Whoever debugs this later only sees "attempt N failed" and not why. The requirement says to retry "a failed card charge", so the retry itself is intended. Retrying a declined card is risky and can trigger fraud flags.
+fix: Catch only `GatewayError`, and rethrow immediately for non-retryable cases. Include `err.message` in the log. If the gateway can't tell these cases apart, record that in the code.
+evidence: grounded: src/payments/gateway.ts:36-40 shows that only two failure shapes exist. I did not run anything.
+hidden-errors: A programming error such as a TypeError, a JSON parse failure from `res.json()`, and permanent declines. All of these are retried and logged without detail.
+example:
+```ts
+} catch (err) {
+  if (!(err instanceof GatewayError)) throw err;
+  lastError = err;
+  log.warn(`charge attempt ${attempt} failed for order ${order.id}: ${err.message} (timedOut=${err.timedOut})`);
+  ...
+}
+```

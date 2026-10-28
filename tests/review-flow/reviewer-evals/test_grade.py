@@ -592,5 +592,31 @@ class RecordedAnswerTests(unittest.TestCase):
         self.assertEqual(result.false_positives, 3)
 
 
+class RequirementFlawAttributionTests(unittest.TestCase):
+    """Cases 11 and 12 count a finding only when it blames the requirement. Answers
+    are the need arm's defect and clean runs, hand-counted: case 11 attributes 0/3,
+    case 12 only run 1 ("the requirement, not the code, is ... incomplete"); run 0
+    says the code matches the requirement, run 2 calls it a test gap."""
+
+    def _grade(self, case_dir, variant, run):
+        known = _known_files(case_dir)
+        text = (RECORDED_DIR / f"{case_dir}-{variant}-{run}.txt").read_text()
+        case = json.loads((CASES_DIR / case_dir / "case.json").read_text())
+        return grade.grade_run(text, known, case, variant)
+
+    def test_case_11_defect_runs_do_not_attribute_the_flaw_to_the_requirement(self):
+        caught = [self._grade("11-requirement-harmful-retry", "defect", i).caught for i in range(3)]
+        self.assertEqual(caught, [False, False, False])
+
+    def test_case_12_only_defect_run_1_attributes_the_flaw_to_the_requirement(self):
+        caught = [self._grade("12-requirement-undefined-boundary", "defect", i).caught for i in range(3)]
+        self.assertEqual(caught, [False, True, False])
+
+    def test_clean_answers_are_never_catches(self):
+        for case_dir in ("11-requirement-harmful-retry", "12-requirement-undefined-boundary"):
+            for i in range(3):
+                self.assertIsNone(self._grade(case_dir, "clean", i).caught)
+
+
 if __name__ == "__main__":
     unittest.main()
