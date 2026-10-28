@@ -20,6 +20,8 @@ warning.
 | Component | Path | What it does | Fires on |
 | --- | --- | --- | --- |
 | `writing-implementation-plans` skill | `skills/writing-implementation-plans/SKILL.md` | Turns a spec, a ticket, or an agreed approach into a written implementation plan with a frozen intent, tiered constraints, an annotated code map, and a tested edge-case matrix. | Description match — loads when the conversation is turning multi-step work into a plan before code is touched. |
+| `shaping-intent` skill | `skills/shaping-intent/SKILL.md` | Turns a request whose what or why is not settled into an approved `intent.md`: sized first, clarified one question at a time, read by an agent that was not in the conversation, then handed to `writing-implementation-plans`. Writes a `spec.md` beside it only when someone else writes the plan, a technical approver signs off the solution, or several plans share a contract. Partly adapted from superpowers' `brainstorming` (MIT, see `skills/shaping-intent/NOTICE`). | Description match — loads when someone wants something built but what or why is still open, or when an intent sent for approval comes back. |
+| `intent-reader` agent | `agents/intent-reader.md` | Reads an intent or spec as the planner who cannot ask its author, and returns only the questions where a wrong guess would change the plan. Read-only. | Dispatch — from `shaping-intent`, with the document's path only. |
 | `debugging` skill | `skills/debugging/SKILL.md` | Finds a bug's cause before fixing it: reproduce, a failing test as the target, one hypothesis per experiment, a fix at the source, a stop after repeated failed fixes. Carries root-cause tracing, condition-based waiting, a hardening checklist and a test-pollution bisection script. Adapted from superpowers' `systematic-debugging` (MIT, see `skills/debugging/NOTICE`). | Description match — loads when a bug, failing or flaky test, or build failure needs fixing. |
 | `plan-executor` agent | `agents/plan-executor.md` | Implements one scoped task (or step) of an already-approved plan: reads that task's frozen contract, writes the code, runs the project's checks, and reports back a diff summary. | Dispatch — given the plan path, a task's line range, and which steps are in scope. |
 | `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/plan-flow:execute-plan <path-to-plan.md>`. |
@@ -46,6 +48,10 @@ Set at install with `--config <key>=<value>`, or later with
 Authored plans default to `docs/plans/` in the repository the plan is written for. This is a
 default, not a requirement — say so once if your own convention differs, and that stated
 preference overrides it.
+
+A plan written from an intent lives beside it: `docs/plans/YYYY-MM-DD-<topic>/` holds
+`intent.md`, `spec.md` when there is one, and `plan.md`. The intent is not committed unless you
+ask.
 
 ## What the session hook does, and what it does not
 
