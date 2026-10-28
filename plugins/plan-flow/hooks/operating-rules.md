@@ -9,3 +9,7 @@
   context (broad multi-file searches, reading design-tool nodes or large payloads) or when the
   project has an agent for it. Not for a single-fact lookup or a one-line edit, and never fan
   out just to look thorough.
+- **A bug starts with the `plan-flow:debugging` skill.** A bug report, an error, a failing or
+  flaky test, or behaviour that differs from what was expected: load the skill before reading the
+  code, because it holds the order of work a quick fix skips — a failing test first, the fix at
+  the source, a stop after repeated failed fixes.
