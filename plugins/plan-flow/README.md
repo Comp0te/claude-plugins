@@ -20,6 +20,7 @@ warning.
 | Component | Path | What it does | Fires on |
 | --- | --- | --- | --- |
 | `writing-implementation-plans` skill | `skills/writing-implementation-plans/SKILL.md` | Turns a spec, a ticket, or an agreed approach into a written implementation plan with a frozen intent, tiered constraints, an annotated code map, and a tested edge-case matrix. | Description match — loads when the conversation is turning multi-step work into a plan before code is touched. |
+| `debugging` skill | `skills/debugging/SKILL.md` | Finds a bug's cause before fixing it: reproduce, a failing test as the target, one hypothesis per experiment, a fix at the source, a stop after repeated failed fixes. Carries root-cause tracing, condition-based waiting, a hardening checklist and a test-pollution bisection script. Adapted from superpowers' `systematic-debugging` (MIT, see `skills/debugging/NOTICE`). | Description match — loads when a bug, failing or flaky test, or build failure needs fixing. |
 | `plan-executor` agent | `agents/plan-executor.md` | Implements one scoped task (or step) of an already-approved plan: reads that task's frozen contract, writes the code, runs the project's checks, and reports back a diff summary. | Dispatch — given the plan path, a task's line range, and which steps are in scope. |
 | `/execute-plan` command | `commands/execute-plan.md` | Runs an approved plan task by task, dispatching each task to a scoped `plan-executor` and reviewing the returned diff before moving to the next. | Explicit invocation: `/plan-flow:execute-plan <path-to-plan.md>`. |
 | Working agreements | `references/working-agreements.md` | How code is written: when to ask before coding, comment rules, research before building, scope control, verifying work. | Imported into `~/.claude/CLAUDE.md` by the line below. |
@@ -113,6 +114,7 @@ It can report one of three problems:
 ```bash
 python3 -m unittest discover -s plugins/plan-flow/hooks -p 'test_*.py'
 python3 -m unittest discover -s plugins/plan-flow/evals -p 'test_*.py'
+python3 -m unittest discover -s plugins/plan-flow/skills/debugging/scripts -p 'test_*.py'
 claude plugin test plugins/plan-flow
 tsc -p plugins/plan-flow
 ```
