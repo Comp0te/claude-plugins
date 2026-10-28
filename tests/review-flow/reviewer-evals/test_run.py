@@ -4,6 +4,7 @@ against `fake_claude.py` so nothing here makes a live model call.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -215,7 +216,7 @@ class RunPyTest(unittest.TestCase):
                 with self.subTest(case=case_dir.name, variant=variant):
                     workspace = self._tmp() / "workspace"
                     run.build_workspace(trees, variant, workspace)
-                    brief = run.render_brief(case_dir, workspace)
+                    brief = run.render_brief(case_dir, workspace, variant)
                     log = git(workspace, "log", "--format=%an %ae %s")
                     assert_no_case_leak(self, case_dir.name, brief, "brief")
                     assert_no_case_leak(self, case_dir.name, log, "git log")
@@ -319,6 +320,92 @@ class RunPyTest(unittest.TestCase):
 
         author_text = (CASES_DIR / "05-injection-in-author-text" / "author-text.md").read_text().rstrip("\n")
         self.assertIn(author_text, brief[tag_idx:close_idx])
+
+    # --- requirement block ---------------------------------------------------------
+
+    def _requirement_case(self, **variants):
+        case_dir = self._tmp() / "case"
+        case_dir.mkdir()
+        for variant, text in variants.items():
+            (case_dir / f"requirement.{variant}.md").write_text(text)
+        return case_dir
+
+    def _brief(self, case_dir, variant="defect"):
+        workspace = self._tmp() / "workspace"
+        run.build_workspace(CASES_DIR / "01-swallowed-catch", variant, workspace)
+        return run.render_brief(case_dir, workspace, variant)
+
+    def _paragraph_text(self):
+        return run._paragraph(run.BRANCH_REVIEW, run.REQ_PARAGRAPH)
+
+    def test_no_requirement_leaves_the_brief_unchanged(self):
+        case_dir = self._requirement_case()
+        workspace = self._tmp() / "workspace"
+        run.build_workspace(CASES_DIR / "01-swallowed-catch", "defect", workspace)
+        old = run.BRIEF_TEMPLATE.replace("{requirement_block}", "").format(
+            diff=run._diff_text(workspace), workspace=str(workspace),
+            head_sha=run._head_sha(workspace), author_block="",
+        )
+        self.assertEqual(run.render_brief(case_dir, workspace, "defect"), old)
+        self.assertEqual(run.BRIEF_TEMPLATE.replace("{requirement_block}", ""),
+                         run.BRIEF_TEMPLATE.replace("{author_block}{requirement_block}", "{author_block}"))
+        self.assertNotIn("<requirement", old)
+
+    def test_requirement_without_block_file_carries_requirement_and_paragraph(self):
+        case_dir = self._requirement_case(defect="Notes must be saved.\n")
+        with unittest.mock.patch.object(run, "FLAW_BLOCK", self._tmp() / "missing.md"):
+            brief = self._brief(case_dir)
+        self.assertIn('<requirement source="plan">\nNotes must be saved.\n</requirement>', brief)
+        self.assertIn(self._paragraph_text(), brief)
+        self.assertTrue(self._paragraph_text().startswith(run.REQ_PARAGRAPH))
+        self.assertLess(brief.index("</requirement>"), brief.index(run.REQ_PARAGRAPH))
+        self.assertLess(brief.index(run.REQ_PARAGRAPH), brief.index("```diff"))
+
+    def test_requirement_with_block_file_appends_block_text(self):
+        case_dir = self._requirement_case(defect="Notes must be saved.\n")
+        block = self._tmp() / "requirement-flaw.md"
+        block.write_text("**Report the requirement when it is wrong.** Quote it.\n")
+        with unittest.mock.patch.object(run, "FLAW_BLOCK", block):
+            brief = self._brief(case_dir)
+        self.assertIn(self._paragraph_text(), brief)
+        self.assertIn("**Report the requirement when it is wrong.** Quote it.", brief)
+        self.assertLess(brief.index(run.REQ_PARAGRAPH), brief.index("**Report the requirement when"))
+        self.assertNotIn("shared:", brief)
+
+    def test_missing_paragraph_exits_naming_it_and_sends_nothing(self):
+        case_dir = self._requirement_case(defect="Notes must be saved.\n")
+        stub = self._tmp() / "branch-review.md"
+        stub.write_text("no such paragraph here\n")
+        with unittest.mock.patch.object(run, "BRANCH_REVIEW", stub):
+            with self.assertRaises(SystemExit) as cm:
+                self._brief(case_dir)
+        self.assertIn(run.REQ_PARAGRAPH, str(cm.exception))
+
+        # Through the runner: the job never reaches the agent invocation.
+        tmp = self._tmp()
+        log_path = tmp / "log.jsonl"
+        with unittest.mock.patch.object(run, "BRANCH_REVIEW", stub), \
+                unittest.mock.patch.object(run, "CASES_DIR", tmp / "cases"):
+            (tmp / "cases").mkdir()
+            shutil.copytree(CASES_DIR / "01-swallowed-catch", tmp / "cases" / "01-swallowed-catch")
+            (tmp / "cases" / "01-swallowed-catch" / "requirement.defect.md").write_text("R\n")
+            with unittest.mock.patch.dict(os.environ, {"FAKE_CLAUDE_MODE": "ok-caught",
+                                                       "FAKE_CLAUDE_LOG": str(log_path)}):
+                with self.assertRaises(SystemExit):
+                    run.main(["--case", "01-*", "--runs", "1", "--claude", str(FAKE_CLAUDE),
+                              "--out", str(tmp / "out")])
+        defect_calls = [e for e in read_log(log_path) if "<requirement" in e["argv"][-1]]
+        self.assertEqual(defect_calls, [])
+
+    def test_each_variant_carries_its_own_requirement(self):
+        case_dir = self._requirement_case(defect="Defect-side wording.\n", clean="Clean-side wording.\n")
+        defect = self._brief(case_dir, "defect")
+        clean = self._brief(case_dir, "clean")
+        self.assertIn("Defect-side wording.", defect)
+        self.assertNotIn("Clean-side wording.", defect)
+        self.assertIn("Clean-side wording.", clean)
+        self.assertNotIn("Defect-side wording.", clean)
+
 
     # --- raw saved ---------------------------------------------------------------
 
