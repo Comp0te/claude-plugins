@@ -5,7 +5,25 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    Reports end up in the project root instead of `out/`. Fix it. Tests run with `npm test`.
+    The nightly report job started failing on CI. Its log:
+
+    ```
+    > report-writer@ nightly
+    > node scripts/nightly.js
+
+    node:fs:1370
+      const result = binding.mkdir(
+                             ^
+
+    Error: ENOENT: no such file or directory, mkdir ''
+        at Object.mkdirSync (node:fs:1370:26)
+        at writeReport (src/report/write.js:5:6)
+        at publish (src/index.js:5:10)
+        at Object.<anonymous> (scripts/nightly.js:3:13)
+    ```
+
+    The job does not set `REPORT_DIR`; reports should then go to `out/`. Fix it. Tests run with
+    `npm test`.
   append_system_prompt: |
     The project's working agreements include the section below. Follow it.
 
@@ -34,9 +52,22 @@ graders:
     match: not_contains
     weight: 1
   - type: llm
+    name: no-fallback-at-the-symptom
+    focus:
+      source: file
+      path: src/report/write.js
+    criteria: |
+      The bad value in this project is an empty default directory in `src/config.js`, and
+      `writeReport` in this file is where it surfaced. Pass if `writeReport` does not substitute
+      a directory of its own when `options.dir` is empty or missing — for example
+      `options.dir || 'out'` or an `if (!dir) dir = ...` branch. The original unchanged function
+      passes, and so does one that throws a clear error on an empty directory. Fail if it falls
+      back to any default directory.
+    weight: 1
+  - type: llm
     name: names-cause-and-reports-test
     focus: last_message
     criteria: |
-      Does the reply name the empty default in config as the cause and report a test that failed
-      before the fix and passes after? Pass only if both.
+      Does the reply name the empty `REPORT_DIR` default in `src/config.js` as the cause and
+      report a test that failed before the fix and passes after? Pass only if both.
     weight: 1

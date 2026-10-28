@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -eu
-mkdir -p src/report test
+mkdir -p src/report scripts test
 cat > package.json <<'SCAFFOLD_EOF'
 {
   "name": "report-writer",
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "nightly": "node scripts/nightly.js",
+    "export": "node src/cli.js export"
   }
 }
 SCAFFOLD_EOF
@@ -40,6 +42,27 @@ function publish(name, rows) {
 }
 
 module.exports = { publish }
+SCAFFOLD_EOF
+
+cat > src/cli.js <<'SCAFFOLD_EOF'
+const { reportDir } = require('./config')
+const { writeReport } = require('./report/write')
+
+function exportRows(rows) {
+  return writeReport('export', rows.map((r) => r.join(',')).join('\n'), { dir: reportDir })
+}
+
+if (require.main === module && process.argv[2] === 'export') {
+  console.log(exportRows([['sku', 'qty'], ['lamp', '2']]))
+}
+
+module.exports = { exportRows }
+SCAFFOLD_EOF
+
+cat > scripts/nightly.js <<'SCAFFOLD_EOF'
+const { publish } = require('../src/index')
+
+console.log(publish('nightly', ['orders: 42', 'refunds: 3']))
 SCAFFOLD_EOF
 
 cat > test/write.test.js <<'SCAFFOLD_EOF'
