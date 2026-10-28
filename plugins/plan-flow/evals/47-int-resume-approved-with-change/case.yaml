@@ -28,7 +28,7 @@ graders:
     target:
       source: file
       path: docs/plans/2026-11-02-notes-export/intent.md
-    pattern: '##\s+Revisions[\s\S]{0,1200}(file ?name|filename)'
+    pattern: '##\s+Revisions[\s\S]{0,1200}(file(''s)? ?name|filename)'
     match: contains
     flags: i
     weight: 0.5
@@ -37,7 +37,7 @@ graders:
     target:
       source: file
       path: docs/plans/2026-11-02-notes-export/intent.md
-    pattern: '\|[^\n]*(file ?name|filename)[^\n]*DECIDED \(Dana|DECIDED \(Dana[^\n]*(file ?name|filename)'
+    pattern: '\|[^\n]*(file(''s)? ?name|filename)[^\n]*DECIDED \(Dana|DECIDED \(Dana[^\n]*(file(''s)? ?name|filename)'
     match: contains
     flags: i
     weight: 0.5

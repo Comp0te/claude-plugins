@@ -383,10 +383,10 @@
     },
     "47-int-resume-approved-with-change": {
       "runs": 3,
-      "score": 0.89,
+      "score": 1,
       "graders": {
         "status-approved-by-dana": 3,
-        "revision-recorded": 1,
+        "revision-recorded": 3,
         "change-attributed": 3,
         "handed-to-planning": 3,
         "plan-beside-intent": 3
