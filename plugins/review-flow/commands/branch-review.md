@@ -39,7 +39,7 @@ other one, and the flow looks identical either way.
 
 Find what this branch was *supposed* to do. Try these in order and stop at the first that resolves:
 
-1. **A plan** — look in `docs/plans/` (a plan there is a single `.md` file or a folder holding `plan.md`), then in the legacy `docs/superpowers/plans/`, for one matching the branch or its subject. If it has `<frozen-after-approval>` sections, take the frozen Global Constraints and, where tasks carry their own contracts, the frozen Intent / Ask First / I/O matrix of the tasks this diff touches.
+1. **A plan** — look in `docs/plans/`, then in `docs/plans/archive/`, where a plan is moved once it has been executed (in either, a plan is a single `.md` file or a folder holding `plan.md`), for one matching the branch or its subject. If it has `<frozen-after-approval>` sections, take the frozen Global Constraints and, where tasks carry their own contracts, the frozen Intent / Ask First / I/O matrix of the tasks this diff touches.
 2. **A ticket** — if the branch name or the commit subjects carry an issue key (`ABC-1234`), fetch it and take the description and acceptance criteria.
 3. **Nothing resolves** — proceed without one, and record that fact for the report.
 

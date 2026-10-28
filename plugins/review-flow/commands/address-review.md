@@ -92,7 +92,7 @@ Classify each `A<n>` as exactly one of:
 
 A comment that asserts behavior ("this crashes when…", "race here", "leaks") is a **defect claim** and goes to section 5 before it can be `fix` or `dispute`. Style, naming, questions and scope requests are decided here: no verifier; check the repo's convention, `fix` if it matches, else `dispute` citing the convention. For a `real` check, treat it as a defect claim too.
 
-Resolve the plan the branch was built from the way `/review-flow:branch-review` does, looking in both `docs/plans/` and `docs/superpowers/plans/`, and take only the frozen constraints, never the Code Map or the steps. A comment that would break one is `needs-user`. Nothing resolving is stated in the report.
+Resolve the plan the branch was built from the way `/review-flow:branch-review` does, archived plans included, and take only the frozen constraints, never the Code Map or the steps. A comment that would break one is `needs-user`. Nothing resolving is stated in the report.
 
 An outdated thread (`outdated: true`) is still classified; its reply cites the current location or the commit that removed the code.
 
