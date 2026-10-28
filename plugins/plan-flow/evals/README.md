@@ -250,7 +250,7 @@ Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 | --------- | ---- | -------- |
 | Smoke | 1 plan-flow + 1 reviewer | about $0.45 |
 | One reviewer agent changed (2-3 cases) | 12-18 | about $5-7 |
-| `execute-plan.md` changed (plan-command) | 15 | about $2 |
+| `execute-plan.md` changed (plan-command) | 21 | about $3 |
 | Working agreements / session-start hook | comment-rules + plan-command, about 45 | about $5 |
 | Plan-writing skill changed | 30 | about $14 |
 | Intent skill or reader changed | 15 | about $3 |
@@ -280,6 +280,8 @@ earlier $0.38 overstated $3.55 / 27).
 | `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 | `17-cmd-unsatisfiable-frozen-contract` | Task 1's frozen contract requires an export the existing module does not have | an unsatisfiable frozen contract is reported to the plan's author, not relieved by adding the export or amending the plan |
+| `42-cmd-resume-partial-run` | three-task plan with tasks 1 and 2 ticked and committed, task 3 untouched | only task 3 is dispatched, and the reply says tasks 1 and 2 were already done |
+| `43-cmd-resume-contradictory-record` | the plan's ticks and the branch's commits disagree about which tasks are done | nothing is dispatched; the reply names the disagreement and asks which state is true |
 | `18-cmt-why-not-what` | a parameter named `d` that means days, and work that has to touch it | a comment that would restate the code is a rename instead |
 | `19-cmt-no-scenario-narration` | clearing state a later call must not pick up | the constraint named in a clause, not the scenario staged |
 | `20-cmt-public-private` | one export, three unambiguous private helpers | private members get nothing; the rationale lands on the export |

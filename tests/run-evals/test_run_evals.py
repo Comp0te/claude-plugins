@@ -132,9 +132,9 @@ class RunEvalsTest(unittest.TestCase):
         self.assertIn("--trust-plugin", argv)
         self.assertTrue(argv[argv.index("--json") + 1].endswith("/pf-1.json"))
         self.assertEqual(argv[argv.index("--max-cost-usd") + 1], "2.00")
-        # entry estimate 15 runs * 0.13 = 1.95; 1.5x = 2.925 -> 2.92 or 2.93 per float rounding
+        # entry estimate 21 runs * 0.13 = 2.73; 1.5x = 4.095 -> 4.09 or 4.10 per float rounding
         ceiling = float(second[0][second[0].index("--max-cost-usd") + 1])
-        self.assertAlmostEqual(ceiling, 2.93, delta=0.01)
+        self.assertAlmostEqual(ceiling, 4.095, delta=0.01)
         self.assertTrue(second[0][second[0].index("--json") + 1].endswith("/pf-2.json"))
 
     def test_plan_flow_failure_does_not_stop_loop(self):
