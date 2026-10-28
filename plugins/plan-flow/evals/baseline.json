@@ -323,6 +323,81 @@
         "waits-from-a-known-point": 3,
         "explains-the-race": 3
       }
+    },
+    "48-plan-from-approved-intent": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "skill-fired": 3,
+        "plan-beside-intent": 3,
+        "exec-header": 3,
+        "never-carries-non-goal": 3,
+        "decision-carried": 3,
+        "covers-expected-behavior": 3,
+        "probe-first": 3
+      }
+    },
+    "49-plan-refuses-draft-intent": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-plan-from-draft": 3,
+        "asks-before-planning": 3
+      }
+    },
+    "44-int-loose-ask-one-question": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-write": 3,
+        "no-edit": 3,
+        "one-question": 3
+      }
+    },
+    "45-int-full-brief-writes-intent": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "intent-written": 3,
+        "no-plan-before-approval": 3,
+        "no-spec-without-trigger": 3,
+        "status-unapproved": 3,
+        "expected-behavior": 3,
+        "decisions-attributed": 3,
+        "reader-dispatched": 3,
+        "reader-gets-path-only": 3,
+        "raises-admin-scope": 3
+      }
+    },
+    "46-int-spec-for-another-planner": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "intent-written": 3,
+        "spec-written": 3,
+        "no-plan": 3,
+        "fixed-choices": 3,
+        "left-to-planner": 3,
+        "fixed-versus-open": 3
+      }
+    },
+    "47-int-resume-approved-with-change": {
+      "runs": 3,
+      "score": 0.93,
+      "graders": {
+        "status-approved-by-dana": 3,
+        "revision-recorded": 2,
+        "change-attributed": 3,
+        "plan-beside-intent": 3
+      }
+    },
+    "50-int-neg-settled-small-change": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-planning-docs": 3,
+        "change-made": 3
+      }
     }
   },
   "recorded": "2026-10-28",

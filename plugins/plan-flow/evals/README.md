@@ -253,10 +253,10 @@ Cost of a run (API-list equivalent; on a subscription it is usage, not money):
 | `execute-plan.md` changed (plan-command) | 15 | about $2 |
 | Working agreements / session-start hook | comment-rules + plan-command, about 45 | about $5 |
 | Plan-writing skill changed | 30 | about $14 |
-| Intent skill or reader changed | 15 | about $8 |
+| Intent skill or reader changed | 15 | about $3 |
 | `--all` (four plan-flow tiers + ten reviewer cases) | about 180 | about $50; 1.5-2 h at `-j 2` |
 
-Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45, intent $0.50 (unmeasured),
+Per-run figures behind the estimate: comment-rules $0.08, plan-command $0.13, plan-writing $0.45, intent $0.18,
 plan-execution $0.60 (unmeasured), reviewer $0.10 per row-run (measured 2026-10-27 at $0.03-0.09; the
 earlier $0.38 overstated $3.55 / 27).
 
