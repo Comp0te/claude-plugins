@@ -23,6 +23,9 @@ class TTY(io.StringIO):
 
 
 class RunEvalsTest(unittest.TestCase):
+    def test_every_tier_has_a_cost(self):
+        self.assertEqual(set(rn.es.TIER_FLAGS) - set(rn.COST_PER_RUN), set())
+
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)

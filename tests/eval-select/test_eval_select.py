@@ -107,6 +107,14 @@ class TestSelect(Base):
         r = self.sel(f"{PF}/skills/writing-implementation-plans/SKILL.md")
         self.assertEqual(r, {"plan_flow": [{"tier": "plan-writing", "case": None}], "reviewer": []})
 
+    def test_debugging_skill(self):
+        self.assertEqual(self.tiers(f"{PF}/skills/debugging/SKILL.md"),
+                         [{"tier": "debugging", "case": None}])
+
+    def test_debugging_script(self):
+        self.assertEqual(self.tiers(f"{PF}/skills/debugging/scripts/find-polluter.sh"),
+                         [{"tier": "debugging", "case": None}])
+
     def test_executor(self):
         self.assertEqual(self.tiers(f"{PF}/agents/plan-executor.md"),
                          [{"tier": "plan-execution", "case": None}])
@@ -178,7 +186,7 @@ class TestCli(Base):
         code, r = self.run_cli("--all")
         self.assertEqual(code, 0)
         self.assertEqual([e["tier"] for e in r["plan_flow"]],
-                         ["plan-writing", "plan-execution", "plan-command", "comment-rules"])
+                         ["plan-writing", "plan-execution", "plan-command", "comment-rules", "debugging"])
         self.assertTrue(all(e["case"] is None for e in r["plan_flow"]))
         self.assertEqual(r["reviewer"], ["01-swallowed-catch", "02-deleted-guard", "05-injection"])
 
@@ -191,6 +199,11 @@ class TestCli(Base):
         code, r = self.run_cli("--plugin", "plan-flow")
         self.assertEqual(r["ref"], "plan-flow--v0.6.2")
         self.assertEqual(r["plan_flow"], [])
+
+    def test_debugging_tier_grants_write_edit_bash(self):
+        argv = es.pf_argv({"tier": "debugging", "case": None})
+        i = argv.index("--allow-tools")
+        self.assertEqual(argv[i:i + 4], ["--allow-tools", "Write", "Edit", "Bash"])
 
     def test_pf_argv(self):
         argv = es.pf_argv({"tier": "comment-rules", "case": "26-x"})

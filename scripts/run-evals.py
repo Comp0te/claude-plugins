@@ -19,7 +19,7 @@ RV_RESULTS = RV_DIR / "results"
 # USD, API-list equivalent per run; estimates to refresh from results.
 COST_PER_RUN = {
     "plan-writing": 0.45, "plan-execution": 0.60, "plan-command": 0.13,
-    "comment-rules": 0.08, "reviewer": 0.10,
+    "comment-rules": 0.08, "debugging": 0.45, "reviewer": 0.10,
 }
 CONFIRM_ABOVE_USD = 10.0
 REVIEWER_RUNS = 3

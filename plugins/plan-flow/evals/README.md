@@ -128,6 +128,21 @@ measure something other than line count it is inert, so those measure the rule t
 budget-adjacent ones (`24`, `25`) measure rule and hook together; `12-exec-comment-budget` remains
 the hook's own case.
 
+### Debugging tier
+
+```bash
+claude plugin eval . --tag debugging --ablation with-without --scaffold \
+  --allow-tools Write Edit Bash --judge-model claude-opus-5-5 --no-publish
+```
+
+Four cases (`31` through `34`) measuring the `debugging` skill: root cause found upstream of the
+symptom, a flaky fixed delay replaced by a condition wait, a third fix refused in favour of
+questioning the design, and one negative where explaining code must not fire the skill.
+
+`--ablation with-without`, because the without-arm shows whether the skill adds anything over a
+bare model. `Bash` is in the grant because the cases run the fixture's tests: a reproducing test
+that cannot be run proves nothing. No baseline is recorded until the first validated run.
+
 ### End-to-end tier
 
 ```bash

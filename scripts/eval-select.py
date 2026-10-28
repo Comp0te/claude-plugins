@@ -12,6 +12,7 @@ TIER_FLAGS = {
     "plan-execution": ["--allow-tools", "Write", "Edit", "Bash"],
     "plan-command":   ["--allow-tools", "Write", "Edit", "Bash"],
     "comment-rules":  ["--allow-tools", "Write", "Edit"],
+    "debugging":      ["--allow-tools", "Write", "Edit", "Bash"],
 }
 COMMON_FLAGS = ["--ablation", "none", "--scaffold", "--judge-model", "claude-opus-5-5",
                 "--threshold", "0", "--no-publish", "--trust-plugin", "-j", "2"]
@@ -24,7 +25,8 @@ SMOKE = {
 ALL_REVIEWER = "*all*"
 # (glob, action) pairs; every matching rule contributes and the results are unioned.
 RULES = [
-    ("plugins/plan-flow/skills/*", [("tier", "plan-writing")]),
+    ("plugins/plan-flow/skills/writing-implementation-plans/*", [("tier", "plan-writing")]),
+    ("plugins/plan-flow/skills/debugging/*", [("tier", "debugging")]),
     ("plugins/plan-flow/agents/*", [("tier", "plan-execution")]),
     ("plugins/plan-flow/commands/*", [("tier", "plan-command")]),
     ("plugins/plan-flow/references/working-agreements.md",
