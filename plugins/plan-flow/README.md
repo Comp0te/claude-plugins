@@ -53,6 +53,10 @@ A plan written from an intent lives beside it: `docs/plans/YYYY-MM-DD-<topic>/` 
 `intent.md`, `spec.md` when there is one, and `plan.md`. The intent is not committed unless you
 ask.
 
+When `/plan-flow:execute-plan` finishes a plan — every task committed, the full gate green — it
+moves the plan into `archive/` inside the same directory, so what remains there is what is left
+to do. The review commands look in both.
+
 ## What the session hook does, and what it does not
 
 The hook injects only what has to be true before any skill or agent loads — it is paid on every

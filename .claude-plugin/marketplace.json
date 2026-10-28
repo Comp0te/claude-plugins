@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "review-flow",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "description": "Review of a GitHub pull request or the current branch: dispatches focused reviewer agents matched to the diff, verifies every finding against the source before it is reported, and publishes an approved subset as inline PR comments. Also an author-side pass that fixes and answers the feedback on your own PR.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/review-flow"
@@ -60,7 +60,7 @@
     },
     {
       "name": "plan-flow",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "description": "Write implementation plans with an immutable intent, a tested edge-case matrix and an annotated code map, then execute them task by task against that frozen contract, in a context scoped to one task at a time.",
       "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
       "source": "./plugins/plan-flow"
