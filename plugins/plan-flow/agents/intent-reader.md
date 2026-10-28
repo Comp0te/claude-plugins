@@ -1,6 +1,6 @@
 ---
 name: intent-reader
-description: Reads an intent.md or spec.md as the person who has to plan from it and cannot ask its author, and returns only the questions where a wrong guess would change the plan. Holds no write tool. Dispatched by plan-flow:shaping-intent with the document's path and nothing else.
+description: Reads an intent.md or spec.md as the person who has to plan from it and cannot ask its author, and returns only the questions where a wrong guess would change the plan. Holds no write tool. Dispatched by plan-flow:intent with the document's path and nothing else.
 model: opus
 effort: high
 color: yellow

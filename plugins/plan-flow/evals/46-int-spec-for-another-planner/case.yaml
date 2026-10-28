@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    /plan-flow:shaping-intent Members need to download their notes as a CSV file: one row per note with title, body and
+    /plan-flow:intent Members need to download their notes as a CSV file: one row per note with title, body and
     created date, archived notes left out, a download from the notes screen, nothing scheduled,
     no PDF. Admins export only their own notes, like everyone else. Dana (product owner) has
     approved all of this.

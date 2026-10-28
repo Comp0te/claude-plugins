@@ -1,11 +1,11 @@
 ---
-name: shaping-intent
+name: intent
 description: Use when someone wants something built or changed but what they want, or why, is not settled yet — a feature idea, a loose request, a stakeholder's ask, a ticket that leaves the behavior open — before any plan or code. Also when an intent.md sent for approval comes back with an answer.
 disable-model-invocation: true
 argument-hint: "<request, saying if a spec.md is wanted; or an intent.md path and who approved it>"
 ---
 
-# Shaping Intent
+# Intent
 
 A request is usually thinner than what the person wants. This skill finds out what they want
 and why, settles it with them, and writes it down for whoever plans the work — so the many

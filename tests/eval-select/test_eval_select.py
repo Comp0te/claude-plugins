@@ -117,11 +117,11 @@ class TestSelect(Base):
                          [{"tier": "debugging", "case": None}])
 
     def test_intent_skill(self):
-        self.assertEqual(self.tiers(f"{PF}/skills/shaping-intent/SKILL.md"),
+        self.assertEqual(self.tiers(f"{PF}/skills/intent/SKILL.md"),
                          [{"tier": "intent", "case": None}])
 
     def test_intent_template(self):
-        self.assertEqual(self.tiers(f"{PF}/skills/shaping-intent/references/intent-template.md"),
+        self.assertEqual(self.tiers(f"{PF}/skills/intent/references/intent-template.md"),
                          [{"tier": "intent", "case": None}])
 
     def test_intent_reader(self):

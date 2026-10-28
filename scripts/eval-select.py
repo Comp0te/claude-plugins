@@ -27,7 +27,7 @@ ALL_REVIEWER = "*all*"
 # (glob, action) pairs; every matching rule contributes and the results are unioned.
 RULES = [
     ("plugins/plan-flow/skills/writing-implementation-plans/*", [("tier", "plan-writing")]),
-    ("plugins/plan-flow/skills/shaping-intent/*", [("tier", "intent")]),
+    ("plugins/plan-flow/skills/intent/*", [("tier", "intent")]),
     ("plugins/plan-flow/skills/debugging/*", [("tier", "debugging")]),
     ("plugins/plan-flow/agents/plan-executor.md", [("tier", "plan-execution")]),
     ("plugins/plan-flow/agents/intent-reader.md", [("tier", "intent")]),

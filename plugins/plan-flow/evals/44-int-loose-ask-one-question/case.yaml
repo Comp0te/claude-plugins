@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    /plan-flow:shaping-intent People keep asking for a way to get their notes out of the app. Can you sort that out?
+    /plan-flow:intent People keep asking for a way to get their notes out of the app. Can you sort that out?
   max_turns: 20
   timeout_seconds: 600
   model: claude-sonnet-5-5
