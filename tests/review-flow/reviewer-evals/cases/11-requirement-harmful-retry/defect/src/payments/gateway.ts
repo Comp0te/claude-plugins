@@ -2,6 +2,7 @@ export class GatewayError extends Error {
   constructor(
     message: string,
     readonly timedOut = false,
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -37,7 +38,7 @@ export async function charge(amount: number, opts: ChargeOptions = {}): Promise<
     throw new GatewayError("The payment service did not answer", true);
   }
   if (!res.ok) {
-    throw new GatewayError(`Charge refused (${res.status})`);
+    throw new GatewayError(`Charge refused (${res.status})`, false, res.status);
   }
   return (await res.json()) as Receipt;
 }

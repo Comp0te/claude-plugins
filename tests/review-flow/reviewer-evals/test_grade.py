@@ -603,7 +603,7 @@ class RequirementFlawAttributionTests(unittest.TestCase):
         known = _known_files(case_dir)
         text = (RECORDED_DIR / f"{case_dir}-{variant}-{run}.txt").read_text()
         case = json.loads((CASES_DIR / case_dir / "case.json").read_text())
-        return grade.grade_run(text, known, case, variant)
+        return grade.grade_run(text, known, case, variant.removeprefix("with-"))
 
     def test_case_11_defect_runs_do_not_attribute_the_flaw_to_the_requirement(self):
         caught = [self._grade("11-requirement-harmful-retry", "defect", i).caught for i in range(3)]
@@ -619,6 +619,17 @@ class RequirementFlawAttributionTests(unittest.TestCase):
         text = (RECORDED_DIR / f"{case_dir}-rerun-defect-1.txt").read_text()
         case = json.loads((CASES_DIR / case_dir / "case.json").read_text())
         self.assertTrue(grade.grade_run(text, known, case, "defect").caught)
+
+    def test_with_block_defect_answers_citing_the_requirement_line_are_caught(self):
+        """The with-block arm's answers file a finding at docs/task.md:4 that names the
+        planted flaw (hand count: 11 is 3/3, 12 runs 0 and 2 caught)."""
+        for case_dir, runs in (
+            ("11-requirement-harmful-retry", (0, 1, 2)),
+            ("12-requirement-undefined-boundary", (0, 2)),
+        ):
+            for i in runs:
+                with self.subTest(case=case_dir, run=i):
+                    self.assertTrue(self._grade(case_dir, "with-defect", i).caught)
 
     def test_clean_answers_are_never_catches(self):
         for case_dir in ("11-requirement-harmful-retry", "12-requirement-undefined-boundary"):

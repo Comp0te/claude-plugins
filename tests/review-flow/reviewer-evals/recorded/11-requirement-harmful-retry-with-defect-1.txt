@@ -1,0 +1,37 @@
+file: src/orders/checkout.ts:18-27
+scope: introduced
+issue: The retry loop calls `charge(order.total)` with no `idempotencyKey`, even though the gateway supports one. The gateway's own comment says a call without a key is always a new charge. The loop also retries on every thrown error. That includes `GatewayError` with `timedOut = true`, where the charge may already have gone through on the gateway's side. It also includes a failure of `res.json()`, which throws after the gateway has accepted the charge.
+why: A customer can be charged two or three times for one order. An example is a 5s timeout where the gateway did process the charge, followed by a retry that succeeds. The extra receipts are never recorded. `payOrder` returns only the last receipt, so the earlier charges are invisible to the order and can only be found by reconciling with the gateway.
+fix: Generate one idempotency key per `payOrder` call, for example derived from the order id, and pass it on every attempt. Retry only errors known to be safe to retry. Treat a timeout as ambiguous: retry it only with the key, otherwise surface it. Do not retry a definite decline, such as a 4xx response.
+evidence: grounded: src/payments/gateway.ts (the idempotency comment, the `timedOut` flag, and the `catch` that maps fetch errors to `GatewayError`), src/orders/checkout.ts
+hidden-errors: timeouts where the charge actually succeeded; `res.json()` parse failures after a successful charge; 4xx declines such as insufficient funds and card declined, which are retried pointlessly; TypeErrors and other programming errors in `charge`
+example:
+```ts
+const idempotencyKey = `order-${order.id}`;
+...
+const receipt = await charge(order.total, { idempotencyKey });
+...
+} catch (err) {
+  lastError = err;
+  if (!(err instanceof GatewayError) || !isRetryable(err)) throw err;
+  log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${(err as Error).message}`);
+```
+
+file: src/orders/checkout.ts:23
+scope: introduced
+issue: The warning log leaves out the error. It records only the attempt number and the order id, not `err.message`, the status, or `timedOut`. Non-gateway errors are also caught and logged as "charge attempt failed", so they look the same as gateway refusals.
+why: If the retries recover, the only trace is a warning that cannot say why the charge failed. A burst of 502s, a timeout, and a bug in the code all look identical. Nobody can diagnose this from the logs later.
+fix: Include the error message and class in the log line, and `timedOut` where present. Rethrow errors that are not `GatewayError` immediately.
+evidence: grounded: src/orders/checkout.ts, src/util/log.ts (`log.warn` takes only a string)
+hidden-errors: any error thrown inside `charge`, including programming errors and network failures
+example:
+```ts
+log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+```
+
+file: docs/task.md:4
+scope: introduced
+issue: The requirement says "On a failed card charge, retry the charge up to 3 times before reporting the gateway's message". It does not separate declined cards from transient failures. It does not say how a timeout is handled, where the charge outcome is unknown. It does not mention idempotency. It is also ambiguous whether "up to 3 times" means 3 retries after the first try (4 charges) or 3 attempts in total. The code implements 3 attempts in total.
+why: Read literally, the requirement tells the code to retry declines and ambiguous timeouts. That produces duplicate charges and repeated card-decline attempts that can trigger fraud flags. The code cannot settle these questions by itself.
+fix: Amend the requirement. Retry only transient or retryable failures. Require one idempotency key per order payment. Say whether the limit is 3 attempts or 3 retries, and say what the customer sees after a timeout.
+evidence: diff-only

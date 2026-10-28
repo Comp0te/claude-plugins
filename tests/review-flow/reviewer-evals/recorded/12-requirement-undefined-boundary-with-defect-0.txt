@@ -1,0 +1,84 @@
+## Summary
+
+I ran nothing, because the runnable slot is **none**. Every finding below comes from reading `git diff HEAD~1...HEAD`, the files at HEAD, and the base tree (`git show HEAD~1`). The new tests cover the typical cases well: a small order (50), a large order (200, 300), the integers next to the threshold (99, 101), several lines, and both shipping and discount appearing in the summary text. But three of the edge points this change creates are never tested: an order of exactly 100, the rounding of the discount, and an empty order. On top of that, the repository has nothing that would run these tests.
+
+These are the requirement's words, given to me as context. They are not a limit on what I looked for: *the requirement is context for judging what you find, never a boundary on what you look for.* Where the code does what the requirement says and the requirement itself is wrong, I report the requirement.
+
+## Gaps
+
+### Broken-verification gap
+
+file: tests/orderTotal.test.ts:1
+scope: introduced
+issue: The new test file imports `vitest`, but the repo has no `package.json`, no vitest config and no lockfile. `git ls-files` lists only `docs/task.md`, `src/orders/summary.ts`, `src/pricing/orderTotal.ts`, `src/pricing/rates.ts` and `tests/orderTotal.test.ts`. Nothing in the tree installs or runs these tests.
+why: All the coverage this change adds can't run in any normal verification path, so a regression in `breakdown` would not fail any build. This matches the brief's "Gate: not run".
+fix: Add a `package.json` with `vitest` as a devDependency and a `"test": "vitest run"` script, plus `typescript` if type-checking is wanted. Or, if the tests belong to a larger repo, wire them into its runner.
+evidence: grounded: `git ls-files` output; `tests/orderTotal.test.ts:1`
+consumer: every test in `tests/orderTotal.test.ts:7-43`
+test-evidence: The assertions at `tests/orderTotal.test.ts:9-41` are real behavioral checks, but nothing in the tree can run them.
+demonstration: Delete the `else if` branch at `src/pricing/orderTotal.ts:26-28`. Today nothing would go red, because no runner exists. If the tests could run, `:9`, `:13` and `:37` would catch it.
+
+### Regression gap
+
+file: src/pricing/orderTotal.ts:24-28
+scope: introduced
+issue: Both comparisons are strict, so an order of exactly `THRESHOLD` (100) gets no discount and no shipping. No test uses a subtotal of 100. The nearest inputs are 99 (`:13`) and 101 (`:21`). `summaryText` also has a branch where neither line is printed (`"Subtotal: 100\nTotal: 100"`), and nothing tests it.
+why: If someone changes `>` to `>=` at `:24`, a 100-unit order silently drops to 90. If someone changes `<` to `<=` at `:26`, it rises to 107. In both cases every existing test still passes.
+fix: Add `expect(breakdown([line(100)])).toEqual({ subtotal: 100, discount: 0, shipping: 0, total: 100 })` and `expect(summaryText([line(100)])).toBe("Subtotal: 100\nTotal: 100")`, once the intended behavior at 100 is settled (see the requirement finding below).
+evidence: proposed-probe: `src/pricing/orderTotal.ts:24`, change `base > THRESHOLD` to `base >= THRESHOLD`. Separately, `:26`, change `base < THRESHOLD` to `base <= THRESHOLD`. Expected failure: some test should fail. Predicted outcome: none does, because the test subtotals are 50, 99, 200, 101, 300 and 140, and none of them equals 100.
+consumer: `summaryText` at `src/orders/summary.ts:4-11`, the only non-test caller of `breakdown`. I found it by grepping for `breakdown|orderTotal` across the tree.
+test-evidence: I grepped the whole repo for `breakdown`, `orderTotal` and `summaryText`. The only test hits are `tests/orderTotal.test.ts:9,13,17,21,25,31,37,41`, and none of them passes a subtotal of 100.
+demonstration: With `>=` at `:24`, `breakdown([line(100)]).total` becomes 90 instead of 100, and all eight tests stay green.
+
+file: src/pricing/orderTotal.ts:25
+scope: introduced
+issue: The discount is rounded with `Math.round`, but no test produces a fractional discount that would tell `round` apart from `floor`. The only fractional case is 101, where 10.1 rounds to 10, and `floor` gives the same answer. A tie such as 105 (10.5, which `Math.round` turns into 11) is never tested.
+why: The requirement says totals are "in whole currency units". If the rounding changes from `round` to `floor`, or to banker's rounding, customers are charged a different amount on any subtotal whose tenths digit is 5 or more, and no test notices.
+fix: Add `expect(breakdown([line(105)])).toEqual({ subtotal: 105, discount: 11, shipping: 0, total: 94 })` and a non-tie case such as `line(107)`, where the discount is 11 and the total is 96.
+evidence: proposed-probe: `src/pricing/orderTotal.ts:25`, change `Math.round` to `Math.floor`. Expected failure: a rounding test should fail. Predicted outcome: none does, because the discount inputs are 101→10.1, 200→20, 300→30 and 140→14, and `floor` matches `round` on all of them.
+consumer: the `Discount: -N` line and the `Total:` line produced at `src/orders/summary.ts:7,11`
+test-evidence: `tests/orderTotal.test.ts:21` asserts a discount of 10 for 101. `:17`, `:26` and `:31` use subtotals whose discount is already a whole number.
+demonstration: With `Math.floor`, `breakdown([line(105)]).discount` returns 10 instead of 11 and the suite stays green.
+
+file: src/pricing/orderTotal.ts:26-27
+scope: introduced
+issue: An empty order (`[]`) has a subtotal of 0, which is below 100, so it pays 7 in shipping. `summaryText([])` then returns `"Subtotal: 0\nShipping: 7\nTotal: 7"`. No test covers the empty order, and the code doesn't treat it as a special case.
+why: Any caller that prices an empty cart shows or charges 7 for nothing. Before this change, `orderTotal([])` returned 0 (base tree: `return subtotal(lines)`).
+fix: Decide whether an empty order should pay shipping (see the requirement finding below). Then pin the decision with a test, for example `expect(breakdown([]).total).toBe(0)` or `toBe(7)`.
+evidence: grounded: `src/pricing/orderTotal.ts:16-29`, `git show HEAD~1:src/pricing/orderTotal.ts`, `tests/orderTotal.test.ts`
+consumer: `summaryText` at `src/orders/summary.ts:3-12`
+test-evidence: I grepped for `breakdown(`, `orderTotal(` and `summaryText(` in `tests/`. Every call passes at least one line, and there is no `[]` argument.
+demonstration: Adding a guard `if (lines.length === 0) return zero breakdown`, or removing one, would change the output, and no test would fail either way.
+
+### Requirement findings (the requirement is wrong or leaves a case undefined)
+
+file: docs/task.md:4
+scope: introduced
+issue: "Orders **over** 100 get a 10% discount; orders **under** 100 pay shipping." The requirement says nothing about an order of exactly 100. The code had to decide on its own and picked "neither" (`src/pricing/orderTotal.ts:24,26`).
+why: The outcome at 100 is just a side effect of the operators chosen. The tests don't pin it, and the requirement can't be used to settle it either way.
+fix: Change the requirement to state the boundary, for example "100 or more" or "100 or less", then add the test at 100 described above.
+evidence: grounded: `docs/task.md:4`, `src/pricing/orderTotal.ts:24-28`
+consumer: `breakdown` / `summaryText` at `src/orders/summary.ts:4`
+test-evidence: No test at a subtotal of 100 (see the boundary finding above).
+demonstration: The prices around the threshold are 99→106, 100→100 and 101→91.
+
+file: docs/task.md:4
+scope: introduced
+issue: Implemented exactly as written, the rule makes price go down as order value goes up. A 95-unit order pays 102, while a 101-unit order pays 91. The 17-unit cliff (7 shipping plus about 10 discount) means a customer pays less by adding items. The requirement also says nothing about whether an empty order "under 100" pays shipping, and the code charges it.
+why: Customers can pad their orders to pay less, and an empty cart gets billed 7. Both follow directly from "orders under 100 pay shipping", so this is a flaw in the requirement, not in the code.
+fix: Have the plan owner confirm the cliff is intended, or change the rule (for example, a flat discount above the threshold), and state explicitly how an empty order is priced.
+evidence: grounded: `docs/task.md:4`, `src/pricing/orderTotal.ts:20-29`, `src/pricing/rates.ts:2-3`
+consumer: `summaryText` at `src/orders/summary.ts:3`
+test-evidence: `tests/orderTotal.test.ts:13` and `:21` test the integers on each side of 100, but only check the `shipping` and `discount` fields, not the totals that show the inversion.
+demonstration: `orderTotal([line(95)])` returns 102 and `orderTotal([line(101)])` returns 91. No test checks either total.
+
+## Test Quality Issues
+
+None found beyond the gaps above. The tests check concrete values with `toEqual` and `toBe` on real outputs, without mocks or snapshots.
+
+## Positive Observations
+
+- The full-object `toEqual` checks at `tests/orderTotal.test.ts:9` and `:17` cover `subtotal`, `discount`, `shipping` and `total` together, so a broken `total` formula at `src/pricing/orderTotal.ts:29` would be caught.
+- `summaryText` is tested with exact strings for both the shipping branch and the discount branch (`:37`, `:41`), and those tests check that the line not used is left out.
+- The several-lines test (`:31`) checks that `subtotal` multiplies price by quantity before pricing.
+- `orderTotal` changed from returning the subtotal to returning the full price. A grep for `orderTotal` shows no remaining non-test caller, because `summary.ts` moved to `breakdown`. So no caller still expects the old meaning.

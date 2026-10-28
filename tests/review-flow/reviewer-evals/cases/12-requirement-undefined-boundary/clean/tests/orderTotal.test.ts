@@ -27,6 +27,14 @@ describe("breakdown", () => {
     expect(result.total).toBe(270);
   });
 
+  it("rounds a half discount up", () => {
+    expect(breakdown([line(105)]).discount).toBe(11);
+  });
+
+  it("charges no shipping on an empty order", () => {
+    expect(breakdown([])).toEqual({ subtotal: 0, discount: 0, shipping: 0, total: 0 });
+  });
+
   it("sums several lines before pricing", () => {
     expect(orderTotal([line(60, 2), line(5, 4)])).toBe(126);
   });

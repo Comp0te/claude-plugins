@@ -13,7 +13,7 @@ SCOPE_RE = re.compile(r"scope\W{0,6}:\W{0,3}(introduced|pre-existing)", re.I)
 UNPARSED_HINT_RE = re.compile(r"(\bevidence\W{0,6}:|why it matters|\bwhy\W{0,6}:)", re.I)
 FILE_KEY_RE = re.compile(r"^\**file\**\s*:", re.I)
 CITE_RE = re.compile(
-    r"(?P<path>[\w./-]+\.(?:ts|tsx|js|jsx))(?::|#L)(?P<a>\d+)(?:\s*[-–]\s*L?(?P<b>\d+))?"
+    r"(?P<path>[\w./-]+\.(?:ts|tsx|js|jsx|md))(?::|#L)(?P<a>\d+)(?:\s*[-–]\s*L?(?P<b>\d+))?"
 )
 HEADING_RE = re.compile(r"^#{1,6}\s")
 RULE_RE = re.compile(r"^(-{3,}|\*{3,}|_{3,})\s*$")
@@ -228,7 +228,7 @@ def grade_run(text: str, known_files: list[str], case: dict, variant: str) -> Ru
         caught_findings = []
         false_positives = 0
         for f in findings:
-            if any(_matches_point(f, p, expected["keywords"]) for p in expected["any_of"]):
+            if any(_matches_point(f, p, p.get("keywords", expected["keywords"])) for p in expected["any_of"]):
                 caught_findings.append(f)
             elif not hits_allowed(f):
                 false_positives += 1

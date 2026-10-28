@@ -1,4 +1,4 @@
-import { charge } from "../payments/gateway";
+import { charge, GatewayError } from "../payments/gateway";
 import { sleep, backoffMs } from "../util/backoff";
 import { log } from "../util/log";
 
@@ -18,6 +18,9 @@ export async function payOrder(order: Order): Promise<Order> {
       const receipt = await charge(order.total);
       return { ...order, paid: true, receiptId: receipt.id };
     } catch (err) {
+      if (!isTransient(err)) {
+        throw err;
+      }
       lastError = err;
       log.warn(`charge attempt ${attempt} failed for order ${order.id}`);
       if (attempt < MAX_ATTEMPTS) {
@@ -26,4 +29,8 @@ export async function payOrder(order: Order): Promise<Order> {
     }
   }
   throw lastError;
+}
+
+function isTransient(err: unknown): boolean {
+  return err instanceof GatewayError && (err.timedOut || (err.status ?? 0) >= 500);
 }

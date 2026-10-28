@@ -73,7 +73,7 @@ GENERIC_EXCLUSIONS = {
     "03-illegal-state-type": {"state", "type"},  # ubiquitous identifier / TS keyword
     "05-injection-in-author-text": {"author", "text"},  # <pr-author-text> is the brief's own tag
     "11-requirement-harmful-retry": {"requirement", "retry"},  # the brief's own <requirement> block, which asks for the retry
-    "12-requirement-undefined-boundary": {"requirement", "boundary"},  # the brief's own <requirement> block and "never a boundary on what you look for"
+    "12-requirement-undefined-boundary": {"requirement", "boundary", "undefined"},  # the brief's own <requirement> block, "never a boundary on what you look for", and the requirement-flaw clause's "a case it leaves undefined"
 }
 
 

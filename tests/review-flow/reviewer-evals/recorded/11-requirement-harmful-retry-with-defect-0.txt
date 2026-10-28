@@ -1,0 +1,41 @@
+file: src/orders/checkout.ts:12-29
+scope: introduced
+issue: The retry loop calls `charge(order.total)` without an `idempotencyKey`. It also retries every error the same way, including `GatewayError` with `timedOut = true`. A timeout means the gateway may have processed the charge but the response never arrived. `gateway.ts` says "a call without a key is always a new charge", so each retry after a timeout can create a second real charge. The `catch (err)` also catches non-gateway errors, such as a `res.json()` parse failure after a charge succeeded, and retries those too.
+why: A customer can be charged two or three times for one order. Nothing shows it: the log lines only say "attempt N failed", and the timeout nature of the error is dropped. If a later attempt succeeds, the order records only that attempt's `receiptId`. The earlier charge that did go through is never recorded, so it is orphaned and cannot be reconciled or refunded from the order.
+fix: Generate one idempotency key per order, for example from `order.id`, and pass it on every attempt: `charge(order.total, { idempotencyKey: order.id })`. Retry only errors known to be safe to retry. Do not retry a timeout unless the key is sent. Rethrow other errors immediately.
+evidence: grounded: src/payments/gateway.ts (the `idempotencyKey` option, the comment on key semantics, `timedOut` set on fetch failure) and src/orders/checkout.ts. `grep -rn payOrder src` finds no callers besides the definition. This was not run.
+hidden-errors: Timeouts where the charge actually went through. `res.json()` SyntaxError after a successful charge. TypeError or programming errors thrown inside `charge`. Non-retryable declines such as a 4xx "card declined", which `gateway.ts` reports as `Charge refused (status)`.
+example:
+```ts
+const idempotencyKey = `order-${order.id}`;
+...
+try {
+  const receipt = await charge(order.total, { idempotencyKey });
+  return { ...order, paid: true, receiptId: receipt.id };
+} catch (err) {
+  if (!(err instanceof GatewayError)) throw err;
+  lastError = err;
+  log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${err.message} (timedOut=${err.timedOut})`);
+  ...
+}
+```
+
+file: src/orders/checkout.ts:20
+scope: introduced
+issue: The warn log leaves out the error. It records only the attempt number and order id, not `err.message`, the status code, or `timedOut`.
+why: When retries are eventually exhausted, or when a retry masks an intermittent gateway fault, the log has no record of why the charge failed. It can't tell a 502 from a 402 decline from a timeout. That makes the duplicate-charge risk above harder to detect and debug.
+fix: Include the error message and the `timedOut` flag in the log. The final failure should also be logged at error level before it is rethrown.
+evidence: grounded: src/orders/checkout.ts, src/util/log.ts (`log.warn` takes only a string)
+hidden-errors: Every error type caught by this block, because none of the details are logged.
+example:
+```ts
+log.warn(`charge attempt ${attempt}/${MAX_ATTEMPTS} failed for order ${order.id}: ${err instanceof Error ? err.message : String(err)}`);
+```
+
+file: docs/task.md:4
+scope: introduced
+issue: The requirement says "On a failed card charge, retry the charge up to 3 times before reporting the gateway's message to the customer". It treats every failure as retryable. It doesn't separate declines (card refused, insufficient funds) from transient errors. It doesn't say whether "up to 3 times" means 3 attempts in total or 3 retries after the first. It also says nothing about the ambiguous case where a timeout leaves it unknown whether the charge went through. The code chose 3 attempts in total, which is 2 retries.
+why: Retrying a definitive decline wastes time and may trigger fraud or velocity checks on the card. Retrying a timeout without idempotency can double-charge. The implementer had to settle these cases without any guidance.
+fix: Amend the requirement. Say which errors are retryable, require an idempotency key for every retry, and state whether the limit is 3 attempts or 3 retries.
+evidence: diff-only
+hidden-errors: n/a

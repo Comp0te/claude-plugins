@@ -3,8 +3,8 @@
   "variants": ["defect", "clean"],
   "expected": {
     "any_of": [
-      {"file": "src/orders/checkout.ts", "lines": [14, 28]},
-      {"file": "docs/task.md", "lines": [4, 4]}
+      {"file": "src/orders/checkout.ts", "lines": [14, 29]},
+      {"file": "docs/task.md", "lines": [4, 4], "keywords": ["idempotency", "duplicate", "double charge", "charged twice"]}
     ],
     "keywords": ["requirement itself", "requirement, not the code", "requirement never says", "requirement is incomplete", "requirement is wrong", "requirement leaves", "change the requirement", "undefined in the spec", "undefined in the requirement", "requirement is ambiguous", "requirement is underspecified", "requirement is silent"],
     "scope": "introduced"

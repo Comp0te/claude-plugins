@@ -24,7 +24,7 @@ export function breakdown(lines: OrderLine[]): Breakdown {
   if (base >= THRESHOLD) {
     discount = Math.round(base * DISCOUNT_RATE);
   } else {
-    shipping = SHIPPING;
+    shipping = lines.length > 0 ? SHIPPING : 0;
   }
   return { subtotal: base, discount, shipping, total: base - discount + shipping };
 }
