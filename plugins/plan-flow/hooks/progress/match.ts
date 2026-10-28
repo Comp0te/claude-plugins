@@ -86,8 +86,8 @@ export function gitAddPaths(command: string): string[] {
   })
 }
 
-/** The plan path named in a dispatch prompt, preferring one under `plans/`. */
+/** The plan path named in a dispatch prompt, preferring one under `plans/`; an intent or spec beside a plan is never it. */
 export function planPathIn(prompt: string): string | undefined {
-  const paths = prompt.match(/[\w./~-]+\.md\b/g) ?? []
+  const paths = (prompt.match(/[\w./~-]+\.md\b/g) ?? []).filter(p => !/(^|\/)(intent|spec)\.md$/.test(p))
   return paths.find(p => p.includes('/plans/') || p.endsWith('/plan.md')) ?? paths[0]
 }

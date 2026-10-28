@@ -98,4 +98,17 @@ describe('planPathIn', () => {
   test('finds the plan path in a dispatch', async () => {
     expect(planPathIn('Plan: docs/plans/2026-10-02-x.md, Task 1')).toBe('docs/plans/2026-10-02-x.md')
   })
+  test('skips an intent or spec named before the plan', async () => {
+    expect(planPathIn('Intent: docs/plans/2026-11-02-x/intent.md, plan: docs/plans/2026-11-02-x/plan.md, Task 1'))
+      .toBe('docs/plans/2026-11-02-x/plan.md')
+    expect(planPathIn('See docs/plans/2026-11-02-x/spec.md. Plan: docs/plans/2026-11-02-x/plan.md, Task 2'))
+      .toBe('docs/plans/2026-11-02-x/plan.md')
+  })
+  test('an intent alone is not a plan', async () => {
+    expect(planPathIn('Read docs/plans/2026-11-02-x/intent.md')).toBeUndefined()
+  })
+  test('a plan whose name mentions intent is still the plan', async () => {
+    expect(planPathIn('Plan: docs/plans/2026-10-28-shaping-intent-skill.md, Task 1'))
+      .toBe('docs/plans/2026-10-28-shaping-intent-skill.md')
+  })
 })
