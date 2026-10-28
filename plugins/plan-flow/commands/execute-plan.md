@@ -73,7 +73,10 @@ else's call. Stop and bring it to the plan's author.
 - **The returned diff has a defect:** send a fresh dispatch naming the defect precisely. Fix it
   in this conversation only when it is a one-line typo — a supervising turn costs several times
   an executor turn, and re-dispatching is also what keeps the plan, the code and the report in
-  one voice.
+  one voice. **Re-dispatch a task at most twice.** Run the second on a more capable model when
+  your tooling lets you choose one. If the third result still has a defect, or a defect comes
+  back after a re-dispatch fixed it, stop and bring the author what each attempt returned — a
+  task that keeps failing the same way is usually a plan problem, not an executor one.
 - **The report quotes gate output (typecheck/lint/test):** read it, but do not re-run those
   gates. Run the project's full gate once, at the end of the feature, not after every task.
 - **Review the diff, not the tree.** The returned report plus `git diff` is the review surface;
