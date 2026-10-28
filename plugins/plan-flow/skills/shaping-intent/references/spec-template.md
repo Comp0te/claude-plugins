@@ -1,9 +1,8 @@
 # Spec template
 
-A `spec.md` exists only when the design has to be fixed in writing before someone else plans
-it: another person writes the plan, a technical approver signs off the solution, or several
-plans share a contract. It holds what is fixed and what is not — never the file-by-file work,
-which is the plan's.
+A `spec.md` exists only when the requester asked for one: the design fixed in writing before
+the plan. It holds what is fixed and what is not — never the file-by-file work, which is the
+plan's.
 
 ## Skeleton
 
@@ -11,7 +10,7 @@ which is the plan's.
 # Spec: TITLE
 
 Status: draft — WHO, YYYY-MM-DD
-Intent: intent.md · Why a spec: ANOTHER_PLANNER | TECHNICAL_APPROVAL | SHARED_CONTRACT
+Intent: intent.md
 
 ## Fixed choices
 

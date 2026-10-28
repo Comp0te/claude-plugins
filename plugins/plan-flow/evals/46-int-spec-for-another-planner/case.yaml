@@ -11,7 +11,7 @@ execution:
     approved all of this.
 
     Skip the questions. Priya on the team will write the implementation plan and build it, so
-    set it up for Priya. Folder: docs/plans/2026-11-02-notes-export/.
+    set it up for Priya. Write a spec.md for Priya as well. Folder: docs/plans/2026-11-02-notes-export/.
   max_turns: 40
   timeout_seconds: 900
   model: claude-sonnet-5-5

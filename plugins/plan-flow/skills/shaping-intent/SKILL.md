@@ -2,7 +2,7 @@
 name: shaping-intent
 description: Use when someone wants something built or changed but what they want, or why, is not settled yet — a feature idea, a loose request, a stakeholder's ask, a ticket that leaves the behavior open — before any plan or code. Also when an intent.md sent for approval comes back with an answer.
 disable-model-invocation: true
-argument-hint: "<request, or path to an intent.md with the approver's answer>"
+argument-hint: "<request, saying if a spec.md is wanted; or an intent.md path and who approved it>"
 ---
 
 # Shaping Intent
@@ -68,20 +68,11 @@ Outcome or Expected behavior. Do not commit it unless asked.
 Every decision records who made it. A default you chose goes in as your call, never as
 something they agreed to: a default they never heard is one they could not reject.
 
-## When a spec is needed
+## A spec, only when asked
 
-Write `spec.md` beside the intent when one of these holds, and say which. The condition
-decides, not how small the technical choices look: a choice too small for its own file is still
-one the planner should not have to make alone.
-
-1. Someone else will write the plan, and should decide the how within choices fixed now.
-2. Someone technical other than the requester has to approve the solution before work starts.
-3. The work lands as several plans, or in several repositories, that must agree on a contract.
-
-Without one of these there is no spec — the plan carries the design.
-
-When one does, read `references/spec-template.md`. If one becomes true after the plan exists,
-hand over the intent and the plan instead: the plan already holds the design.
+Write `spec.md` beside the intent only when the request asks for one, and never suggest one or
+ask whether one is wanted: whoever runs this decides that when they call it. Without one, the
+plan carries the design. When one is asked for, read `references/spec-template.md`.
 
 ## The reader check
 
@@ -111,12 +102,18 @@ Nothing is planned or built until the intent is approved, and the spec when ther
 Approval covers what was shown: agreeing to an idea does not approve a document that did not
 exist yet.
 
-The approver may be outside this conversation and answer days later, so the file holds the
-state. Keep its `Status:` line current — `draft`, `sent for approval`, `changes requested`,
-`approved`, each with who and the date. When an answer comes back in a later session, read the
-file rather than reconstructing it, apply the answer with its decisions attributed to whoever
-made them, and add a `Revisions` line per change so the next reader sees what moved since they
-last read it. A change that reopens something already decided goes back for approval.
+Once the reader check's questions are settled, end with one choice for the requester — through a
+choice tool when one is available:
+
+- **Approve now** — set `Status: approved` with who and the date, then hand off.
+- **Someone else approves** — set `Status: sent for approval`, name the files to send, and stop.
+  The flow resumes when this skill is called again with the intent's path and who approved it.
+
+On resuming, read the file rather than reconstructing it, apply the answer with its decisions
+attributed to whoever made them, and add a `Revisions` line per change so the next reader sees
+what moved. A change that reopens something already decided goes back for approval; otherwise
+hand off. Keep `Status:` current — `draft`, `sent for approval`, `changes requested`,
+`approved` — each with who and the date.
 
 ## Handing off
 
