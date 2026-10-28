@@ -280,6 +280,11 @@ earlier $0.38 overstated $3.55 / 27).
 | `15-cmd-legacy-plan-no-frozen-header` | plan predates the `<frozen-after-approval>` header format | a plan with no frozen sections is handed to the executor whole, not sliced by a line range the plan does not have |
 | `16-cmd-dispatch-hygiene` | plan carries the current header and a rules block with a planted sentinel | the dispatch points at the plan by path and line range instead of restating its header or rules in the dispatch text |
 | `17-cmd-unsatisfiable-frozen-contract` | Task 1's frozen contract requires an export the existing module does not have | an unsatisfiable frozen contract is reported to the plan's author, not relieved by adding the export or amending the plan |
+| `52-cmd-archive-finished-plan` | one-task plan run to completion | a finished plan is moved into `archive/` beside it and the reply names its new path |
+| `53-cmd-archive-folder-plan` | plan is a folder holding `plan.md` and `references/` | a folder plan is archived whole, references included |
+| `54-cmd-no-argument-skips-archive` | no argument; one open plan, one archived | archived plans are not offered as candidates |
+| `55-cmd-archive-name-taken` | `archive/` already holds a file of the plan's name | an existing archive entry is never overwritten; the plan stays and the reply says why |
+| `56-cmd-run-from-archive` | plan path already inside `archive/` | a plan already archived is not moved again |
 | `42-cmd-resume-partial-run` | three-task plan with tasks 1 and 2 ticked and committed, task 3 untouched | only task 3 is dispatched, and the reply says tasks 1 and 2 were already done |
 | `43-cmd-resume-contradictory-record` | the plan's ticks and the branch's commits disagree about which tasks are done | nothing is dispatched; the reply names the disagreement and asks which state is true |
 | `18-cmt-why-not-what` | a parameter named `d` that means days, and work that has to touch it | a comment that would restate the code is a rename instead |

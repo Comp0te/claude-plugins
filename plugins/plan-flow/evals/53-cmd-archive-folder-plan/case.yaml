@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: 53-cmd-archive-folder-plan
+tags: [plan-command]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    /plan-flow:execute-plan docs/plans/2026-10-28-pad-left
+  max_turns: 40
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: file_exists
+    name: plan-archived
+    path: docs/plans/archive/2026-10-28-pad-left/plan.md
+    exists: true
+    weight: 1
+  - type: file_exists
+    name: references-moved-with-it
+    path: docs/plans/archive/2026-10-28-pad-left/references/note.txt
+    exists: true
+    weight: 1
+  - type: file_exists
+    name: folder-gone
+    path: docs/plans/2026-10-28-pad-left/plan.md
+    exists: false
+    weight: 1

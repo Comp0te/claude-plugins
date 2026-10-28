@@ -1,0 +1,27 @@
+schema_version: "1.1"
+name: 56-cmd-run-from-archive
+tags: [plan-command]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    /plan-flow:execute-plan docs/plans/archive/2026-10-28-slugify.md
+  max_turns: 40
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: regex
+    name: stays-in-archive
+    target:
+      source: file
+      path: docs/plans/archive/2026-10-28-slugify.md
+    pattern: '^# Slugify Implementation Plan'
+    match: contains
+    weight: 1
+  - type: file_exists
+    name: no-nested-archive
+    path: docs/plans/archive/archive/2026-10-28-slugify.md
+    exists: false
+    weight: 1

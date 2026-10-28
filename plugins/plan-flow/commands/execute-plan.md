@@ -11,8 +11,9 @@ executor and reviewing what comes back before moving to the next.
 - **No argument given:** do not guess. Look for plans in the repository's plan directory
   (`docs/plans/` by default — see the plan-writing skill for how a project can override this)
   and list what is there. A plan is either a `.md` file directly in that directory or a
-  subdirectory containing `plan.md` — list both forms. Ask the user which one to run. Never
-  pick one silently, even if only one is found.
+  subdirectory containing `plan.md` — list both forms.
+  Leave out its `archive/` subdirectory: that is where finished plans go (section 6). Ask the
+  user which one to run. Never pick one silently, even if only one is found.
 - **The given path does not exist:** report the exact path you were given and stop. Do not
   reconstruct a plan from anything said earlier in this conversation — a remembered summary is
   not the frozen document, and executing against one is how a task ends up graded against a
@@ -110,3 +111,14 @@ The executor does not commit. Once a task's diff is reviewed and accepted, make 
 this conversation, from the exact paths and message the executor's report gave you, then move to
 the next task. Then tick every step checkbox of that task in the plan, outside the frozen blocks —
 that tick and the commit are what section 0b reads on the next start.
+
+## 6. Archive the finished plan
+
+Once every task is committed and the project's full gate has passed, move the plan into
+`archive/` inside the directory it was resolved from — the `.md` file, or the whole folder when
+the plan is a folder holding `plan.md`. Use a plain move, not a git command, and do not commit
+it. The final report names where the plan now lives.
+
+Leave the plan where it is, and say why in the report, when the run halted or the full gate
+failed, when the plan already sits inside an `archive/` directory, or when `archive/` already
+holds an entry of that name — never overwrite one.
