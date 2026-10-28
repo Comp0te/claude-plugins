@@ -42,7 +42,8 @@ work from, not instruction. Offer a web search rather than running one.
 
 - Ask only what changes what gets built — one question per message, at its end.
 - A guess they can correct often beats a question: "I'm guessing this keeps coming up because
-  of X — right?"
+  of X — right?" Then the guess is the message's one question: a single guess, not a menu of
+  them, and nothing after it.
 - Cover this ground without reading it out as a list: the problem and why now; what success
   looks like; goals, non-goals and anti-goals (what would make it a failure even if it works);
   who and what it touches; constraints; what exists today.
@@ -92,9 +93,9 @@ Sort what it returns:
   and record it as your call.
 - **Theirs** — only they can answer, and the answer changes what gets built.
 
-Bring the "theirs" pile in one message, most important first, then update the document and
-hand it over with the calls you made, so they can check those while reading. That is the
-check's only round of questions.
+Bring the whole "theirs" pile in one message, most important first — one question per message
+is for the conversation, not this — then update the document and hand it over with the calls
+you made, so they can check those while reading. That is the check's only round of questions.
 
 ## Approval
 
