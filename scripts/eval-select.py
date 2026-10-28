@@ -13,6 +13,7 @@ TIER_FLAGS = {
     "plan-command":   ["--allow-tools", "Write", "Edit", "Bash"],
     "comment-rules":  ["--allow-tools", "Write", "Edit"],
     "debugging":      ["--allow-tools", "Write", "Edit", "Bash"],
+    "intent":         ["--allow-tools", "Write", "Edit"],
 }
 COMMON_FLAGS = ["--ablation", "none", "--scaffold", "--judge-model", "claude-opus-5-5",
                 "--threshold", "0", "--no-publish", "--trust-plugin", "-j", "2"]
@@ -26,8 +27,10 @@ ALL_REVIEWER = "*all*"
 # (glob, action) pairs; every matching rule contributes and the results are unioned.
 RULES = [
     ("plugins/plan-flow/skills/writing-implementation-plans/*", [("tier", "plan-writing")]),
+    ("plugins/plan-flow/skills/shaping-intent/*", [("tier", "intent")]),
     ("plugins/plan-flow/skills/debugging/*", [("tier", "debugging")]),
-    ("plugins/plan-flow/agents/*", [("tier", "plan-execution")]),
+    ("plugins/plan-flow/agents/plan-executor.md", [("tier", "plan-execution")]),
+    ("plugins/plan-flow/agents/intent-reader.md", [("tier", "intent")]),
     ("plugins/plan-flow/commands/*", [("tier", "plan-command")]),
     ("plugins/plan-flow/references/working-agreements.md",
      [("tier", "comment-rules"), ("tier", "plan-command")]),

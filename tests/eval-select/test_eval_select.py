@@ -43,6 +43,7 @@ class Base(unittest.TestCase):
               case_yaml("30-wa", "working-agreements"))
         write(cls.root, f"{PF}/evals/e2e-01-ledger-report/case.yaml", case_yaml("e2e-01", "e2e"))
         write(cls.root, f"{PF}/evals/e2e/run_e2e.py")
+        write(cls.root, f"{PF}/evals/44-int-x/case.yaml", case_yaml("44-int-x", "intent"))
         write(cls.root, f"{RV}/cases/02-deleted-guard/case.json",
               json.dumps({"agent": "review-flow:deletion-check"}))
         write(cls.root, f"{RV}/cases/05-injection/case.json",
@@ -115,6 +116,22 @@ class TestSelect(Base):
         self.assertEqual(self.tiers(f"{PF}/skills/debugging/scripts/find-polluter.sh"),
                          [{"tier": "debugging", "case": None}])
 
+    def test_intent_skill(self):
+        self.assertEqual(self.tiers(f"{PF}/skills/shaping-intent/SKILL.md"),
+                         [{"tier": "intent", "case": None}])
+
+    def test_intent_template(self):
+        self.assertEqual(self.tiers(f"{PF}/skills/shaping-intent/references/intent-template.md"),
+                         [{"tier": "intent", "case": None}])
+
+    def test_intent_reader(self):
+        self.assertEqual(self.tiers(f"{PF}/agents/intent-reader.md"),
+                         [{"tier": "intent", "case": None}])
+
+    def test_intent_case_edited(self):
+        self.assertEqual(self.tiers(f"{PF}/evals/44-int-x/case.yaml"),
+                         [{"tier": "intent", "case": "44-int-x"}])
+
     def test_executor(self):
         self.assertEqual(self.tiers(f"{PF}/agents/plan-executor.md"),
                          [{"tier": "plan-execution", "case": None}])
@@ -186,7 +203,7 @@ class TestCli(Base):
         code, r = self.run_cli("--all")
         self.assertEqual(code, 0)
         self.assertEqual([e["tier"] for e in r["plan_flow"]],
-                         ["plan-writing", "plan-execution", "plan-command", "comment-rules", "debugging"])
+                         ["plan-writing", "plan-execution", "plan-command", "comment-rules", "debugging", "intent"])
         self.assertTrue(all(e["case"] is None for e in r["plan_flow"]))
         self.assertEqual(r["reviewer"], ["01-swallowed-catch", "02-deleted-guard", "05-injection"])
 
