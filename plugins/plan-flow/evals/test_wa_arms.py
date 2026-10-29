@@ -118,6 +118,14 @@ class Arms(unittest.TestCase):
         self.run_sync("--write", "--tier", "rcv", "--arm", "without")
         self.assertEqual(indent(PREAMBLE + AGREEMENTS), self.block("01-rcv-a"))
 
+    def test_promoted_candidate_needs_no_candidate_file(self):
+        self.source.write_text(self.with_text())
+        (self.tmp / "candidates" / "receiving-review.md").unlink()
+        self.assertEqual(0, self.run_sync("--write", "--tier", "rcv", "--arm", "with")[0])
+        self.assertEqual(indent(PREAMBLE + self.with_text()), self.block("01-rcv-a"))
+        self.assertEqual(1, self.block("01-rcv-a").count("## Receiving Review"))
+        self.assertEqual((0, ""), self.run_sync("--check", "--tier", "rcv", "--arm", "with"))
+
     def test_source_without_trailing_newline_keeps_next_field_on_its_own_line(self):
         self.source.write_text(AGREEMENTS.rstrip("\n"))
         self.run_sync("--write", "--tier", "rcv", "--arm", "without")

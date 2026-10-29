@@ -69,6 +69,8 @@ def agreements(tier, arm):
     body = SOURCE.read_text()
     if arm == "without":
         return strip_section(body, tier["heading"])
+    if _bounds(body, tier["heading"]):
+        return body
     return insert_section(body, (ROOT / tier["candidate"]).read_text(), tier)
 
 
