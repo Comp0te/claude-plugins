@@ -343,6 +343,11 @@ was told to execute: reconstructing the code and reconstructing the plan documen
 failures, and two named graders say which one happened where a single combined result would only
 say that something was written.
 
+`file_exists` with `exists: true` does not see a file the scaffold wrote: it reports a fixture
+plan missing while the trace shows it in place. To assert a scaffold-written file survived, use a
+`regex` grader with `target: {source: file, path: ...}` on a line it is known to hold, as cases 55
+and 56 do. `exists: false`, and `exists: true` on a path the run creates, work as documented.
+
 ## Execution tier baseline
 
 Measured on 2026-09-14, with-arm only (`--ablation none`), three runs a case, judge `opus`:
