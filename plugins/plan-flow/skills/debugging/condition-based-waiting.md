@@ -13,26 +13,23 @@ expect(received).toHaveLength(1)
 
 // After: waits for the thing the assertion depends on
 await triggerEvent()
-await waitFor(() => received.length > 0 && received, 'event to be received')
+await pollUntil(() => received.length > 0 && received, { what: 'event received' })
 expect(received).toHaveLength(1)
 ```
 
 ## The helper
 
 ```ts
-async function waitFor<T>(
-  condition: () => T | undefined | null | false,
-  description: string,
-  timeoutMs = 5000,
+async function pollUntil<T>(
+  read: () => T | null | undefined | false,
+  { what, limitMs = 5000, everyMs = 10 }: { what: string; limitMs?: number; everyMs?: number },
 ): Promise<T> {
-  const start = Date.now()
-  while (true) {
-    const result = condition()
-    if (result) return result
-    if (Date.now() - start > timeoutMs) {
-      throw new Error(`Timed out after ${timeoutMs}ms waiting for ${description}`)
-    }
-    await new Promise((r) => setTimeout(r, 10))
+  const deadline = Date.now() + limitMs
+  for (;;) {
+    const value = read()
+    if (value) return value
+    if (Date.now() >= deadline) throw new Error(`${what}: not reached within ${limitMs}ms`)
+    await new Promise((resolve) => setTimeout(resolve, everyMs))
   }
 }
 ```
@@ -54,7 +51,7 @@ Only when the timing is the behaviour under test (a debounce, a throttle, a retr
 3. Comment why that duration, for example `// 2 x the 100ms debounce interval`.
 
 ```ts
-await waitFor(() => debounced.callCount === 1, 'first debounced call')
+await pollUntil(() => debounced.callCount === 1, { what: 'first debounced call' })
 // Two debounce intervals: enough for a second call to fire if the debounce is broken
 await new Promise((r) => setTimeout(r, 200))
 expect(debounced.callCount).toBe(1)
