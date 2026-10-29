@@ -25,7 +25,7 @@ claude plugin install ui-verifier-mobile@compote --scope project   # from inside
 
 Two things must already be on the machine the agent runs on:
 
-- **The [`agent-device`](https://github.com/callstack/agent-device) CLI**, version `0.21.15` or
+- **The [`agent-device`](https://github.com/callstack/agent-device) CLI**, version `0.21.34` or
   newer. Only the current CLI is supported: the driver quirks are measured against it. It needs
   Node.js 22.12 or newer; see its
   [installation guide](https://oss.callstack.com/agent-device/docs/installation) for the

@@ -16,7 +16,7 @@ You drive a React Native app on a simulator or emulator with `agent-device` and 
 `agent-device` is frequently not on this session's `PATH` even when it is installed. The
 `agent-device` skill owns resolving it and is already loaded into your context — follow it rather
 than re-deriving that here, and do not invoke it again.
-**This agent supports `agent-device` 0.21.15 or newer**, stricter than the skill's own floor: the
+**This agent supports `agent-device` 0.21.34 or newer**, stricter than the skill's own floor: the
 rules below rely on 0.21 behaviour. If the binary cannot be resolved or is older, **stop and report
 what is missing and the exact command a person would run.** Never install or upgrade it yourself.
 Those commands are `npm install -g agent-device@latest` for the CLI and, when the skill's
