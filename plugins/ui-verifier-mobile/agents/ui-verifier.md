@@ -143,6 +143,8 @@ current.
 - **The first runner build after an upgrade can outlast `open`'s request budget** and fail as
   `Daemon request timed out` while `runner.log` shows a healthy compile. Build it once with
   `agent-device prepare ios-runner --platform ios --timeout 900000`, then `open` again.
+  Measured on 0.21.15; the daemon's startup budget now extends while the build progresses, so do
+  this only when you actually see the timeout.
 - **Run in a session of your own: name it once, then pass `--session <name>` on every
   command.** Without a name, `agent-device` uses one derived from the working directory, so a
   second verifier in the same checkout joins your live session — its relaunch restarts your
@@ -205,9 +207,10 @@ state**, and record every use under "State I changed" — the no-mutation rule b
 ## Known agent-device quirks
 
 **Provenance matters here.** These were measured on one or two React Native apps on one machine,
-most of them against `agent-device` 0.21.15. They are **starting hypotheses, not settled driver
-facts** — confirm one against the app in front of you before citing it as the reason for a
-verdict, and add anything you learn under "New quirks" in your report.
+most of them against `agent-device` 0.21.15, and revised where 0.21.34 changed the behaviour.
+They are **starting hypotheses, not settled driver facts** — confirm one against the app in
+front of you before citing it as the reason for a verdict, and add anything you learn under
+"New quirks" in your report.
 
 **The default targeting order is the CLI's, not this list's:** refs first, then `id`/`label`/
 `role` selectors, and **coordinates last** — only after `snapshot -i` shows no semantic target, or
@@ -222,10 +225,12 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
 - **`hittable` is unreliable in both directions in React Native.** `hittable: false` does not mean
   a control is broken, and `hittable: true` does not prove one works. The only proof a control
   works is that pressing it changes something observable.
-- **An open sheet does not remove the screen behind it from the tree.** Its nodes stay listed and
-  `hittable: true`, and pressing one reports success while the tap lands on whatever the sheet has
-  at that point. Target only the sheet's own nodes; a `+0 -0` settled diff after a press means the
-  press did nothing, whatever the command printed.
+- **An open sheet does not remove the screen behind it from the tree.** Its nodes stay listed
+  and can read `hittable: true`. A press on one is normally refused with `target_covered`, and
+  `error.details.coveredBy` names the sheet — a refusal, not an app defect. Dismiss the sheet or
+  target its own nodes; never press the cover's ref. Where the occlusion scan misses the sheet,
+  the press reports success while the tap lands on the sheet instead, so a `+0 -0` settled diff
+  after a press still means it did nothing, whatever the command printed.
 - **A sheet backdrop's centre is not guaranteed to be empty** — on a short sheet it can land on a
   visible row, so a backdrop tap activates what is beneath it instead of dismissing. Confirm from
   a screenshot that the point is empty backdrop; if it isn't, or you're unsure, press the sheet's
@@ -249,8 +254,10 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   container's rect as the item's.
 - **Never quote a node count from a shallow or depth-limited query as a total** — it can be
   truncated by breadth rather than depth, and a component missing from it is not proven absent.
-  Cross-check against `agent-device react-devtools` for a real component count, and say so if the
-  two disagree.
+  Cross-check against `agent-device react-devtools tree` (or `find <Name>`) for a real component
+  count, and say so if the two disagree. It needs a development build on React Native 0.74 or
+  newer, and fails with `tree-unavailable` while a React DevTools window is attached. Without
+  one, say the cross-check was unavailable.
 
 ### The React Native developer overlay
 
@@ -286,8 +293,9 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   `find --first`/`--last` still opt into picking, so they keep the verify-by-screenshot rule above.
 - **A short `wait` budget can end without a verdict.** Read `error.details.reason` from `--json`:
   only `wait_target_absent` means a readable capture found no match. `wait_capture_stalled` (seen
-  at 1500 ms on a busy RN screen) and `wait_stable_timeout` say nothing about the element — retry
-  with a longer budget before a row leans on either.
+  at 1500 ms on a busy RN screen), `wait_readiness_exhausted`, `wait_runner_restart_exhausted`
+  and `wait_stable_timeout` say nothing about the element — retry with a longer budget before a
+  row leans on any of them.
 - **`--udid <UDID>` and `--device "<name>"` name the same simulator**, but `DEVICE_NOT_FOUND` for
   the udid form usually means the device exists and is not **booted**, not that the selector is
   broken — the driver does not auto-boot it. `agent-device boot` it first.
@@ -335,13 +343,21 @@ exceptions that earn a coordinate press. They are not a licence to lead with one
   press-then-`type` combination is what fails, not text input itself. The field may never report a
   focused flag even after a successful fill — assert on the field's resulting value instead of the
   focus flag. `fill <target> ""` clears a field.
+- **On iOS, a `fill` that returns `verification: "unconfirmed"` has not proved the value.**
+  Masks, currency and digit grouping make a field read back differently from what was typed,
+  so the CLI declines to confirm it. Assert the value with `get`/`is` or the resulting screen
+  before a row leans on it — for a `--text-stdin` fill, whose read-back is redacted, by the
+  resulting screen only, since `get` would print the value. `TEXT_ENTRY_MISMATCH` means
+  characters were dropped: inspect the field and retry only if it is wrong, with the
+  `--delay-ms` from the error's hint.
 - **A text field's snapshot text is its placeholder or its value, not a label.** A field shown as
   `[text-field] "Search site"` does not match `label="Search site"`, and after a fill it shows the
   typed text instead. Target a field by ref or `id`.
-- **The keyboard blocks presses behind it.** A target whose centre sits behind the keys is refused
-  with `tap_keyboard_occludes_target` — not an app defect. On iOS `keyboard dismiss` refuses when the
-  keyboard has no dismiss key; end editing with the app's own Done/Cancel control, or
-  `keyboard enter` when submitting is what the step wants.
+- **The keyboard blocks presses behind it.** A target whose tap point sits behind the keys is
+  refused with `tap_keyboard_occludes_target` — not an app defect. On iOS `keyboard dismiss`
+  refuses when the keyboard has no dismiss key; end editing with the app's own Done/Cancel
+  control, or `keyboard enter` when submitting is what the step wants. `find` refuses a focus
+  match behind the keyboard for the same reason.
 - **`fill` only works for fields the accessibility layer can actually see.** A field styled to
   zero size, zero opacity, or off-screen fails immediately with a "no element has keyboard focus"
   style error — that signature is not a timing problem, so stop retrying. It is often by design:
