@@ -14,6 +14,7 @@ TIER_FLAGS = {
     "comment-rules":  ["--allow-tools", "Write", "Edit"],
     "debugging":      ["--allow-tools", "Write", "Edit", "Bash"],
     "intent":         ["--allow-tools", "Write", "Edit"],
+    "review-reception": ["--allow-tools", "Write", "Edit", "Bash"],
 }
 COMMON_FLAGS = ["--ablation", "none", "--scaffold", "--judge-model", "claude-opus-5-5",
                 "--threshold", "0", "--no-publish", "--trust-plugin", "-j", "2"]
@@ -33,7 +34,7 @@ RULES = [
     ("plugins/plan-flow/agents/intent-reader.md", [("tier", "intent")]),
     ("plugins/plan-flow/commands/*", [("tier", "plan-command")]),
     ("plugins/plan-flow/references/working-agreements.md",
-     [("tier", "comment-rules"), ("tier", "plan-command")]),
+     [("tier", "comment-rules"), ("tier", "plan-command"), ("tier", "review-reception")]),
     ("plugins/plan-flow/hooks/session-start.py",
      [("tier", "comment-rules"), ("tier", "plan-command")]),
     ("plugins/plan-flow/hooks/operating-rules.md",

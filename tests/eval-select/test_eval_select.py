@@ -143,7 +143,8 @@ class TestSelect(Base):
     def test_agreements(self):
         self.assertCountEqual(self.tiers(f"{PF}/references/working-agreements.md"),
                               [{"tier": "comment-rules", "case": None},
-                               {"tier": "plan-command", "case": None}])
+                               {"tier": "plan-command", "case": None},
+                               {"tier": "review-reception", "case": None}])
 
     def test_session_start_hook(self):
         want = [{"tier": "comment-rules", "case": None}, {"tier": "plan-command", "case": None}]
@@ -203,7 +204,8 @@ class TestCli(Base):
         code, r = self.run_cli("--all")
         self.assertEqual(code, 0)
         self.assertEqual([e["tier"] for e in r["plan_flow"]],
-                         ["plan-writing", "plan-execution", "plan-command", "comment-rules", "debugging", "intent"])
+                         ["plan-writing", "plan-execution", "plan-command", "comment-rules", "debugging", "intent",
+                          "review-reception"])
         self.assertTrue(all(e["case"] is None for e in r["plan_flow"]))
         self.assertEqual(r["reviewer"], ["01-swallowed-catch", "02-deleted-guard", "05-injection"])
 

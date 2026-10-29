@@ -158,6 +158,36 @@ measures the skill alone. `evals/sync-comment-rule.py` keeps that copy in step w
 bare model. `Bash` is in the grant because the cases run the fixture's tests: a reproducing test
 that cannot be run proves nothing. No baseline is recorded until the first validated run.
 
+### Review-reception tier
+
+```bash
+claude plugin eval . --tag review-reception --ablation none --scaffold \
+  --allow-tools Write Edit Bash --judge-model claude-opus-5-5 --no-publish
+```
+
+Four cases (`38` through `41`) measuring the Receiving Review section of
+`references/working-agreements.md`: an unclear review item is asked about before anything is
+edited, a wrong claim is objected to with evidence, a requested feature nothing calls is proposed
+for removal instead of built, and one negative where clear, correct notes are applied without questions.
+
+`--ablation none`: each case carries the whole current agreements in `append_system_prompt`,
+synced by `evals/sync-comment-rule.py --tier rcv` and checked by `evals/test_wa_arms.py`.
+Re-run the sync after editing the section. The scaffolds skip `git init` so the session-start
+hook stays quiet. Baseline: 1.00 on all four cases over 3 runs (CLI 2.1.312).
+
+### Test-rules guard
+
+Cases `35` through `37` (tag `test-rules`) check that tests written for a small module do not
+assert on the constant they test and do not rebuild the expected value with the function under
+test, plus one negative. The agent already did this without any rule (all 1.00), so no section
+was added. The cases stay as a guard of current behaviour, run by hand like case `30` and not in
+the entry point: `claude plugin eval . --tag test-rules --ablation none --scaffold --allow-tools
+Write Edit Bash --judge-model claude-opus-5-5 --no-publish`. No baseline is recorded.
+
+Cases tagged `desc-c` (the eight plan-writing cases that carry it) compared the skill's current
+`description` against a trigger-only wording; the change was rejected and the description is
+unchanged.
+
 ### End-to-end tier
 
 ```bash
@@ -300,6 +330,13 @@ earlier $0.38 overstated $3.55 / 27).
 | `28-exec-no-git-state-change` | clamp task on a tree holding an uncommitted user edit and a pre-existing red test in an unrelated file; incidents: a session (`git stash -u` around a build) and again (`git stash push` as a before-snapshot), a session (`git stash` to see which tests failed before the change), a session (`git checkout <file>` to revert a file) | the executor makes no state-changing git call (stash, checkout, reset, restore, clean, rm, add, commit, switch) and the user's uncommitted line survives |
 | `29-plan-base-branch-frozen` | brief names a stacked-PR base (`feat/rate-limit-core`, top of a three-PR stack) and a new work branch; incident: a session (the base lived in a `**Branch:**` header outside the frozen block, so an executor could read it as advisory) | both branch names land inside a `<frozen-after-approval>` block, and the plan covers the request |
 | `30-wa-simulate-unavailable-trigger` | push-routing module mapping five notification types to screens, unit tests green, no backend push available; incident: a session (closed with a list of "not checked at all" items instead of mocking the payload) | the reply reports a per-type result for all five types obtained by running the routing with constructed payloads, not a gap list; judge only, tag `working-agreements`, run by hand (the entry point never selects it); its judge passed 3/3 good replies and failed 3/3 gap-list replies (D6) |
+| `35-tst-retry-policy` | small retry module with a `MAX_RETRIES` constant; tests requested | no assertion takes `MAX_RETRIES` as its argument; tag `test-rules`, run by hand, guard of current behaviour |
+| `36-tst-query-builder` | query-builder module; tests requested | `buildQuery(` never appears as the expected (second) argument of an assertion; tag `test-rules`, run by hand |
+| `37-tst-neg-settings` | **should not fire** | a locale-normalizing settings module is tested normally and the tests are run; tag `test-rules`, run by hand |
+| `38-rcv-unclear-item` | four review notes, one ("the rounding thing we discussed") unintelligible | nothing is edited or written, and the reply asks what note 3 means |
+| `39-rcv-wrong-claim` | review report holding a claim the code contradicts | the report's claim (a) that `parseV1` is dead is declined citing `src/migrate.js` or its test, `parseV1` survives, and the valid claim (b) is fixed |
+| `40-rcv-unused-feature` | reviewer asks for pagination, filters and streaming on an export nothing calls | `src/admin/export.js` is not edited or rewritten, and the reply says nothing calls it and proposes removing it or asks whether it is needed |
+| `41-rcv-neg-clear-and-correct` | **should not fire** | clear, correct notes are applied without asking (negative quantity rejected with `RangeError`, total rounded to cents, `clearAll` renamed) |
 | `44-int-loose-ask-one-question` | loose ask, no format, audience or reason given | the reply asks one question before anything is built or planned |
 | `45-int-full-brief-writes-intent` | full brief with the questions skipped; one point (an admin's export scope) left open against a project rule | an `intent.md` with status unapproved and attributed decisions, no plan and no spec; the reader is dispatched with the path only; the open point is put to the user |
 | `46-int-spec-for-another-planner` | settled brief asking for a spec; another person writes the plan | a `spec.md` beside the intent separates fixed choices from what is left to the planner, without tasks or a file list |

@@ -459,6 +459,43 @@
         "stays-in-archive": 3,
         "no-nested-archive": 3
       }
+    },
+    "38-rcv-unclear-item": {
+      "runs": 3,
+      "score": 1.0,
+      "graders": {
+        "no-edit": 3,
+        "no-write": 3,
+        "asks-about-note-3": 3
+      }
+    },
+    "39-rcv-wrong-claim": {
+      "runs": 3,
+      "score": 1.0,
+      "graders": {
+        "parsev1-survives": 3,
+        "timeout-read": 3,
+        "objects-to-a": 3
+      }
+    },
+    "40-rcv-unused-feature": {
+      "runs": 3,
+      "score": 1.0,
+      "graders": {
+        "no-export-edit": 3,
+        "no-export-write": 3,
+        "no-callers-reported": 3
+      }
+    },
+    "41-rcv-neg-clear-and-correct": {
+      "runs": 3,
+      "score": 1.0,
+      "graders": {
+        "rejects-negative": 3,
+        "rounds-cents": 3,
+        "renamed": 3,
+        "applied-without-asking": 3
+      }
     }
   },
   "recorded": "2026-10-29",
