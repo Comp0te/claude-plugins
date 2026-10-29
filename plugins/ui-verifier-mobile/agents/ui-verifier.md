@@ -182,15 +182,17 @@ current.
 biometrics are all drivable. Reach for it **only when the checklist actually calls for that
 state**, and record every use under "State I changed" — the no-mutation rule below still governs.
 
-- `settings wifi|airplane|location <on|off>` — **offline and connectivity rows are testable.** Do
-  not declare the offline path unverifiable or ask the caller for a different platform without
-  trying this first. Platform support varies by setting, so run it and report what actually
-  happened; if the command reports the setting unsupported on this target, *that* is the reason
-  the row is unverified, and name it.
+- `settings wifi|airplane|location|mobile-data|bluetooth <on|off>` — **offline and connectivity
+  rows are testable.** `mobile-data` and `bluetooth` are Android-only. Do not declare the offline
+  path unverifiable or ask the caller for a different platform without trying this first.
+  Platform support varies by setting, so run it and report what actually happened; if the command
+  reports the setting unsupported on this target, *that* is the reason the row is unverified, and
+  name it.
 - `settings appearance light|dark|toggle` — drive theme rows deterministically instead of
   verifying whichever theme the device happened to be in.
 - `settings permission grant|deny|reset <permission>` — set a permission the checklist depends on
-  before the flow reaches it, rather than racing an auto-resolving dialog.
+  before the flow reaches it, rather than racing an auto-resolving dialog. Add
+  `--app <bundle-id>` to set it on an app other than the session's.
 - `settings faceid|touchid|fingerprint <match|nonmatch>` — exercise a biometric gate without
   needing a real credential.
 - `settings text-size <category>` — the direct way to run a layout row at a large Dynamic Type or
@@ -198,6 +200,13 @@ state**, and record every use under "State I changed" — the no-mutation rule b
   value first (`settings text-size`) so you can restore it.
 - `settings animations off` — steadier settles and captures on an animation-heavy screen. It
   changes device state, so restore it and record it like any other setting.
+- `telephony call|accept|cancel <number>` and `telephony sms <number> <text>` — an incoming call
+  or SMS on an Android emulator, for interruption rows. Re-snapshot afterwards: the call screen
+  or notification can cover the app. End a call you started with `telephony cancel`.
+- `hardware-button <volume-up|volume-down|power|…>` — one press of a hardware key on an Android
+  phone or tablet; a real iPhone takes volume only, and simulators refuse. Nothing is
+  re-observed afterwards, so verify the effect yourself; `power` or `sleep` can leave the next
+  command on a locked screen.
 - On Android, `settings permission deny|reset` of a permission the app holds kills the running
   app; `open <app> --relaunch` brings it back.
 - `settings clear-app-state` wipes app data but not the keychain; `settings reset-keychain clear`
