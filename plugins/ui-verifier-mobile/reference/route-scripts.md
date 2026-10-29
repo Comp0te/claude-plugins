@@ -30,6 +30,7 @@ without closing:
 
 ```
 agent-device open <app-id> --relaunch --save-script=.agent-device/<screen>.ad
+agent-device wait 'id="continue"'
 agent-device press 'id="continue"' --settle
 agent-device wait 'role="heading" label="Screen X"'
 agent-device session save-script
@@ -45,6 +46,13 @@ the session active — so you record and then run the checklist in one session. 
   `wait absent`, `wait @ref`, or a selector wait on an unlabeled element **is not a guard** and buys
   you nothing. A guard that finds the label but not the recorded identity fails with
   `wait_landmark_identity_mismatch` — that is route drift, not an app defect.
+- **Record a selector `wait` on the control before every press that follows a screen change**
+  — after `open`, and after any press that navigates. A replayed `press`/`click`/`longpress`
+  looks for its target once and fails with `selector_not_found` if the screen is still
+  loading; the recorded `wait` is what lets the step hold on a cold replay.
+- **Reach an off-screen control with `scroll <direction> --until <selector>`**, which the
+  script records as written. A fixed scroll amount replays on one screen size and misses on
+  another.
 - **Prefer a stable landmark over a localized string.** If only a translated label is available,
   the script is bound to the language it was recorded in — say so in the script's name.
 - **Record only the route to the screen, never the checklist itself.** Much of the interaction in
@@ -57,12 +65,14 @@ the session active — so you record and then run the checklist in one session. 
 
   ```
   export AD_VAR_PASSWORD='<secret>'
-  agent-device fill 'id="password"' "$AD_VAR_PASSWORD" --record-as PASSWORD
+  printf %s "$AD_VAR_PASSWORD" | agent-device fill 'id="password"' --text-stdin --record-as PASSWORD
   ```
 
-  The app receives the real value; the published script contains only `${PASSWORD}`. Replay with
+  The app receives the real value; the published script contains only `${PASSWORD}`, and
+  `--text-stdin` keeps the value out of the command line and the command's output too. Replay with
   `AD_VAR_PASSWORD` still set, or pass `--env PASSWORD=<value>`. `--record-as` is fill-only and
-  requires an armed recording.
+  requires an armed recording; `--text-stdin` is unavailable inside `batch`. On iOS, XCTest's own
+  logs and its `.xcresult` bundle can still contain the typed text — record test credentials only.
 - **An authentication step that opens a system web view outside the accessibility tree** (an
   OAuth/SSO flow) cannot be recorded around. Sign in live without recording armed, then start the
   recording from the already-authenticated screen.
@@ -78,6 +88,11 @@ so the checklist runs in it directly. A kept session lives in the replay's own d
 result names a `--state-dir`, add it to every later command, `close` included.
 
 ## When a replay diverges
+
+**A `selector_not_found` on a press with no recorded `wait` before it is a missing wait, not
+drift.** Scripts recorded before `agent-device` 0.21.28 usually have none, because replay used
+to wait for the target itself. Re-record the route with the waits above rather than healing it
+step by step.
 
 A failing step returns `REPLAY_DIVERGENCE` with a screen digest, ranked selector suggestions, a
 `repairHint`, and a resume field. **Read the hint before deciding what to do** — the two common

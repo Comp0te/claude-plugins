@@ -412,8 +412,10 @@ for one **before** you start navigating.
   are working inside the plugin repository itself.
   **Read it before you arm a recording** — one route shape must not be recorded at all, and a credential
   in the route needs `--record-as` or its literal text lands in the file.
-- **A replay failure is not a checklist failure.** It means the route drifted. Repair or re-record
-  per the reference, then verify — never report a route drift as an app defect.
+- **A replay failure is not a checklist failure.** It means the route drifted — or, when the
+  failing press has no recorded `wait` before it, that the script predates the rule that every
+  press after a screen change needs one. Repair or re-record per the reference, then verify —
+  never report a route drift as an app defect.
 
 <!-- Text between shared:NAME markers is generated from shared/: edit the source there and run scripts/sync-shared.py. -->
 <!-- shared:discipline -->
