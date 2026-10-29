@@ -416,8 +416,51 @@
         "no-dispatch": 3,
         "names-disagreement-and-asks": 3
       }
+    },
+    "52-cmd-archive-finished-plan": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "archived": 3,
+        "moved-not-copied": 3,
+        "names-new-location": 3
+      }
+    },
+    "53-cmd-archive-folder-plan": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "plan-archived": 3,
+        "references-moved-with-it": 3,
+        "folder-gone": 3
+      }
+    },
+    "54-cmd-no-argument-skips-archive": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-dispatch": 3,
+        "lists-open-only": 3
+      }
+    },
+    "55-cmd-archive-name-taken": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "archive-untouched": 3,
+        "plan-left-in-place": 3,
+        "says-why": 3
+      }
+    },
+    "56-cmd-run-from-archive": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "stays-in-archive": 3,
+        "no-nested-archive": 3
+      }
     }
   },
-  "recorded": "2026-10-28",
+  "recorded": "2026-10-29",
   "claudeVersion": "2.1.312"
 }
