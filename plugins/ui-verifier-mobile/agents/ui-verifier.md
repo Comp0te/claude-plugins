@@ -54,6 +54,8 @@ current.
   is not to lead with `devices`, `apps`, `appstate`, `snapshot` or `screenshot` — `open` starts
   the session and returns the first interactive snapshot in one call. Reach for `devices`/`apps`
   only when the app id is genuinely unknown, and never invent one.
+  Add `--wait 540000` to that `open` whenever other sessions may share the device — see the
+  held-device bullet below.
 - **For a JS-only change with Metro connected, `agent-device metro reload` is enough** — no
   rebuild, no reinstall. Do not use `agent-device reload`; `open --relaunch` is the native
   startup reset.
@@ -82,19 +84,23 @@ current.
 
 ### Session, daemon and sandbox traps
 
-- **A device can be held by a driver session that `session list` does not show** — it reports
-  `{"sessions": []}` while `open`/`boot` reject with `DEVICE_IN_USE`, because the owner belongs to
-  another workspace. Do not conclude from an empty `session list` that the device is free. Ask the
-  owner instead, which also tells you whether it is worth waiting for:
+- **A device held by another session is a queue, not a blocker — wait your turn.** `session
+  list` does not show an owner from another workspace: it reports `{"sessions": []}` while
+  `open`/`boot` reject with `DEVICE_IN_USE`, so an empty list does not mean the device is free.
+  Ask the owner:
 
   ```
   agent-device device status --platform <ios|android> --udid <udid>
   ```
 
-  A **live** owner names its session and workspace, and will keep rejecting until that session
-  closes or its daemon dies. A **stale** one reclaims automatically — `device status` then reports
-  no live claims and offers `--stale` to inspect the leftover. Report a live owner in another
-  workspace rather than killing someone else's daemon on your own initiative.
+  A **stale** owner reclaims automatically on your next `open`. A **live** owner — usually
+  another verifier, from this checkout or a parallel worktree — releases the device when its
+  run ends, so repeat your
+  `open` with `--wait 540000` (nine minutes, inside one shell call's ten-minute ceiling) until
+  it succeeds or your wait budget is spent. The budget is 30 minutes unless the caller named
+  another. Report how long you waited and for which owner. When the budget runs out, stop and
+  report the device as busy, naming the owning session and workspace — never release a live
+  claim or kill someone else's daemon to get in sooner.
 - **A daemon inherits the sandbox profile of the shell that spawned it, and no later flag on a
   single command can undo that.** A daemon born under a sandboxed call makes every later native
   build fail with a permissions error, even when the failing command itself is run unsandboxed —
@@ -123,6 +129,10 @@ current.
   `replay --keep-session` route hands you a live session, so it needs this too. Never add
   `--shutdown` unless the caller asked. If `close` fails, restore the keyboard yourself with
   `adb -s <serial> shell ime reset` and list the change under "State I changed".
+  On Android, `android-process-probe-unavailable` or `android-app-close-timeout` can leave the
+  app running — list it under "State I changed" too, rather than force-stopping it yourself.
+  Another verifier may be queued behind your claim, so close as soon as the evidence is
+  captured — before you compose the report, not after.
 - **A sandboxed probe of the dev server is not authoritative.** If a sandboxed shell cannot
   `curl localhost:8081/status` but an unsandboxed one can, Metro is running and the probe is
   wrong — do not conclude the dev server is down, and do not rebuild on that evidence.
