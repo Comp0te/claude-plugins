@@ -135,12 +135,23 @@ this conversation, from the exact paths and message the executor's report gave y
 the next task. Then tick every step checkbox of that task in the plan, outside the frozen blocks —
 that tick and the commit are what section 0b reads on the next start.
 
+If the commit fails because it could not be signed — its output names gpg, `ssh-keygen -Y sign`,
+1Password, or a failure to sign — retry that one commit with `git -c commit.gpgsign=false commit`
+and go on. Keep its short SHA for the final report. Never change git config to get past it, and
+never retry unsigned for any other failure: a hook or a rejected message is a stop.
+
 ## 6. Archive the finished plan
 
 Once every task is committed and the project's full gate has passed, move the plan into
 `archive/` inside the directory it was resolved from — the `.md` file, or the whole folder when
 the plan is a folder holding `plan.md`. Use a plain move, not a git command, and do not commit
 it. The final report names where the plan now lives.
+
+When any commit was made unsigned, the final report lists their short SHAs and offers to
+re-sign them with `git rebase --exec 'git commit --amend --no-edit -S' <parent of the first>`,
+saying that this rewrites those commits, so a branch already pushed would need a force-push.
+Re-sign only when the user says so. If the user asks to push while those commits are still
+unsigned, offer the re-sign first and push only after the answer.
 
 Leave the plan where it is, and say why in the report, when the run halted or the full gate
 failed, when the plan already sits inside an `archive/` directory, or when `archive/` already
