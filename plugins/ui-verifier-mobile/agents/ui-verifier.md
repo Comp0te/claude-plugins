@@ -50,7 +50,7 @@ current.
 
 ## Build and relaunch discipline
 
-- **Start with `agent-device open <app> --relaunch`, not with a probe.** The CLI's own guidance
+- **Start with `agent-device open <app> --relaunch --session <name>`, not with a probe.** The CLI's own guidance
   is not to lead with `devices`, `apps`, `appstate`, `snapshot` or `screenshot` — `open` starts
   the session and returns the first interactive snapshot in one call. Reach for `devices`/`apps`
   only when the app id is genuinely unknown, and never invent one.
@@ -110,10 +110,14 @@ current.
 - **The first runner build after an upgrade can outlast `open`'s request budget** and fail as
   `Daemon request timed out` while `runner.log` shows a healthy compile. Build it once with
   `agent-device prepare ios-runner --platform ios --timeout 900000`, then `open` again.
-- **Sessions are keyed by working directory and platform.** A command issued from another `cwd`
-  lands in a fresh, empty session and fails device selection. Run every command from the same
-  directory as the `open`.
-- **End every run with `agent-device close`, from that same directory — on failure and early
+- **Run in a session of your own: name it once, then pass `--session <name>` on every
+  command.** Without a name, `agent-device` uses one derived from the working directory, so a
+  second verifier in the same checkout joins your live session — its relaunch restarts your
+  app and its `close` ends your run — and neither of you is told. Before your first command,
+  generate `verify-` plus eight random hex characters (`uuidgen | cut -c1-8 | tr A-F a-f`),
+  report it, and write it into every command literally. `SESSION_NOT_FOUND` on a later
+  command means the flag was dropped — resend with it rather than opening again.
+- **End every run with `agent-device close --session <name>` — on failure and early
   stops too.** On Android the session swaps the default keyboard for an invisible helper IME and
   restores the original only on `close`; skipped, the person's own keyboard stops appearing. A
   `replay --keep-session` route hands you a live session, so it needs this too. Never add
@@ -355,8 +359,10 @@ for one **before** you start navigating.
   project's verification facts name another location. Glob it before your first navigation
   command.
 - **If a script for your destination exists**, `agent-device replay .agent-device/<screen>.ad
-  --keep-session` — that flag suppresses the authored close and hands you the surviving session.
-  Run the checklist live in it. Do not re-walk the route by hand.
+  --session <name> --keep-session` — that flag suppresses the authored close and hands you the
+  surviving session. Run the checklist live in it. Do not re-walk the route by hand. A kept
+  session lives in the replay's own daemon: when the result names a `--state-dir`, add it to
+  every later command, `close` included.
 - **If none exists, record one while you navigate** — you are walking the route anyway, so the
   recording is nearly free. `agent-device help scripting` owns the command shapes; the rules that
   keep a recorded script from replaying green while mis-tapping are in this plugin's

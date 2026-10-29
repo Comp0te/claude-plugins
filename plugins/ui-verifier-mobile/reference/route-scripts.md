@@ -70,11 +70,12 @@ the session active — so you record and then run the checklist in one session. 
 ## Replaying
 
 ```
-agent-device replay .agent-device/<screen>.ad --keep-session
+agent-device replay .agent-device/<screen>.ad --session <name> --keep-session
 ```
 
 `--keep-session` suppresses exactly the authored terminal close and returns the surviving session,
-so the checklist runs in it directly.
+so the checklist runs in it directly. A kept session lives in the replay's own daemon: when the
+result names a `--state-dir`, add it to every later command, `close` included.
 
 ## When a replay diverges
 
