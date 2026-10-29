@@ -67,6 +67,13 @@ before navigating, and records one if none exists — so repeat runs replay the 
 re-walking it. `reference/route-scripts.md` holds the recording, replay and divergence-repair
 rules; the agent reads it on demand rather than carrying it in its prompt.
 
+Parallel sessions — in one checkout or in parallel worktrees — can share one simulator. Each
+verifier runs in a session of its own name, a verifier that finds the device held by another
+session waits for it (30 minutes by default), and in a linked worktree it starts that
+worktree's own Metro on a separate port before relaunching the app, so each run verifies its
+own branch. It never rebuilds from a linked worktree unasked, because the installed app is
+shared.
+
 ## No configuration needed
 
 Dispatch this agent as `ui-verifier-mobile:ui-verifier-mobile` with a checklist. An agent that

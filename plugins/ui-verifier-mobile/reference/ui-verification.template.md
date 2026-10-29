@@ -16,6 +16,7 @@ project, not a general driving technique — general technique lives in the ship
 - Command to build and launch iOS: `<command>`
 - Command to build and launch Android: `<command>`
 - Dev server / bundler check: `<how to tell it's already running>`
+- Command to start the dev server on a given port (parallel worktrees): `<command with <port>>`
 - When a rebuild is required rather than a relaunch: `<native dependency changes, patches,
   platform manifest/plist edits, icons, splash assets, permissions — list what applies here>`
 

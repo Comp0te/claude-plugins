@@ -81,6 +81,33 @@ current.
   in this run or can show the installed binary postdates them — say which; otherwise it is
   **stale** and you name them. A JS-only diff is **current** once the bundle check above
   confirms the symbol is served, and **unknown** if that check failed or never ran.
+- **In a linked git worktree, serve Metro from this worktree before you claim the device.** A
+  running Metro serves the checkout it was started in, so with parallel worktrees the app can
+  be showing another branch's code. You are in one when `git rev-parse --git-dir` and
+  `git rev-parse --git-common-dir` differ. Then:
+  1. Take the port recorded in `$(git rev-parse --git-dir)/agent-device-metro.json`; without
+     one, the first free port in 8090–8099. All ten busy is a blocker — report it.
+  2. If nothing answers `/status` on that port, start Metro from
+     `$(git rev-parse --show-toplevel)` on it in the background, logging to the scratchpad,
+     with the facts file's start command when it has one, otherwise `metro prepare` (below),
+     marked as derived. Record the port in that file.
+  3. Relaunch bound to it: `open <app> --relaunch --metro-port <port> --wait 540000 --session
+     <name>`. On Android run `adb -s <serial> reverse tcp:<port> tcp:<port>` first.
+  4. Run the served-bundle check above against that port before any row.
+
+  The fallback start command, in place of the facts file's:
+
+  ```bash
+  agent-device metro prepare --public-base-url "http://127.0.0.1:<port>" \
+    --project-root "$(git rev-parse --show-toplevel)" --port <port> \
+    --runtime-file "$(git rev-parse --git-dir)/agent-device-metro.json"
+  ```
+
+  Leave the server running for the next run in this worktree, and list it with its port and
+  worktree — and any `adb reverse` — under "State I changed". **Do not rebuild from a linked
+  worktree** without the caller's go-ahead: the installed binary is shared with every other
+  worktree, and a rebuild changes what their next runs verify. With native changes in the diff,
+  classify the build **stale** and name them.
 
 ### Session, daemon and sandbox traps
 
