@@ -496,6 +496,33 @@
         "renamed": 3,
         "applied-without-asking": 3
       }
+    },
+    "57-cmd-settle-open-decisions-once": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "no-dispatch": 3,
+        "one-batched-question": 3
+      }
+    },
+    "58-cmd-unsigned-commit-fallback": {
+      "runs": 3,
+      "score": 1,
+      "graders": {
+        "task-ticked": 3,
+        "signing-left-on": 3,
+        "reports-unsigned-and-offers": 3
+      }
+    },
+    "59-plan-matrix-in-binding-text": {
+      "runs": 3,
+      "score": 0.89,
+      "graders": {
+        "plan-written": 3,
+        "matrix-lists-three-edge-cases": 3,
+        "binding-block-states-every-row": 2,
+        "ask-first-names-task-and-estimate": 3
+      }
     }
   },
   "recorded": "2026-10-29",

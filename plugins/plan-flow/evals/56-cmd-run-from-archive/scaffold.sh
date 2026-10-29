@@ -109,7 +109,7 @@ Read this before starting, whatever tool, model, or editor you are using.
 - `npm test` — expected: all tests pass.
 SCAFFOLD_EOF
 
-git init -q
+git init -q -b feature/slugify
 git config user.email eval@example.com
 git config user.name Eval
 git add -A

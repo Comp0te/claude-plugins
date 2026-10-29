@@ -22,6 +22,7 @@ execution:
 
     The change is a single prompt edit, so the plan can be one task. Verifying it takes a paid
     load test against the live agent, about $2, which the plan must not run without asking me.
+    The plan schedules that load test in its verification task.
   max_turns: 45
   timeout_seconds: 900
   model: claude-sonnet-5-5

@@ -111,7 +111,7 @@ SCAFFOLD_EOF
 mkdir -p docs/plans/archive
 echo 'ARCHIVED-EARLIER-COPY' > docs/plans/archive/2026-10-28-slugify.md
 
-git init -q
+git init -q -b feature/slugify
 git config user.email eval@example.com
 git config user.name Eval
 git add -A

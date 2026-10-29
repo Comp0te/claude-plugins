@@ -111,7 +111,7 @@ SCAFFOLD_EOF
 mkdir -p docs/plans/2026-10-28-pad-left/references
 echo 'Padding is done with spaces only.' > docs/plans/2026-10-28-pad-left/references/note.txt
 
-git init -q
+git init -q -b feature/slugify
 git config user.email eval@example.com
 git config user.name Eval
 git add -A
