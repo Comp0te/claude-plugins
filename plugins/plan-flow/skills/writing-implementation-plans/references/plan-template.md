@@ -228,6 +228,9 @@ and must be labelled:
   candidates, in the shape they take in a browser extension: a new manifest permission, any
   CSP change, anything under a crypto directory, edits to shared fixtures. *Adding a
   dependency belongs here in every project.*
+  When an Ask First covers a local paid run the plan itself schedules, list each run with the
+  task that runs it and its estimate, so the list can be approved once before the run starts
+  instead of at each task.
 - **Never** — non-goals *and* forbidden approaches. Naming the forbidden approach matters
   as much as the non-goal: *"never commit a DSN"* and *"never use `Sentry.init`"* are both
   Nevers, and only one of them is a scope statement.

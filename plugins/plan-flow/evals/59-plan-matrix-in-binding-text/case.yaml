@@ -1,0 +1,69 @@
+schema_version: "1.1"
+name: 59-plan-matrix-in-binding-text
+tags: [plan-writing]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    Write an implementation plan and save it to docs/plans/retry-rule/plan.md.
+
+    The change: add a retry rule to prompts/retry.md. The rule must include, word for word, this
+    sentence:
+
+    "When a tool call fails with a retryable error, retry it up to the configured maximum, then
+    stop retrying and report the failure to the user."
+
+    The binding block may add clauses beside that sentence.
+
+    Edge cases the plan's matrix must list:
+    - the configured maximum is zero retries
+    - the error is not retryable
+    - the cap is reached
+
+    The change is a single prompt edit, so the plan can be one task. Verifying it takes a paid
+    load test against the live agent, about $2, which the plan must not run without asking me.
+  max_turns: 45
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Skill, Read, Glob, Grep, Write, Edit]
+runs: 3
+graders:
+  - type: file_exists
+    name: plan-written
+    path: docs/plans/retry-rule/plan.md
+    exists: true
+    weight: 0.5
+  - type: regex
+    name: matrix-lists-three-edge-cases
+    target:
+      source: file
+      path: docs/plans/retry-rule/plan.md
+    pattern: '(?=[\s\S]*[Zz]ero)(?=[\s\S]*[Nn](ot|on)[ -]retryable)(?=[\s\S]*[Cc]ap)'
+    match: contains
+    weight: 0.5
+  - type: llm
+    name: binding-block-states-every-row
+    focus:
+      source: file
+      path: docs/plans/retry-rule/plan.md
+    criteria: |
+      One question only: does the binding block holding the retry rule's text (the contract block,
+      or the prose to be written verbatim) state what happens for zero retries and for a
+      non-retryable error, not only for the cap?
+
+      Pass only if the text the executor is told to write itself covers all three cases. A matrix
+      row elsewhere in the plan does not count; the binding text must carry them.
+
+      Ignore formatting, length, and whether the plan is well written.
+    weight: 1
+  - type: llm
+    name: ask-first-names-task-and-estimate
+    focus:
+      source: file
+      path: docs/plans/retry-rule/plan.md
+    criteria: |
+      One question only: does the Ask First line about the paid load test name the task that
+      runs it and an estimate? Pass only if both the task and a cost estimate appear in that line.
+
+      Ignore every other part of the plan.
+    weight: 1

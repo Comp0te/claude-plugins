@@ -345,6 +345,7 @@ earlier $0.38 overstated $3.55 / 27).
 | `47-int-resume-approved-with-change` | intent sent for approval; the approver's answer arrives in a new session | status becomes approved by the approver, the change is attributed and logged in Revisions, and planning starts with the plan beside the intent |
 | `48-plan-from-approved-intent` | approved intent with non-goals, attributed decisions and an open question needing a probe | the plan lands beside the intent, carries the non-goal into Never and the decisions with their owner, covers every expected behavior, and starts with the probe |
 | `49-plan-refuses-draft-intent` | the same intent still in draft | no plan; the reply says it is unapproved and asks |
+| `59-plan-matrix-in-binding-text` | retry-rule brief whose fixed wording covers one of three edge cases, plus a paid load test; incident: about twelve execution stops where binding text missed its own matrix row (sessions 1baf74fd, 2ffddf39, 054a7f24, d9fa1454) | the binding block states every matrix row; the Ask First for the paid action names its task and estimate |
 | `50-int-neg-settled-small-change` | **command on a settled change** | a one-file change with everything specified is made, with no planning documents |
 | `e2e-01-ledger-report` | feature spec → plan → execution → hidden acceptance, for a `report` command added to a ledger CLI that already has `add` and `total` | whether the plan the skill writes survives being handed to a separate executor session and produces code that passes acceptance tests it never saw |
 

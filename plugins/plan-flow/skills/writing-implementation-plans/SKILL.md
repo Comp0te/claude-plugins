@@ -133,6 +133,8 @@ Run a self-review pass:
   step that names no real code.
 - Check that names and signatures a later task consumes match what an earlier task actually
   produced.
+- Read each matrix row against its task's binding blocks. A row the binding text leaves out, or
+  contradicts, is a stop during execution — add the clause now.
 
 ## Handing it off
 
