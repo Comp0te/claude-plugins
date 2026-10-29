@@ -186,6 +186,26 @@ class TestSelect(Base):
         r = self.sel("README.md", "plugins/ui-verifier-web/x.md", "scripts/eval-select.py")
         self.assertEqual(r, {"plan_flow": [], "reviewer": []})
 
+    def test_plugin_without_evals_selects_nothing(self):
+        changed = [f"{PF}/skills/debugging/SKILL.md", "plugins/review-flow/agents/deletion-check.md"]
+        r = es.select(es.scope(changed, "ui-verifier-web"), self.root)
+        self.assertEqual(r, {"plan_flow": [], "reviewer": []})
+
+    def test_plan_flow_scope_drops_review_flow_change(self):
+        changed = [f"{PF}/skills/debugging/SKILL.md", "plugins/review-flow/agents/deletion-check.md"]
+        r = es.select(es.scope(changed, "plan-flow"), self.root)
+        self.assertEqual(r, {"plan_flow": [{"tier": "debugging", "case": None}], "reviewer": []})
+
+    def test_review_flow_scope_keeps_agents_and_harness(self):
+        changed = [f"{PF}/skills/debugging/SKILL.md", "plugins/review-flow/agents/deletion-check.md",
+                   f"{RV}/cases/01-swallowed-catch/case.json"]
+        r = es.select(es.scope(changed, "review-flow"), self.root)
+        self.assertEqual(r, {"plan_flow": [], "reviewer": ["01-swallowed-catch", "02-deleted-guard"]})
+
+    def test_no_plugin_keeps_everything(self):
+        changed = [f"{PF}/skills/debugging/SKILL.md", "README.md"]
+        self.assertEqual(es.scope(changed, None), changed)
+
     def test_tier_subsumes_case(self):
         r = self.tiers(f"{PF}/references/working-agreements.md",
                        f"{PF}/evals/18-cmt-why-not-what/case.yaml")
@@ -218,6 +238,17 @@ class TestCli(Base):
         code, r = self.run_cli("--plugin", "plan-flow")
         self.assertEqual(r["ref"], "plan-flow--v0.6.2")
         self.assertEqual(r["plan_flow"], [])
+
+    def test_cli_plugin_narrows_diff(self):
+        write(self.root, f"{PF}/skills/debugging/SKILL.md")
+        commit(self.root, "four")
+        try:
+            _, other = self.run_cli("--plugin", "ui-verifier-web")
+            _, own = self.run_cli("--plugin", "plan-flow")
+        finally:
+            git(self.root, "reset", "-q", "--hard", "HEAD~1")
+        self.assertEqual(other["plan_flow"], [])
+        self.assertEqual(own["plan_flow"], [{"tier": "debugging", "case": None}])
 
     def test_debugging_tier_grants_write_edit_bash(self):
         argv = es.pf_argv({"tier": "debugging", "case": None})

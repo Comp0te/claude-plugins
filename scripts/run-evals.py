@@ -44,8 +44,7 @@ def compute_selection(args):
         return {"ref": None, **es.all_selection(ROOT)}
     if args.smoke:
         return {"ref": None, **es.SMOKE}
-    ref = es.resolve_ref(args.plugin, args.since, ROOT)
-    return {"ref": ref, **es.select(es.changed_files(ref, ROOT), ROOT)}
+    return es.diff_selection(args.plugin, args.since, ROOT)
 
 
 def _case_runs(case):

@@ -47,6 +47,13 @@ RULES = [
 ]
 
 
+# What each plugin's evals measure; --plugin keeps only these paths, so a plugin missing here selects nothing.
+PLUGIN_SCOPE = {
+    "plan-flow": ["plugins/plan-flow/*"],
+    "review-flow": ["plugins/review-flow/*", REVIEWER_EVALS + "/*"],
+}
+
+
 def _git(root, *args):
     return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
 
@@ -69,6 +76,18 @@ def changed_files(ref, root):
         raise ValueError(f"unknown ref {ref}")
     dirty = _git(root, "diff", "--name-only", "HEAD").stdout.split()
     return sorted(set(committed.stdout.split()) | set(dirty))
+
+
+def scope(changed, plugin):
+    if not plugin:
+        return changed
+    globs = PLUGIN_SCOPE.get(plugin, [])
+    return [p for p in changed if any(fnmatch.fnmatchcase(p, g) for g in globs)]
+
+
+def diff_selection(plugin, since, root):
+    ref = resolve_ref(plugin, since, root)
+    return {"ref": ref, **select(scope(changed_files(ref, root), plugin), root)}
 
 
 def _case_tier(root, case):
@@ -165,8 +184,7 @@ def main(argv=None):
         out = {"ref": None, **SMOKE}
     else:
         try:
-            ref = resolve_ref(args.plugin, args.since, root)
-            out = {"ref": ref, **select(changed_files(ref, root), root)}
+            out = diff_selection(args.plugin, args.since, root)
         except ValueError as e:
             print(f"eval-select: {e}", file=sys.stderr)
             return 2
