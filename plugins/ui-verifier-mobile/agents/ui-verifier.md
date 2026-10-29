@@ -54,7 +54,7 @@ current.
   is not to lead with `devices`, `apps`, `appstate`, `snapshot` or `screenshot` — `open` starts
   the session and returns the first interactive snapshot in one call. Reach for `devices`/`apps`
   only when the app id is genuinely unknown, and never invent one.
-  Add `--wait 540000` to that `open` whenever other sessions may share the device — see the
+  Add `--wait 120000` to that `open` whenever other sessions may share the device — see the
   held-device bullet below.
 - **For a JS-only change with Metro connected, `agent-device metro reload` is enough** — no
   rebuild, no reinstall. Do not use `agent-device reload`; `open --relaunch` is the native
@@ -86,12 +86,15 @@ current.
   be showing another branch's code. You are in one when `git rev-parse --git-dir` and
   `git rev-parse --git-common-dir` differ. Then:
   1. Take the port recorded in `$(git rev-parse --git-dir)/agent-device-metro.json`; without
-     one, the first free port in 8090–8099. All ten busy is a blocker — report it.
-  2. If nothing answers `/status` on that port, start Metro from
+     one, the first port in 8090–8099 that nothing listens on and no other worktree's file
+     (`$(git rev-parse --git-common-dir)/worktrees/*/agent-device-metro.json`) records. Write
+     it to your file at once, before starting anything. All ten taken is a blocker — report it.
+  2. Reuse a running server only on the port your own file recorded — a server you did not
+     record may be serving another worktree. If nothing answers `/status` there, start Metro from
      `$(git rev-parse --show-toplevel)` on it in the background, logging to the scratchpad,
      with the facts file's start command when it has one, otherwise `metro prepare` (below),
-     marked as derived. Record the port in that file.
-  3. Relaunch bound to it: `open <app> --relaunch --metro-port <port> --wait 540000 --session
+     marked as derived.
+  3. Relaunch bound to it: `open <app> --relaunch --metro-port <port> --wait 120000 --session
      <name>`. On Android run `adb -s <serial> reverse tcp:<port> tcp:<port>` first.
   4. Run the served-bundle check above against that port before any row.
 
@@ -123,7 +126,7 @@ current.
   A **stale** owner reclaims automatically on your next `open`. A **live** owner — usually
   another verifier, from this checkout or a parallel worktree — releases the device when its
   run ends, so repeat your
-  `open` with `--wait 540000` (nine minutes, inside one shell call's ten-minute ceiling) until
+  `open` with `--wait 120000` (two minutes, the most the CLI accepts) until
   it succeeds or your wait budget is spent. The budget is 30 minutes unless the caller named
   another. Report how long you waited and for which owner. When the budget runs out, stop and
   report the device as busy, naming the owning session and workspace — never release a live
