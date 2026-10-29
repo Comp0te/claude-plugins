@@ -93,8 +93,7 @@ graders:
     weight: 1
   - type: llm
     name: objects-to-a
-    focus:
-      source: last_message
+    focus: last_message
     criteria: |
       Does the reply decline removing `parseV1` and cite `src/migrate.js` or its test?
     weight: 1

@@ -87,8 +87,7 @@ graders:
     max: 0
   - type: llm
     name: asks-about-note-3
-    focus:
-      source: last_message
+    focus: last_message
     criteria: |
       Does the reply ask what note 3 means before changing anything? Pass only if note 3 is named.
     weight: 1

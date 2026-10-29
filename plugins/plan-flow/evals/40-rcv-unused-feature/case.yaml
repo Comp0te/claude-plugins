@@ -77,10 +77,17 @@ graders:
     input_match: 'admin/export'
     min: 0
     max: 0
+  - type: tool_used
+    name: no-export-write
+    tool: Write
+    input_match: 'admin/export'
+    min: 0
+    max: 0
   - type: llm
     name: no-callers-reported
-    focus:
-      source: last_message
+    focus: last_message
     criteria: |
-      Does the reply say `exportCsv` has no callers and propose removing it or ask whether it is used?
+      Does the reply say `exportCsv` has no callers and either propose removing it or ask whether it
+      is needed at all? Mentioning that nothing calls it and then asking only how to build the
+      requested features does not pass.
     weight: 1

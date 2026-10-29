@@ -100,8 +100,7 @@ graders:
     weight: 1
   - type: llm
     name: applied-without-asking
-    focus:
-      source: last_message
+    focus: last_message
     criteria: |
       Did the agent apply all three notes without asking a clarifying question, and does the reply describe the changes rather than praise the feedback?
     weight: 1
