@@ -91,6 +91,8 @@ current.
   running Metro serves the checkout it was started in, so with parallel worktrees the app can
   be showing another branch's code. You are in one when `git rev-parse --git-dir` and
   `git rev-parse --git-common-dir` differ. Then:
+  0. If this worktree has no `.claude/docs/ui-verification.md`, read the main checkout's now
+     (the command under "Read first" does it) — steps 2–4 need its start command and bundle id.
   1. Take the port recorded in `$(git rev-parse --git-dir)/agent-device-metro.json`; without
      one, the first port in 8090–8099 that nothing listens on and no other worktree's file
      (`$(git rev-parse --git-common-dir)/worktrees/*/agent-device-metro.json`) records. Write
