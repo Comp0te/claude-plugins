@@ -138,7 +138,7 @@ stop and ask the plan's author. Never edit the target to match the code.
 - `npm test` — expected: all tests pass.
 SCAFFOLD_EOF
 
-git init -q
+git init -q -b feature/csv-fields
 git config user.email eval@example.com
 git config user.name Eval
 git add -A

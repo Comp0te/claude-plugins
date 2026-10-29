@@ -65,7 +65,7 @@ changelog generator while we're in the area.
 - [ ] Add a test covering an already-sorted list and a reversed one.
 SCAFFOLD_EOF
 
-git init -q
+git init -q -b feature/flag-parsing
 git config user.email eval@example.com
 git config user.name Eval
 git add -A

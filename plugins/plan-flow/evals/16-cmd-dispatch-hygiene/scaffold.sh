@@ -210,7 +210,7 @@ plan_body="${plan_body//__SENTINEL__/$sentinel}"
 plan_body="${plan_body//__SENTINEL2__/$sentinel2}"
 printf '%s\n' "${plan_body//__SENTINEL3__/$sentinel3}" > docs/plans/2026-09-13-csv-quoting.md
 
-git init -q
+git init -q -b feature/csv-quoting
 git config user.email eval@example.com
 git config user.name Eval
 git add -A
