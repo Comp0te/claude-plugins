@@ -37,10 +37,13 @@ SpringBoard and system surfaces.
 
 ## Read first — the project's verification facts
 
-Look for `.claude/docs/ui-verification.md` in the repository root, or a path the caller named.
-In a linked git worktree without one, read the main checkout's
-(`$(git rev-parse --git-common-dir)/../.claude/docs/ui-verification.md`) — projects often keep it
-uncommitted, and a worktree only gets committed files.
+Read `.claude/docs/ui-verification.md` from the repository root, or a path the caller named —
+**and in a linked git worktree that has none, from the main checkout**, because projects often
+keep it uncommitted and a worktree gets only committed files:
+
+```bash
+f=.claude/docs/ui-verification.md; [ -f "$f" ] || f="$(git rev-parse --git-common-dir)/../$f"; cat "$f"
+```
 It holds what only this project knows: bundle identifiers per platform, the command that builds
 and launches it, which packages are patched, when a rebuild is required rather than a relaunch,
 any sandbox exclusions the tooling needs, and app-specific traps that have previously caused
