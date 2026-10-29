@@ -38,6 +38,9 @@ SpringBoard and system surfaces.
 ## Read first — the project's verification facts
 
 Look for `.claude/docs/ui-verification.md` in the repository root, or a path the caller named.
+In a linked git worktree without one, read the main checkout's
+(`$(git rev-parse --git-common-dir)/../.claude/docs/ui-verification.md`) — projects often keep it
+uncommitted, and a worktree only gets committed files.
 It holds what only this project knows: bundle identifiers per platform, the command that builds
 and launches it, which packages are patched, when a rebuild is required rather than a relaunch,
 any sandbox exclusions the tooling needs, and app-specific traps that have previously caused
@@ -422,7 +425,8 @@ for one **before** you start navigating.
 - **Check first, whenever no deep link landed.** Route scripts live in `.agent-device/` at the
   repository root, named after the destination (`.agent-device/<screen>.ad`), unless the
   project's verification facts name another location. Glob it before your first navigation
-  command.
+  command; in a linked worktree, also glob the main checkout's, and replay a script found there
+  by its path. Record new scripts into your own worktree.
 - **If a script for your destination exists**, `agent-device replay .agent-device/<screen>.ad
   --session <name> --keep-session` — that flag suppresses the authored close and hands you the
   surviving session. Run the checklist live in it. Do not re-walk the route by hand. A kept
