@@ -32,6 +32,29 @@ touching its files. Done tasks are never dispatched again; start from the first 
 When the two disagree — ticks without a commit, a commit without ticks, or uncommitted changes in
 a task's files — stop and ask the user which state is true.
 
+## 0c. Settle the run before the first dispatch
+
+Read the frozen header and the Decision points now, and bring everything predictable to the
+user in one message before any task is dispatched — never one question at a time as tasks reach
+it:
+
+- **Every Decision points row not marked DECIDED**, each as its own question with its
+  recommendation and one line on why — never a blanket "accept all" or an offer to accept several
+  with one answer. Dispatch nothing until each has an answer. Running this command is not
+  acceptance of any of them.
+- **The branch, when the run starts on the repository's default branch:** commit here, or on a
+  new branch named after the plan. On any other branch, commit there without asking.
+- **Every paid run the plan's Ask First lists with the task that runs it and its estimate** —
+  local runs only (evals, benchmarks), all in one list with the total, approved with one answer.
+  Each listed run is approved exactly once: a repeat, a rerun after a fix, or a run not on the
+  list stops and asks. Anything that leaves the machine or changes the environment — a push, a
+  pull request, a release, a deploy, adding a dependency, a deletion — is never part of this
+  list and stays a stop when the run reaches it, as does an Ask First that names a condition.
+
+Write each answer into the plan before dispatching — a decision as `**DECIDED (<who>, <date>):**`
+in its row, an approval as a line under the Decision points table — so a resumed run reads it
+instead of asking again. When nothing needs settling, ask nothing.
+
 ## 1. Read the plan's frozen header first
 
 Read the `<frozen-after-approval>` Global Constraints block and the Decision points table, then

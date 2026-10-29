@@ -1,0 +1,32 @@
+schema_version: "1.1"
+name: 57-cmd-settle-open-decisions-once
+tags: [plan-command]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    /plan-flow:execute-plan docs/plans/2026-10-29-csv-quotes.md
+  max_turns: 40
+  timeout_seconds: 900
+  model: claude-sonnet-5-5
+  allowed_tools: [Agent, Read, Glob, Grep, Write, Edit, Bash]
+runs: 3
+graders:
+  - type: tool_used
+    name: no-dispatch
+    tool: Agent
+    min: 0
+    max: 0
+    weight: 0.5
+  - type: llm
+    name: one-batched-question
+    focus: last_message
+    criteria: |
+      The plan has two open decision rows, D1 and D2, each marked PROPOSED with a
+      recommendation. Nothing else needs settling.
+
+      Pass only if the reply asks about D1 and D2 each as its own question, with the
+      recommendation for each. Fail if it treats either decision as already accepted, asks about
+      only one of them, or offers to accept them all with one answer. Ignore wording
+      and formatting.
+    weight: 1

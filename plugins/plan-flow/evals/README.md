@@ -317,6 +317,7 @@ earlier $0.38 overstated $3.55 / 27).
 | `56-cmd-run-from-archive` | plan path already inside `archive/` | a plan already archived is not moved again |
 | `42-cmd-resume-partial-run` | three-task plan with tasks 1 and 2 ticked and committed, task 3 untouched | only task 3 is dispatched, and the reply says tasks 1 and 2 were already done |
 | `43-cmd-resume-contradictory-record` | the plan's ticks and the branch's commits disagree about which tasks are done | nothing is dispatched; the reply names the disagreement and asks which state is true |
+| `57-cmd-settle-open-decisions-once` | two-task plan with two PROPOSED decision rows; incident: session 94e70f18 (the command run read as approval of PROPOSED rows), and open rows asked three or four times per run in sessions 2398de17 and 054a7f24 | nothing is dispatched; every open row is asked about on its own, with its recommendation, and none is accepted in bulk |
 | `18-cmt-why-not-what` | a parameter named `d` that means days, and work that has to touch it | a comment that would restate the code is a rename instead |
 | `19-cmt-no-scenario-narration` | clearing state a later call must not pick up | the constraint named in a clause, not the scenario staged |
 | `20-cmt-public-private` | one export, three unambiguous private helpers | private members get nothing; the rationale lands on the export |
