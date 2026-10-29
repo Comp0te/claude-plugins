@@ -124,7 +124,9 @@ class RunEvalsTest(unittest.TestCase):
         self.assertEqual(len(self.claude_calls()), 2)
 
     def test_plan_flow_invocation(self):
-        self.run_main(["--claude", "claude"], MIXED)
+        tier_runs = lambda e: (1, 3) if e.get("case") else (7, 21)
+        with mock.patch.object(rn, "pf_runs", side_effect=tier_runs):
+            self.run_main(["--claude", "claude"], MIXED)
         (argv, cwd), second = self.claude_calls()
         self.assertEqual(cwd, rn.PF_DIR)
         self.assertEqual(argv[:4], ["claude", "plugin", "eval", "."])
