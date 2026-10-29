@@ -29,7 +29,7 @@ Arm the recording on the first `open`, walk the journey, guard the destination, 
 without closing:
 
 ```
-agent-device open <app-id> --relaunch --save-script=.agent-device/<screen>.ad
+agent-device open <app-id> --relaunch --save-script="$(git rev-parse --show-toplevel)/.agent-device/<screen>.ad"
 agent-device wait 'id="continue"'
 agent-device press 'id="continue"' --settle
 agent-device wait 'role="heading" label="Screen X"'
@@ -37,7 +37,9 @@ agent-device session save-script
 ```
 
 `session save-script` publishes the recorded open through the guard, omits the close, and leaves
-the session active — so you record and then run the checklist in one session. A second successful
+the session active — so you record and then run the checklist in one session. Give
+`--save-script` an absolute path: the daemon writes the file, and resolves a relative path
+against its own working directory, which can be another project. A second successful
 `open` aborts publication; start a fresh session to author again.
 
 - **The destination guard must be a selector wait on a labeled or id-bearing landmark.** Its
