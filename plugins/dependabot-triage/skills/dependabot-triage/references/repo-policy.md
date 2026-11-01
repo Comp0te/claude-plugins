@@ -1,8 +1,8 @@
 # Repository policy discovery
 
-Every repo-specific fact the triage depends on is read from the repository being triaged, never assumed. Read policy files at the default branch (`git show origin/<default branch>:<path>`), not from the working copy, which may be on a feature branch. Read the facts below once, before triaging, and print them as the [policy summary](#policy-summary).
+Every repo-specific fact the triage depends on is read from the repository being triaged, never assumed. Read policy files at the default branch, not from the working copy, which may be on a feature branch: `git show origin/<default branch>:<path>` reads a file and, given a directory, lists it; `git grep -n -E '<pattern>' origin/<default branch> -- .github/workflows/` searches the workflows; `git branch -r --list 'origin/release/*'` lists release branches. Read the facts below once, before triaging, and print them as the [policy summary](#policy-summary).
 
-Every command this skill gives is one line, run as its own command from the repository root with literal paths: no shell variables, `( … )` subshells, `&&` or `;` chains, loops or `git -C`, which permission rules cannot match.
+Every command this skill gives is one line, run as its own command from the repository root with literal paths: no shell variables, `( … )` subshells, `&&` or `;` chains, loops or `git -C`, which permission rules cannot match. A pipe into `jq`, `sort` or `tail` within the line is fine.
 
 ## Audit gate and allowlist
 
@@ -26,7 +26,7 @@ git worktree remove --force <path>
 ```
 
    A wrapper gate runs as `npm --prefix <path> run <script>` (`yarn --cwd`, `pnpm --dir`). If that is refused, run the audit it wraps with the directory flag, apply its allowlist and severity filter by hand, and print `gate: reproduced (<why>)`. Prefer the directory flag over `cd <path>`, which leaves later commands inside the worktree. Before the report, run `git worktree list`: remove any worktree this run added that is still listed, or name it if removal is refused. Never remove a worktree the run did not add.
-6. **Reach** needs a second, read-only run of the same audit: production dependencies only (`--environment production` for yarn, `--omit=dev` for npm, `--prod` for pnpm) and without the gate's severity filter, so every alert's package is covered. Run it at each ref whose rows need reach — the default branch for PR and alert rows, the newest tag for release rows — and once per directory holding a `manifest_path` that has alerts, pointing the directory flag there; a manifest the CI gate does not cover says so in the reason. A package it reports is `runtime`, one it does not report is `dev`, one the allowlist hides from it is `unverified`. This audit only classifies: an advisory only it reports gets no row, only a `not gated:` line under Alerts without a PR when it is runtime.
+6. **Reach** needs a second, read-only run of the same audit: production dependencies only (`--environment production` for yarn, `--omit=dev` for npm, `--prod` for pnpm) and without the gate's severity filter, so every alert's package is covered. Run it at each ref whose rows need reach — the default branch for PR and alert rows, the newest tag for release rows — and once per directory holding a `manifest_path` that has alerts, pointing the directory flag there; a manifest the CI gate does not cover says so in the reason. For a package with an advisory, one it reports is `runtime`, one it does not report is `dev`, one the allowlist hides from it is `unverified`. A package with no advisory (most PR packages) takes reach from the lockfile's dependency chain — `npm ls --omit=dev --package-lock-only <pkg>` for npm — and the row says so. This audit only classifies: an advisory only it reports gets no row, only a `not gated:` line under Alerts without a PR when it is runtime.
 
 Running the gate is read-only and needs no approval. Editing the allowlist is a write: it goes on a new branch and a PR, after the approval gate.
 
@@ -34,7 +34,7 @@ Running the gate is read-only and needs no approval. Editing the allowlist is a 
 
 Packages the repository handles specially, and how fresh a release must be.
 
-1. **Sensitive packages.** Read `.github/dependabot.yml` for `exclude-patterns` and `ignore` entries. Take the comment next to each as its reason. List each pattern with its reason; a pattern with no comment is listed with `reason: not stated`. A security PR touching such a package cannot be Category 1.
+1. **Sensitive packages.** Read `.github/dependabot.yml` for `exclude-patterns` and `ignore` entries. Take the comment next to each as its reason; a comment above consecutive entries of one list is the reason for each of them, up to the next comment. List each pattern with its reason; a pattern with no comment is listed with `reason: not stated`. A security PR touching such a package cannot be Category 1.
 2. **Release-age policy.** Look in these places and convert each to days:
    - `cooldown` in `.github/dependabot.yml`
    - `min-release-age` in `.npmrc`

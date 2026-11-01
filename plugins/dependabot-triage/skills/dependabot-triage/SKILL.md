@@ -39,7 +39,7 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
    4. Alerts without a PR: alert #, package, severity, reach, fixed version, action, reason. Gate findings with no alert go here, not in a section of their own.
    5. Releases: the [Release table](references/alerts-and-releases.md#release-table), including one row per package for alerts fixed since the newest tag.
 
-   Notes go before Releases; nothing follows the release table except the approval-gate question.
+   Notes go before Releases, and the release order is one line directly above the release table; nothing follows the table except the approval-gate question.
 
    **Approval gate.** Every write waits for it: merges, closes, override PRs, allowlist edits, alert dismissals, malware actions. Malware is asked for separately, first. If the user's request already authorizes actions ("смерджи категорию 1", "закрывай сразу"), proceed after presenting the tables, for the rows it covers. Otherwise STOP and ask which rows and categories to act on. Reading, listing and running the gate in a detached worktree need no approval.
 

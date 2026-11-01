@@ -42,7 +42,7 @@ A gate finding on the default branch that has no alert and no PR gets a row here
    | yarn | `resolutions` | `yarn install --mode=update-lockfile` (Berry), `yarn install` (classic) |
    | pnpm | `pnpm.overrides` | `pnpm install --lockfile-only` |
 
-2. **`accept`**: `first_patched_version` is null and the package is not reachable at runtime, judged by the gate or by evidence in the code. When the gate reports the advisory and the repository has an allowlist, add it there in the id format the policy summary records, with the reason in a comment beside the entry (new branch and PR). Otherwise there is no entry to add — with `allowlist: none`, or a gate that never sees the advisory — and the dismissal alone records it. Then dismiss the alert:
+2. **`accept`**: `first_patched_version` is null and the package is not reachable at runtime, judged by the gate or by evidence in the code. A production-only audit of a manifest with no `dependencies` is not evidence; cite where that manifest's output goes instead (e.g. not in the package's `files`). When the gate reports the advisory and the repository has an allowlist, add it there in the id format the policy summary records, with the reason in a comment beside the entry (new branch and PR). Otherwise there is no entry to add — with `allowlist: none`, or a gate that never sees the advisory — and the dismissal alone records it. Then dismiss the alert:
 
    ```bash
    gh api -X PATCH "repos/{owner}/{repo}/dependabot/alerts/<n>" \
@@ -93,14 +93,14 @@ Never write these findings anywhere public: no issue, PR body, comment or commit
 | Package / advisory | Fixed on default | In newest release (<tag>) | Action | Downstream |
 ```
 
-One row per package and `fixed on default` value, never a combined row for several packages. The first cell lists the package, its advisory ids and its alert numbers; alerts fixed since the tag join the gate row of the same package. Count findings by advisory, not by alert.
+One row per package and `fixed on default` value, never a combined row for several packages. The first cell lists the package, its advisory ids and its alert numbers; alerts fixed since the tag join the gate row of the same package — list every one. Count findings by advisory, not by alert. `In newest release` holds the version the tag resolves, or `no`.
 
 Release actions are exactly `release` and `fix first`. `Downstream` comes from the policy summary's `bundled` and `consumers` fields:
 
 - a dev-only finding: `none — not shipped`;
 - `bundled: yes`: `release this package, then bump in: <consumers in order>`;
 - `bundled: mixed`: as for `yes` when the package is reachable from the inlining bundle's entry; otherwise as for `no`, and the note names which bundle reaches it;
-- `bundled: no` with consumers named, and the fix carried only by this repository's override field (consumers do not inherit it): `refresh in: <consumers>`; when the fix is in this package's declared range: `release this package, then bump in: <consumers>`;
+- `bundled: no`, and the fix carried only by this repository's override field (consumers do not inherit it) or a transitive fix already inside its parent's declared range: `refresh in: <consumers>` — a lockfile refresh there, independent of a release of this package; when this package's own declared range must change: `release this package, then bump in: <consumers>`;
 - `bundled: n/a`: `none`.
 
-With `consumers: not documented — ask` the cell says so.
+With `consumers: not documented — ask` that text stands in for `<consumers>`. When every row reads `none — not shipped` or `refresh in:`, say in one line above the table that the release only clears the gate at the tag.
