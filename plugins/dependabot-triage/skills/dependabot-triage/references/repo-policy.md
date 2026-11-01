@@ -13,13 +13,18 @@ The gate is the command the repository's CI uses to fail on vulnerable dependenc
    - `.npmrc` or an `audit-ci` style config (`audit-ci.json`, `.audit-ci.json`, `audit-ci.jsonc`) with its allowlist key
    Record the file and key. Record the id format it expects (numeric npm advisory id vs GHSA id) when a comment in the file or the tool's documentation says so; otherwise `unknown`.
 4. **No audit step in CI** means `gate: none`. Runtime reach then falls back to Dependabot's `scope` label and every row decided by it says `reach: unverified`.
-5. **Run the gate in a detached worktree**, never in the user's working copy. If the gate needs an installed `node_modules`, do not install: fall back to the scope label and mark `reach: unverified`.
+5. **Run the gate in a detached worktree**, never in the user's working copy. If the gate needs an installed `node_modules`, do not install: fall back to the scope label and mark `reach: unverified`. Run each line as its own command, from the repository root, with the literal path `mktemp` printed — no shell variables, `( … )` subshells, `&&` chains or `git -C`, which permission rules cannot match:
 
 ```bash
 git fetch -q origin
-wt=$(mktemp -d) && git worktree add -q --detach "$wt" "origin/$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)"
-( cd "$wt" && <gate command> ); git worktree remove --force "$wt"
+mktemp -d
+git worktree add -q --detach <path> origin/<default branch>
+yarn --cwd <path> npm audit …    # the gate command with its directory flag: npm --prefix <path> audit …, pnpm --dir <path> audit …
+git worktree remove --force <path>
 ```
+
+   Prefer the directory flag over `cd <path> && <gate command>`, which works only where the temp directory is a working directory of the session and leaves later commands inside the worktree. Before the report, run `git worktree list`; any temp path still listed is removed, or named in the report if removal is refused.
+6. **Reach** needs a second, read-only run of the same audit: production dependencies only (`--environment production` for yarn, `--omit=dev` for npm, `--prod` for pnpm) and without the gate's severity filter, so every alert's package is covered. A package it reports is `runtime`, one it does not report is `dev`, one the allowlist hides from it is `unverified`. This audit only classifies: an advisory only it reports gets no row.
 
 Running the gate is read-only and needs no approval. Editing the allowlist is a write: it goes on a new branch and a PR, after the approval gate.
 
@@ -34,7 +39,7 @@ Packages the repository handles specially, and how fresh a release must be.
    - `npmMinimalAgeGate` in `.yarnrc.yml`
    - `minimumReleaseAge` in the pnpm config (`pnpm-workspace.yaml` or `.npmrc`)
 
-   Print the age in days with its source. If values conflict, list all of them and use the largest. None found means `release age: none`.
+   Print the age in days with its source. If values conflict, list all of them and use the largest. None found, or only `0`, means `release age: none`.
 3. **Publish date of a version**, to compare against the age:
 
 ```bash

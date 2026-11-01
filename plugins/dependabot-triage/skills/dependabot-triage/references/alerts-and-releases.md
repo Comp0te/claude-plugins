@@ -23,9 +23,11 @@ Match on package and version, not on the advisory id: a grouped security PR body
 
 ## Alerts without a PR
 
-Decide in this order and print the action in the alert's row.
+Decide in this order. Each row's action is exactly one of the words below; caveats go in the reason column.
 
-1. **`override`**: `first_patched_version` is set. On a new branch, pin the package through the manager's override field, refresh the lockfile, run the gate and the tests, then open a PR (after the approval gate). If the override breaks the gate or the tests, the action becomes `wait` and names the failure. If the pin would cross the declared range of the parent that requires the package and the gate or tests fail, the action is `wait`, naming the parent and the version that would carry the fix.
+A gate finding on the default branch that has no alert and no PR gets a row here too, alert # `gate:<advisory id>`, decided by the same order. When it is the same package as an open alert and one action covers both, they share one row (`gate:<id>, #<n>`).
+
+1. **`override`**: `first_patched_version` is set and the pin stays inside the declared range of every parent that requires the package (read the ranges from the lockfile). Raising an existing resolution within the major it already forces counts as inside. When the patched version already satisfies every range, the action is still `override`, and the reason says a lockfile refresh (`yarn up -R <pkg>`, `npm update <pkg>`) is enough. When it would cross one, the action is `wait`, naming the parent and the parent version that would carry the fix. Once approved, on a new branch, pin the package through the manager's override field, refresh the lockfile, run the gate and the tests, then open a PR; if the gate or the tests fail, do not open it, and report the row as `wait` naming the failure.
 
    | Manager | Override field | Lockfile refresh |
    | ------- | -------------- | ---------------- |
@@ -62,7 +64,7 @@ Malware alerts (`classification=malware`) are listed first, in their own section
 The release users run can carry advisories the default branch has already fixed. Skip this section when the policy summary says `releases: not detected`; print `releases: not detected` and omit release rows.
 
 1. Take the newest release tag from the policy summary.
-2. Run the repository's gate in a detached worktree of that tag, as in [repo-policy.md](repo-policy.md#audit-gate-and-allowlist). Its findings list what users run. With `gate: none` or a gate that cannot run, print `release audit: unverified`.
+2. Run the repository's gate exactly as CI runs it, in a detached worktree of that tag, as in [repo-policy.md](repo-policy.md#audit-gate-and-allowlist). Its findings list what users run. Every finding gets a row, dev-only ones included, with its reach in the row's note. With `gate: none` or a gate that cannot run, print `release audit: unverified`.
 3. Run the same gate on the default branch. It decides `fixed on default`.
 
 | Gate at tag T | Gate on default | Row |

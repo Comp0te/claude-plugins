@@ -20,7 +20,7 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
 
 3. **Assess each PR:** prod vs dev dependency; semver jump (patch/minor/major); CI status; does it fix a security advisory (check `gh pr view N` body / release notes / changelog); merge conflicts; part of a Dependabot group?
 
-   **Reach.** Take prod vs dev from the gate: print `reach: runtime` or `reach: dev` in the PR and alert rows. When the gate is unavailable print `reach: unverified (scope label: …)`; Dependabot's `scope` label is a hint, never proof.
+   **Reach.** Take prod vs dev from the production-only audit in [Audit gate and allowlist](references/repo-policy.md#audit-gate-and-allowlist), not from the CI gate itself: print `reach: runtime` or `reach: dev` in the PR and alert rows. A package the allowlist hides, or a gate that is unavailable, prints `reach: unverified (scope label: …)`; Dependabot's `scope` label is a hint, never proof.
 
    **Alerts.** Match each open alert to a PR as in [Matching alerts to PRs](references/alerts-and-releases.md#matching-alerts-to-prs); a matched alert is folded into the PR's row. The rest are handled per [Alerts without a PR](references/alerts-and-releases.md#alerts-without-a-pr), malware per [Malware](references/alerts-and-releases.md#malware).
 
@@ -36,8 +36,8 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
    1. Policy summary.
    2. Malware (or `Malware: none`).
    3. Pull requests: PR #, dependency, bump, reach, CI, category, one-line risk note, intended action.
-   4. Alerts without a PR: alert #, package, severity, reach, fixed version, action, reason.
-   5. Releases: the [Release table](references/alerts-and-releases.md#release-table).
+   4. Alerts without a PR: alert #, package, severity, reach, fixed version, action, reason. Gate findings with no alert go here, not in a section of their own.
+   5. Releases: the [Release table](references/alerts-and-releases.md#release-table), including one row per package for alerts fixed since the newest tag.
 
    **Approval gate.** Every write waits for it: merges, closes, override PRs, allowlist edits, alert dismissals, malware actions. Malware is asked for separately, first. If the user's request already authorizes actions ("смерджи категорию 1", "закрывай сразу"), proceed after presenting the tables, for the rows it covers. Otherwise STOP and ask which rows and categories to act on. Reading, listing and running the gate in a detached worktree need no approval.
 
@@ -61,4 +61,5 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
 - Dismissing an alert on Dependabot's `scope` label alone.
 - Treating "merged" as "fixed for users": a bundled library reaches users only through a release.
 - Upgrading on a malware alert — remove or roll back instead.
+- Ending the run with temp worktrees still listed in `git worktree list`.
 - Putting a security PR on a sensitive package in Category 1.
