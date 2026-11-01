@@ -1,8 +1,8 @@
 {
   "name": "dependabot-triage",
-  "version": "0.1.0",
-  "description": "Triage a repository's open Dependabot pull requests: categorize each by risk against how the repository actually uses the dependency, merge the safe ones, and close the unwanted ones so Dependabot stops re-proposing them.",
+  "version": "0.2.0",
+  "description": "Triage a repository's Dependabot surface: malware alerts, open PRs categorized by risk against how the repository uses the dependency, alerts that have no PR, and the published release audited with the repository's own gate. Merges the safe PRs, closes unwanted ones, and ends with the order in which releases are needed.",
   "author": { "name": "Dmytro Vynnyk", "email": "simbiatoff@gmail.com" },
   "license": "MIT",
-  "keywords": ["dependabot", "dependencies", "github", "pull-request", "triage"]
+  "keywords": ["dependabot", "dependencies", "github", "pull-request", "triage", "security", "vulnerability"]
 }

@@ -21,10 +21,11 @@ application.
   Jira issues, after verifying each against the base branch. Requires `review-flow`,
   Atlassian's [`twg` CLI](https://teamwork-graph.atlassian.com/cli/install) (logged in), and a
   `.claude/pr-tickets.json` in the consuming repository.
-- **[dependabot-triage](plugins/dependabot-triage/README.md)** — triages a repository's open
-  Dependabot PRs: categorizes each by risk against how the repository actually uses the
-  dependency, merges the safe ones after approval, and closes the unwanted ones so they aren't
-  proposed again. Requires `gh`.
+- **[dependabot-triage](plugins/dependabot-triage/README.md)** — triages a repository's
+  Dependabot surface: malware alerts, open PRs (categorized by risk against how the repository
+  uses the dependency), alerts that have no PR, and the published release audited with the
+  repository's own gate. Merges the safe PRs after approval and ends with what has to be
+  released, in which order. Requires `gh`.
 - **[rn-performance-reviewer](plugins/rn-performance-reviewer/README.md)** — a React Native
   performance reviewer for `review-flow`. Reports statically-provable defects in lists, effects
   and subscriptions, animations, Skia usage, memoization, bundle size and image rendering, and
