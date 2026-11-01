@@ -14,9 +14,10 @@ Fields used: `number`, `dependency.package.{ecosystem,name}`, `dependency.{scope
 
 ## Matching alerts to PRs
 
-An open alert belongs to an open Dependabot PR when both hold:
+An open alert belongs to an open Dependabot PR when all three hold:
 
 - the PR bumps the alert's package (`dependency.package.name`); a grouped PR lists each bumped package in its title or body, so check every one;
+- the PR changes the alert's `dependency.manifest_path` or its lockfile (`gh pr view N --json files`) — the same package in another manifest is a different alert;
 - the PR's target version is at or above `security_vulnerability.first_patched_version.identifier`.
 
 Match on package and version, not on the advisory id: a grouped security PR body carries no GHSA id. A matched alert is folded into that PR's row and gets no row of its own. An alert with no match is handled under [Alerts without a PR](#alerts-without-a-pr). A malware alert is never matched to a PR.
@@ -27,7 +28,13 @@ Decide in this order. Each row's action is exactly one of the words below; cavea
 
 A gate finding on the default branch that has no alert and no PR gets a row here too, alert # `gate:<advisory id>`, decided by the same order. When it is the same package as an open alert and one action covers both, they share one row (`gate:<id>, #<n>`).
 
-1. **`override`**: `first_patched_version` is set and the pin stays inside the declared range of every parent that requires the package (read the ranges from the lockfile). Raising an existing resolution within the major it already forces counts as inside. When the patched version already satisfies every range, the action is still `override`, and the reason says a lockfile refresh (`yarn up -R <pkg>`, `npm update <pkg>`) is enough. When it would cross one, the action is `wait`, naming the parent and the parent version that would carry the fix. Once approved, on a new branch, pin the package through the manager's override field, refresh the lockfile, run the gate and the tests, then open a PR; if the gate or the tests fail, do not open it, and report the row as `wait` naming the failure.
+1. **`override`**: `first_patched_version` is set and the pin stays inside the declared range of every parent that requires the package. Read the ranges from the lockfile — for npm with the command below, for yarn and pnpm by searching the lockfile for `<pkg>@` entries' parents. Raising an existing resolution within the major it already forces counts as inside. When the patched version already satisfies every range, the action is still `override`, and the reason says a lockfile refresh (`yarn up -R <pkg>`, `npm update <pkg>`) is enough. When it would cross one, the action is `wait`: check `npm view <parent>@latest dependencies.<pkg>` and name that parent version if it carries the fix, otherwise write `no <parent> release carries it yet`.
+
+   ```bash
+   jq -r '.packages | to_entries[] | select(((.value.dependencies//{})+(.value.peerDependencies//{})) | has("<pkg>")) | "\(.key) \(.value.version) \(((.value.dependencies//{})+(.value.peerDependencies//{}))["<pkg>"])"' <dir>/package-lock.json
+   ```
+
+    Once approved, on a new branch, pin the package through the manager's override field, refresh the lockfile, run the gate and the tests, then open a PR; if the gate or the tests fail, do not open it, and report the row as `wait` naming the failure.
 
    | Manager | Override field | Lockfile refresh |
    | ------- | -------------- | ---------------- |
@@ -35,7 +42,7 @@ A gate finding on the default branch that has no alert and no PR gets a row here
    | yarn | `resolutions` | `yarn install --mode=update-lockfile` (Berry), `yarn install` (classic) |
    | pnpm | `pnpm.overrides` | `pnpm install --lockfile-only` |
 
-2. **`accept`**: `first_patched_version` is null and the package is not reachable at runtime, judged by the gate or by evidence in the code. Add the advisory to the repository's allowlist in the id format the policy summary records, with the reason in a comment beside the entry (new branch and PR), then dismiss the alert:
+2. **`accept`**: `first_patched_version` is null and the package is not reachable at runtime, judged by the gate or by evidence in the code. When the gate reports the advisory and the repository has an allowlist, add it there in the id format the policy summary records, with the reason in a comment beside the entry (new branch and PR). Otherwise there is no entry to add — with `allowlist: none`, or a gate that never sees the advisory — and the dismissal alone records it. Then dismiss the alert:
 
    ```bash
    gh api -X PATCH "repos/{owner}/{repo}/dependabot/alerts/<n>" \
@@ -86,4 +93,14 @@ Never write these findings anywhere public: no issue, PR body, comment or commit
 | Package / advisory | Fixed on default | In newest release (<tag>) | Action | Downstream |
 ```
 
-Release actions are exactly `release` and `fix first`. `Downstream` comes from the policy summary's `bundled` and `consumers` fields. For a bundled library it reads `release this package, then bump in: <consumers in order>`. With `bundled: no` or `n/a` it reads `none`; with `consumers: not documented — ask` it says so.
+One row per package and `fixed on default` value, never a combined row for several packages. The first cell lists the package, its advisory ids and its alert numbers; alerts fixed since the tag join the gate row of the same package. Count findings by advisory, not by alert.
+
+Release actions are exactly `release` and `fix first`. `Downstream` comes from the policy summary's `bundled` and `consumers` fields:
+
+- a dev-only finding: `none — not shipped`;
+- `bundled: yes`: `release this package, then bump in: <consumers in order>`;
+- `bundled: mixed`: as for `yes` when the package is reachable from the inlining bundle's entry; otherwise as for `no`, and the note names which bundle reaches it;
+- `bundled: no` with consumers named, and the fix carried only by this repository's override field (consumers do not inherit it): `refresh in: <consumers>`; when the fix is in this package's declared range: `release this package, then bump in: <consumers>`;
+- `bundled: n/a`: `none`.
+
+With `consumers: not documented — ask` the cell says so.

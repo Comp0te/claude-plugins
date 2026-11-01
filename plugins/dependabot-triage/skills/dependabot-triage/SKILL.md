@@ -29,7 +29,7 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
 4. **Categorize:**
    - **Category 1 — must merge:** security fixes; green-CI patches; dev-dependency patches/minors. Two exclusions: a security PR on a package matching a sensitive pattern from the policy is Category 2 at most, and the review note names the policy reason; a security PR whose target version was published fewer days ago than the policy's release age is Category 2 at most, with the note `published N days ago, policy M days` (publish date unavailable: the note says so, still Category 2).
    - **Category 2 — low risk:** minors with notable changelog entries, and majors with green CI where none of the breaking changes touches this repo's usage — merge after a stated review note naming each breaking change and why it doesn't apply.
-   - **Category 3 — risky:** majors with a breaking change that does touch this repo's usage, or failures requiring migration work; leave open with a recommendation.
+   - **Category 3 — risky:** majors with a breaking change that does touch this repo's usage, or failures requiring migration work; leave open with a recommendation. A PR whose CI is red for a fixable cause is Category 3 until the fix is on the PR branch; the note names the fix and the category it moves to once CI is green.
    - **Category 4 — close:** upgrades the team will do manually (planned migrations) or superseded PRs.
 
 5. **Present** the sections in this order; an empty section says `none`:
@@ -38,6 +38,8 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
    3. Pull requests: PR #, dependency, bump, reach, CI, category, one-line risk note, intended action.
    4. Alerts without a PR: alert #, package, severity, reach, fixed version, action, reason. Gate findings with no alert go here, not in a section of their own.
    5. Releases: the [Release table](references/alerts-and-releases.md#release-table), including one row per package for alerts fixed since the newest tag.
+
+   Notes go before Releases; nothing follows the release table except the approval-gate question.
 
    **Approval gate.** Every write waits for it: merges, closes, override PRs, allowlist edits, alert dismissals, malware actions. Malware is asked for separately, first. If the user's request already authorizes actions ("смерджи категорию 1", "закрывай сразу"), proceed after presenting the tables, for the rows it covers. Otherwise STOP and ask which rows and categories to act on. Reading, listing and running the gate in a detached worktree need no approval.
 
@@ -48,7 +50,7 @@ One run covers four sources: malware alerts, open Dependabot PRs, Dependabot ale
    - **Close:** comment with a short reason ending with `@dependabot ignore this major version` (or `@dependabot ignore this dependency` to silence it entirely). Dependabot closes the PR itself — verify with `gh pr view N --json state`; `gh pr close N` only as fallback.
    - **Override PR, allowlist entry, dismissal:** as in [Alerts without a PR](references/alerts-and-releases.md#alerts-without-a-pr), on a new branch and PR.
 
-7. **Report:** merged / closed / left open, with reasons, then the release table as the last section; with no releases detected, one line saying so. If the same majors keep returning, suggest `ignore` rules in `.github/dependabot.yml` as the durable fix. The skill never cuts the release: it reports what has to be released and in which order, and the user does the rest.
+7. **Report:** merged / closed / left open, with reasons, then the release table, updated for what was merged, as the last section; with no releases detected, one line saying so. When the run stops at the approval gate, step 5's Releases section is the last one and this step adds nothing after it. If the same majors keep returning, suggest `ignore` rules in `.github/dependabot.yml` as the durable fix. The skill never cuts the release: it reports what has to be released and in which order, and the user does the rest.
 
 ## Common mistakes
 
